@@ -1,0 +1,18 @@
+# private working files, backups, old builds
+_private/
+CLAUDE.md
+pedal_backup/
+tools/probe_logs/
+dist/prev/
+dist/smoke/
+
+# build and preview output
+*.obj
+__pycache__/
+*.pyc
+drumbox/preview/
+
+# IDE
+.idea/
+desktop.ini
+Thumbs.db

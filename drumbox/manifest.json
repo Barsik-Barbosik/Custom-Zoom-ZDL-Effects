@@ -1,0 +1,31 @@
+{
+  "effect_name": "DrumBox",
+  "dsp_cost": 60,
+  "comment": "Drum machine (kick, snare, closed hat, open hat, ride, crash, high tom, low tom). Song of two sections played in turn: BeatA for LenA bars with FillA on its last bar, then BeatB for LenB bars with FillB on its last bar (Skip or 1 to 64 bars); crash fills end on a crash. Kits on the Kit knob. Footswitch on = start from section A beat 1, off = stop. Guitar passes through at full level, mixed with the drums.",
+
+  "audio_func_name": "Fx_SFX_DrumBox",
+
+  "gid": 7,
+  "gid_comment": "0x07 = SFX (works on the G1Xon). The SONAME prefix and audio function name must match it (ZDL_SFX_, Fx_SFX_).",
+
+  "fxid": 520,
+  "fxid_comment": "0x0208. Unused by Zoom's stock effects (neighbours 512 and 528 are stock) and, in SFX, by the repeat98, themanro and matujuice packs (themanro's NAM slots 500-699 are Delay). Under 1023, the most an original-MS patch can hold. Patches store it: never change it after release.",
+
+  "fxid_version": "1.00",
+  "flags_byte": 1,
+
+  "params": [
+    {"name": "BeatA", "type": "knob", "max": 100, "default": 1, "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.01, "getstr": "GetString_DbBeat", "comment": "Section A (verse) beat, one per knob step (patterns.py BEATS; build.py sets max and default). Screen shows the beat name."},
+    {"name": "FillA", "type": "knob", "max": 100, "default": 1, "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.01, "getstr": "GetString_DbFill", "comment": "Fill laid over section A's last bar (patterns.py FILLS, 0 = none; build.py sets max and default). Crash fills add a crash on section B's first downbeat."},
+    {"name": "LenA", "type": "knob", "max": 3, "default": 1, "scale": "enum", "audio_min": 0.0, "audio_max": 3.0, "audio_default": 0.01, "getstr": "GetString_DbLength", "comment": "Section A length Skip / 1Bar .. 64BrM (patterns.py LENGTHS; build.py sets max and default)."},
+    {"name": "BeatB", "type": "knob", "max": 100, "default": 1, "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.01, "getstr": "GetString_DbBeat", "comment": "Section B (chorus) beat, like BeatA."},
+    {"name": "FillB", "type": "knob", "max": 100, "default": 1, "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.01, "getstr": "GetString_DbFill", "comment": "Fill laid over section B's last bar. Crash fills add a crash on section A's first downbeat (also when the footswitch starts the song)."},
+    {"name": "LenB", "type": "knob", "max": 3, "default": 1, "scale": "enum", "audio_min": 0.0, "audio_max": 3.0, "audio_default": 0.01, "getstr": "GetString_DbLength", "comment": "Section B length, like LenA."},
+    {"name": "Tempo", "type": "knob", "max": 200, "default": 80, "scale": "bpm", "audio_min": 40.0, "audio_max": 240.0, "audio_default": 0.8, "getstr": "GetString_DbTempo", "comment": "BPM = 40 + knob (1 BPM steps). Knob 80 = 120 BPM. Max 200: the linker gives this knob's handler stock APanDLY's 0..200 law (raw = knob / 100, up to 2.0). Screen shows the BPM."},
+    {"name": "Volume", "type": "knob", "max": 100, "default": 70, "scale": "linear", "audio_min": 0.0, "audio_max": 1.5, "audio_default": 0.7, "comment": "Drum bus level."},
+    {"name": "Kit", "type": "knob", "max": 6, "default": 0, "scale": "enum", "audio_min": 0.0, "audio_max": 6.0, "audio_default": 0.0, "getstr": "GetString_DbKit", "comment": "One knob step per kit in kits.py order; build.py overrides max with len(KITS) - 1. Screen shows the kit name."}
+  ],
+
+  "audio_nop": false,
+  "audio_nop_comment": "Set true for the first hardware smoke test: effect loads and shows 9 knobs over 3 pages, no DSP runs."
+}

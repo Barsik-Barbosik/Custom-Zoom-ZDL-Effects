@@ -1,0 +1,4 @@
+Pillow            # build: screen image
+mido              # tools: G1Xon upload over USB MIDI
+python-rtmidi     # tools: MIDI backend for mido
+numpy             # optional: drum_analyze.py (fitting new samples)

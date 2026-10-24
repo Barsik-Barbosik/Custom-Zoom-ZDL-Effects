@@ -1,0 +1,6 @@
+* text=auto
+*.wav binary
+*.ZDL binary
+*.zdl binary
+*.bin binary
+*.png binary
