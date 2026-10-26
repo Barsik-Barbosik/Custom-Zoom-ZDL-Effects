@@ -34,6 +34,9 @@ means byte-identical output to repeat98's):
     ABS_L16/H16 (MVKL/MVKH of a .const table, e.g. a `static const` array)
     also gets a .rela.dyn entry, as in every stock ZDL. Patched at link time
     only, the address is wrong once the pedal places .const.
+  * An .obj may declare `extern unsigned int _<audio>_Info[]`: it resolves
+    to effectTypeImageInfo (from themanro's linker), for effects that point
+    the cover pointer (word 5) at pictures they draw.
   * LinkerConfig.drop_unused_divf: leaves the 640-byte __c6xabi_divf RTS
     out of .text when the .obj doesn't reference it. Nothing else branches
     into it (the handler blob carries its own RTS helpers).
@@ -1573,6 +1576,11 @@ def link(cfg: LinkerConfig) -> None:
     coe_sym_name = f"_{cfg.audio_func_name}_Coe"
     if coe_sym_name in undefined:
         sym_addr[undefined[coe_sym_name]] = COE_VA
+    # imageInfo (word 5 = cover picture pointer), as in themanro's linker:
+    # an .obj declaring `extern unsigned int _<audio>_Info[]` gets its address.
+    info_sym_name = f"_{cfg.audio_func_name}_Info"
+    if info_sym_name in undefined:
+        sym_addr[undefined[info_sym_name]] = INFO_VA
 
     # Compiler-emitted register save/restore helpers — resolve to the
     # spliced LineSel copies if present.  Without these, any moderately

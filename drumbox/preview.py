@@ -215,6 +215,7 @@ RENDER_N = 8
 QUIET = 4410        # DB_QUIET: a drum ends after this many samples under LOUD
 LOUD = 2.0          # DB_LOUD, in cache units (1 / CACHE_ONE)
 CACHE_ONE = 16384.0
+CACHE_OFS = 6464.0   # DB_CACHE_OFS: stored + this (float-silent if left behind)
 # DB_RENDER_LANE: lanes in render order, closed hat first (the count-in)
 RENDER_ORDER = [2, 0, 1, 3, 4, 5, 6, 7]
 # ctx[3] on the G1Xon: 704 KB (measured) minus the state, as
@@ -263,9 +264,9 @@ class KitCache:
                 self.ready |= 1 << lane
                 self.r_pos = 0
                 continue
-            y = max(-32767.0, min(32767.0, self.v.render(self.kp) * CACHE_ONE))
-            self.data.append(int(y))
-            if abs(y) >= LOUD:
+            y = max(1.0, min(2.0 * CACHE_OFS - 1.0, self.v.render(self.kp) * CACHE_ONE + CACHE_OFS))
+            self.data.append(int(y) - int(CACHE_OFS))    # C decodes in the players
+            if abs(y - CACHE_OFS) >= LOUD:
                 self.r_last = self.r_pos
             self.r_pos += 1
 

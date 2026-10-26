@@ -19,7 +19,7 @@ section on its own decides it.
 | 30,216 B | freezes on select |
 | 30,360 B | freezes on select |
 
-DrumBox 1.0 allocates 29,504 B. Check this number before every upload.
+DrumBox 1.0.0 allocates 29,504 B. Check this number before every upload.
 Things that saved space, in the linker (`build/linker.py`):
 
 - `drop_unused_divf`: leaves the unused 640-byte float-divide RTS out.
@@ -114,6 +114,15 @@ than tall, and scale previews 3:4.
 - A patch switch can be detected as a gap between audio calls: calls come
   every ~33,000 TSCL cycles, and a gap of more than ~9,000,000 (~50 ms)
   means the slot ran something else.
+- **The next effect gets your leftovers.** No code runs when an effect is
+  replaced, and the next effect in the slot gets the arena as it is. A
+  stock delay uses the whole arena as a float delay line: it writes from
+  the end downwards and, for its first delay time, reads from the start,
+  which it only overwrites after a full pass (~4 s). Data left at the
+  start plays through the delay: int16 samples gave ~1 s of loud noise,
+  scattered variables gave a click on every later delay change until a
+  restart. DrumBox stores its cache so that any 32-bit word reads as a
+  float below -150 dB, and keeps its variables at the arena's end.
 
 ## DSP load
 

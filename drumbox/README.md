@@ -2,15 +2,39 @@
 
 ![DrumBox screen image](../docs/images/screen.png)
 
-Eight drum lanes (kick, snare, closed hat, open hat, ride, crash, high tom,
-low tom) playing 150 one-bar beats with 150 fills on top (Random included),
-in 22 kits.
+DrumBox is a full drum machine that plays along with your guitar,
+started and stopped with the footswitch.
 
+**Demo video:** [DrumBox: a custom drum machine effect for Zoom pedals that load ZDL effects](https://www.youtube.com/watch?v=9CBZu1qY9KA) (YouTube)
+
+- **8 drum lanes:** kick, snare, closed and open hi-hat, ride, crash,
+  high and low tom.
+- **150 beats:** rock, pop, punk, metal, funk, breaks, house, hip-hop, latin,
+  reggae, jazz, blues, ... and Random (a new randomly chosen beat every time
+  its section starts), plus None (no beat, only the fills play).
+- **150 fills:** snare, tom, kick and mixed fills of ½, 1, 2 and 4 beats,
+  stops, breaks, ... and Random (a different randomly chosen fill each time,
+  never a stop or break), plus None (no fill). Crash fills land a crash
+  on the next downbeat. Together: over 22,000 possible beat + fill combinations.
+- **A song of two sections** (verse / chorus): "Beat A" for "Length A" bars
+  with "Fill A", then "Beat B" for "Length B" bars with "Fill B", 1 to 64
+  bars each, optionally with a fill in the middle too, or Skip.
+- **22 kits:** sampled acoustic kits (drums resynthesized from WAV samples),
+  synth, electronic and lo-fi kits, and mixes of them.
+- **Tempo 40–240 BPM.** The screen shows beat, fill, length and kit names
+  and the BPM.
 - **Footswitch on:** the song starts on section A, beat 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the drums.
-- Category SFX (gid 7), fxid 520 (0x208), file `DrumBox.ZDL`.
 
-How it works:
+## Install
+
+`DrumBox.ZDL` (from the [Releases](../../../releases) page or
+`../dist/`) needs 8 free flash blocks (32,714 B). Install it as described
+in the [main README](../README.md#install). It is in the **SFX** category
+(gid 7, fxid 520 = 0x208). Pedals it was tested on: see the
+[main README](../README.md#pedals).
+
+## How it works
 
 - **Drums** come from a palette in `drums/`, one file per drum, of two
   kinds (a kit can mix both):
@@ -18,32 +42,31 @@ How it works:
     turns each sample into partials + noise-band envelopes, and the DSP
     plays that data back;
   - **synth drums**, each with its own C code and parameters.
-- **Fills** with toms go down the kit: high tom first, then low tom.
 - **State** lives in the effect's `ctx[3]` memory.
 - **Build:** the linker in `../build/` (based on repeat98's).
 
 ## Controls
 
-| Page | Knob | Range | Meaning |
+| Page | Knob | Values | Meaning |
 |---|---|---|---|
-| 1 | BeatA | 0–150 | Section A (verse) beat (default Rock4) |
-| 1 | FillA | 0–150 | Fill on section A's last bar (default Sn1) |
-| 1 | LenA | 0–13 | Section A length (default 8BarM) |
-| 2 | BeatB | 0–150 | Section B (chorus) beat (default Funk) |
-| 2 | FillB | 0–150 | Fill on section B's last bar (default Randm) |
-| 2 | LenB | 0–13 | Section B length (default 8BarM) |
-| 3 | Tempo | 0–200 | **BPM = 40 + knob** (1 BPM steps, 80 = 120 BPM) |
+| 1 | BeatA | None, Randm, 149 beats ([Beats](#beats)) | Section A (verse) beat |
+| 1 | FillA | None, Randm, 149 fills ([Fills](#fills)) | Fill on section A's last bar |
+| 1 | LenA | Skip, 1Bar, 2Bar, 2BarM, 4Bar, 4BarM, 8Bar, 8BarM, 16Bar, 16BrM, 32Bar, 32BrM, 64Bar, 64BrM | Section A length |
+| 2 | BeatB | as BeatA | Section B (chorus) beat |
+| 2 | FillB | as FillA | Fill on section B's last bar |
+| 2 | LenB | as LenA | Section B length |
+| 3 | Tempo | 40–240 | Tempo in BPM, 1 BPM steps |
 | 3 | Volume | 0–100 | Drum level |
-| 3 | Kit | 0–21 | Drum kit, one step per kit (see Kits) |
+| 3 | Kit | 22 kits, Ac1 to LoBox ([Kits](#kits)) | Drum kit |
 
-- **Beat and fill knobs:** one step per entry, the screen shows the short
-  name (lists below). 0 = None, 1 = Randm (random).
-- **Length knobs:** Skip, 1Bar, 2Bar, 2BarM, 4Bar, 4BarM, 8Bar, 8BarM,
-  16Bar, 16BrM, 32Bar, 32BrM, 64Bar, 64BrM. M = the fill also plays in the
-  middle of the section; Skip = the section is not played (see Song).
-- **Tempo** shows the BPM (40…240) on the screen.
-- **Accents** are fixed: hits on a beat's accent steps play at full level,
-  the others at 0.72.
+- **Beat, fill and kit knobs:** one step per entry; the screen shows its
+  short name. Randm = a random beat / fill (see Song).
+- **Lengths:** M = the fill also plays in the middle of the section;
+  Skip = the section is not played (see Song).
+- **Accents** are part of the beats and fills (no knob): hits on accented
+  steps play at full level, the others at 0.72. Most beats accent the
+  quarter notes; some have their own accents, e.g. unaccented ghost
+  snares in the breaks or rolls that build up.
 
 How the knobs work inside:
 
@@ -71,7 +94,7 @@ Defaults: Rock4 for 8BarM with Sn1, then Funk for 8BarM with Randm.
 - **Skip** leaves the section out: the other section loops on its own,
   with its fill on its own last bar. Both on Skip = no drums.
 - **1Bar**: every bar of the section is a fill bar.
-- **M entries** (2BarM вЂ¦ 64BrM) also play the section's fill on the last
+- **M entries** (2BarM to 64BrM) also play the section's fill on the last
   bar of its first half: 4BarM = A, A+F, A, A+F; 2BarM = A+F, A+F. Randm
   picks a new fill there too.
 
@@ -95,9 +118,10 @@ the section has already passed ends the section there.
 
 ### Beats
 
-Swing comes with the beat: `sw16` = light 16th swing (~1.4:1), `sw16h` =
-heavy 16th swing (~1.7:1), `tri8` = triplet 8th shuffle (2:1); the others
-are straight. A fill plays with its beat's swing.
+Some beats have swing: `sw16` = light
+16th swing (~1.4:1), `sw16h` = heavy 16th swing (~1.7:1), `tri8` =
+triplet 8th shuffle (2:1); the others are straight. A fill plays with its
+beat's swing.
 
 **Basic**
 
@@ -544,7 +568,7 @@ in knob order.
 | 138 | Dt4 | Double time 4 |  |
 | 139 | Push | Push (kick + crash on 4-and) |  |
 
-**Stops and breaks** (Random never picks Stp1 … BP4)
+**Stops and breaks** (Random never picks Stp1 to BP4)
 
 | Knob | Screen | Fill | Crash |
 |---|---|---|---|
@@ -561,6 +585,12 @@ in knob order.
 | 150 | BP4 | Break + pickup 4 | yes |
 
 ## Kits
+
+**Kit names:** **Ac** (acoustic, sampled), **Syn** (synthesized), **El**
+(electronic) and **Lo** (lo-fi) name the sound source. In a two-part name
+the first part is the drums, the last the hats and cymbals (AcSyn =
+sampled drums, synth hats and cymbals). Ac1..Ac8 ride `ride` and crash
+`crash` (sampled, with real-sample starts).
 
 | Knob | Screen | Drums |
 |---|---|---|
@@ -587,18 +617,20 @@ in knob order.
 | 20 | LoFi | `drums/synth_lofi_*`, all on `synth_drum` with its crush stage (output held at ~12 kHz, coarse amplitude steps): short dusty kick, dark snare, dull gritty hats and crash, a half-open gritty hat on the ride lane, crushed toms |
 | 21 | LoBox | synth_lofi_kick, synth_el2_snare, synth_lofi_hat / _ohat, synth_el2_ride, synth_lofi_crash, synth_el2_tom / _tom_lo |
 
-**Kit names:** **Ac** (acoustic, sampled), **Syn** (synth), **El**
-(electronic) and **Lo** (lo-fi) name the sound source. In a two-part name
-the first part is the drums, the last the hats and cymbals (AcSyn =
-sampled drums, synth hats and cymbals). Ac1..Ac8 ride `ride` and crash
-`crash` (sampled, with real-sample starts).
-
 **Kit cache:** when the kit changes, each lane's drum is rendered once
 into a cache in the effect's memory (~700 KB). Rendering runs in the
 background and takes a few seconds. The closed hi-hat renders first and
 counts quarter notes (beat 1 accented) while the other drums render; the
 song starts (at beat 1) on the next bar line once the kit is ready, after
 1 count bar or an even number of them.
+
+The cache stays in the slot's memory after DrumBox is replaced, and the
+next effect gets it as it is. A delay uses that memory as its delay line
+and plays what it finds there before overwriting it. So the cache stores
+each sample + 6464 (`DB_CACHE_OFS`), and every 16-bit value is 1..12927.
+Read as a float, any such word is below -150 dB. DrumBox's variables sit
+at the end of the memory, which a delay overwrites first, and the cache
+starts at the beginning.
 
 **Kits in `kits.py`:**
 
@@ -678,6 +710,7 @@ python -B build.py --nop               # smoke build: UI only, DSP replaced with
 python -B build.py                     # full build -> ../dist/DrumBox.ZDL
 python -B build.py --out PATH          # write the ZDL elsewhere
 python -B build.py --gid 7 --out PATH  # another category (testing)
+python -B build.py --no-init           # without _init: saved knob values load only when touched (testing)
 ```
 
 Preview on the desktop (WAVs in `preview/`):
@@ -699,27 +732,9 @@ After building, check the linker log:
 - the allocated size (`.text` + `.const` totals) stays under ~29,968 B,
   the largest known to load on the G1Xon (see `../docs/HARDWARE-NOTES.md`).
 
-## Hardware bring-up (safety ladder)
-
-1. `python -B build.py --nop`. Install it and check that DrumBox appears
-   under SFX, all three pages show their knobs, and turning knobs does not
-   freeze the pedal.
-2. Full build. Turn the effect on: the closed hi-hat counts quarters
-   until the kit is rendered (a few seconds), then Rock4 at 120 BPM plays, with the Sn1 snare fill in bars 4
-   and 8, then Funk. Turn it off and on again: the song restarts on
-   section A, beat 1.
-3. Sweep every knob, reload the patch, and put two DrumBox instances in
-   one patch.
-4. If the full build freezes but the NOP build doesn't, the DSP is at
-   fault. Bisect by returning early before the sample loop.
-
 ## Known limitations
 
-- **No sync to the pedal's tap tempo.** The tempo is set with the Tempo
-  knob.
+- **No tap tempo.** The G1on / G1Xon / B1on / B1Xon have no tap tempo
+  function, so the tempo is set with the Tempo knob. On the MS pedals
+  DrumBox does not follow the pedal's tap tempo either.
 - **Mono drums.** The same drum signal goes to both L and R.
-- **Saved knob values** load with the patch thanks to the effect's
-  `_init`: it first calls the firmware's `ctx[34]`, as every stock effect
-  does, then each knob's edit handler. Without the `ctx[34]` call the
-  G1Xon froze or ignored the page-1 knobs. `build.py --no-init` builds
-  without `_init` (the knobs then keep stale values until touched).

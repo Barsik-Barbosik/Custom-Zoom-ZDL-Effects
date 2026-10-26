@@ -19,7 +19,7 @@
  * Pre-rendered kit (the live engine took ~60 % of the G1Xon's DSP, so
  * chains crackled): when the kit changes, each lane's drum is
  * rendered once at velocity 1 by the engine into an int16 cache in ctx[3]
- * after the state, in the background (DB_RENDER_CYC cycles per call),
+ * before the state, in the background (DB_RENDER_CYC cycles per call),
  * its quiet tail trimmed;
  * hits play the cache x velocity. A lane plays once it is rendered; the
  * closed hat renders first and counts quarters (count-in) until the rest
@@ -69,7 +69,7 @@ DB_EXPAND_PRAGMA(CODE_SECTION(GetString_DbLength, ".text"))
 #define ZDL_PTR(type, word) ((type)(uintptr_t)(word))
 
 #define DB_MAGIC   0x44524D42u   /* 'DRMB' */
-#define DB_VERSION 41u  /* 41: countN; 40: rMask, closed hat rendered first; 39: start gate (lastCall, ckWait); 38: cache check; 37: synp, synth params of the drum being rendered (bump when the state layout changes) */
+#define DB_VERSION 43u  /* 43: state at the arena's end; 42: offset cache; 41: countN; 40: rMask, closed hat rendered first; 39: start gate (lastCall, ckWait); 38: cache check; 37: synp, synth params of the drum being rendered (bump when the state layout changes) */
 /* A crash fill crashes the next downbeat only if the last crash is at
  * least this many bars back (short sections: a crash every 4th bar at
  * most). Must match CRASH_GAP in preview.py. */
@@ -84,6 +84,13 @@ DB_EXPAND_PRAGMA(CODE_SECTION(GetString_DbLength, ".text"))
 #define DB_QUIET    4410
 #define DB_LOUD     2.0f
 #define DB_CACHE_ONE 16384.0f
+/* The cache stays in the slot's memory after DrumBox is replaced, and a
+ * delay that gets it plays it as float32 audio (loud noise for its buffer
+ * length). So samples are stored + DB_CACHE_OFS, clamped to
+ * 1..2 x DB_CACHE_OFS - 1 (the add inside the clamp is the smallest
+ * code): every halfword is 1..12927, a float exponent <= 100, so any
+ * word reads as < 2^-26 (~-156 dB). Kits peak at ~5,440. */
+#define DB_CACHE_OFS 6464.0f
 /* Lane rendered r-th, one nibble each: closed hat (lane 2) first for the
  * count-in, then kick, snare, open hat .. low tom (a nibble list is
  * smaller code than compares). Mirror: RENDER_ORDER in preview.py. */
@@ -204,12 +211,6 @@ typedef struct DBState {
     int32_t  vIdx[2 * DB_NUM_LANES], vRem[2 * DB_NUM_LANES];
     float    vGain[2 * DB_NUM_LANES], vStep[2 * DB_NUM_LANES];
 } DBState;
-
-DB_ALWAYS_INLINE(db_align4)
-static inline uintptr_t db_align4(uintptr_t x)
-{
-    return (x + 3u) & ~(uintptr_t)3u;
-}
 
 DB_ALWAYS_INLINE(db_clamp)
 static inline float db_clamp(float x, float lo, float hi)
@@ -745,7 +746,7 @@ static inline float db_render(DBState *st, const DBEng *E, int bLo, int bHi)
  * not running). Value v = v + 1 beeps (beeps - 1 = v in those units).
  * ---------------------------------------------------------------------- */
 #define DB_PM_MAGIC 0x50524F42u   /* 'PROB' */
-#define DB_PM_BYTES sizeof(DBMeter)  /* the kit cache starts after it */
+#define DB_PM_BYTES sizeof(DBMeter)  /* after the state, at the arena's end */
 #define DB_PM_MS(ms) ((int32_t)((ms) * (44.1f / 8.0f)))   /* in calls */
 /* beep units of the numbers */
 #define DB_PM_PCT 5.0f    /* % */
@@ -877,13 +878,17 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     uintptr_t base = (uintptr_t)desc[0];
     uintptr_t end = (uintptr_t)desc[1];
     unsigned int span = desc[2];
-    uintptr_t stateBase = db_align4(base);
+    /* The state (and the probe's meter) at the arena's end, the kit
+     * cache from its start: a stock delay that gets the slot next uses
+     * the whole arena as its line, writes from the end down and first
+     * reads from the start, so leftover state there clicked on every
+     * delay switch until a delay had run a full cycle (~4 s). */
+    uintptr_t stateBase = end - (sizeof(DBState) + DB_PM_BYTES);
     uintptr_t bytes = end - base;
 
     if (base == 0u || end <= base) return;
     if ((base & 3u) != 0u || (end & 3u) != 0u || (span & 3u) != 0u) return;
-    if (bytes < sizeof(DBState) || span < bytes) return;
-    if (stateBase + sizeof(DBState) > end) return;
+    if (bytes < sizeof(DBState) + DB_PM_BYTES || span < bytes) return;
 
     DBState *st = (DBState *)stateBase;
     if (st->magic != DB_MAGIC || st->version != DB_VERSION) {
@@ -979,14 +984,14 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     st->eng = &db_eng;
     E = *(const DBEng * volatile *)&st->eng;
 
-    /* The kit cache (after the state, and the probe's meter): a new kit
+    /* The kit cache (from the arena's start up to the state): a new kit
      * stops the song and the players and renders again from lane 0 (the
      * start gate restarts the song at beat 1 once it is ready); then render for
      * DB_RENDER_CYC cycles of this call (footswitch off too, so the kit
      * gets ready).
      * Mirror: KitCache in preview.py. */
-    int16_t *cache = (int16_t *)(stateBase + sizeof(DBState) + DB_PM_BYTES);
-    int32_t cacheCap = ((uintptr_t)cache < end) ? (int32_t)((end - (uintptr_t)cache) >> 1) : 0;
+    int16_t *cache = (int16_t *)base;
+    int32_t cacheCap = (int32_t)((stateBase - base) >> 1);
     int i;
     if (kit != st->cKit) {
         st->cKit = kit;
@@ -1042,9 +1047,10 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
             st->lane[l].syn.active = 0;
             continue;
         }
-        y = db_clamp(db_render(st, E, st->rBLo, st->rBHi) * DB_CACHE_ONE, -32767.0f, 32767.0f);
+        y = db_clamp(db_render(st, E, st->rBLo, st->rBHi) * DB_CACHE_ONE + DB_CACHE_OFS,
+                     1.0f, 2.0f * DB_CACHE_OFS - 1.0f);
         cache[at] = (int16_t)(int32_t)y;
-        if (db_abs(y) >= DB_LOUD) st->rLast = st->rPos;
+        if (db_abs(y - DB_CACHE_OFS) >= DB_LOUD) st->rLast = st->rPos;
         st->rPos++;
     }
     if (st->rLane >= DB_NUM_LANES) {
@@ -1174,7 +1180,8 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         int v;
         for (v = 0; v < 2 * DB_NUM_LANES; v++) {
             if (st->vRem[v] <= 0) continue;
-            mix += (float)cache[st->vIdx[v]++] * st->vGain[v];
+            /* volatile read: 32 B smaller code */
+            mix += ((float)((volatile int16_t *)cache)[st->vIdx[v]++] - DB_CACHE_OFS) * st->vGain[v];
             st->vRem[v]--;
             if (st->vStep[v] != 0.0f) {
                 st->vGain[v] += st->vStep[v];
