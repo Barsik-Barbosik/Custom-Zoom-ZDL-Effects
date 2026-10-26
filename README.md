@@ -4,7 +4,7 @@ Custom effects (ZDL) for Zoom pedals of the MultiStomp / G1on / B1on family.
 
 | Effect | Screen | Category | What it is | Demo | Download |
 |---|---|---|---|---|---|
-| [DrumBox](drumbox/README.md) | <img src="drumbox/screen_inverted.png" width="192" height="128" alt="DrumBox on the pedal's screen"> | SFX | Drum machine: 150 beats, 150 fills, 22 kits, songs of two sections | [Video](https://www.youtube.com/watch?v=9CBZu1qY9KA "DrumBox: a custom drum machine effect for Zoom pedals that load ZDL effects") | [Releases](../../releases) |
+| [DrumBox](drumbox/README.md) | <a href="drumbox/README.md"><img src="drumbox/screen_inverted.png" width="192" height="128" alt="DrumBox on the pedal's screen"></a> | SFX | Drum machine: 150 beats, 150 fills, 22 kits, songs of two sections | [Video](https://www.youtube.com/watch?v=9CBZu1qY9KA "DrumBox: a custom drum machine effect for Zoom pedals that load ZDL effects") | [Releases](../../releases) |
 
 More effects will follow.
 
