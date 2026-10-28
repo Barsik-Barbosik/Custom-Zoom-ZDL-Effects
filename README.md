@@ -76,29 +76,36 @@ Each effect has its own `build.py`; see its README for the commands.
 These effects stand on the work of these projects:
 
 - [repeat98/ZoomMultistompZDL](https://github.com/repeat98/ZoomMultistompZDL):
-  the reverse-engineered ZDL ABI and the Python linker this build is based on.
+  a ZDL toolchain (TI compiler + reverse-engineered Python linker) with ABI
+  documentation and Airwindows ports for the MS-70CDR.
 - [themanro/ZoomMultistompZDL](https://github.com/themanro/ZoomMultistompZDL):
-  the materializing `_init` (saved knob values on patch load), effects and a
-  patch editor.
-- [ELynx/zoom-fx-modding](https://github.com/ELynx/zoom-fx-modding): the
-  first public documentation of the ZDL format, screen images and the DSP
-  buffer layout.
+  a fork of repeat98's toolchain with many custom effects and a browser
+  patch editor that also installs effects over USB.
+- [ELynx/zoom-fx-modding](https://github.com/ELynx/zoom-fx-modding): early
+  ZDL reverse engineering (format, screen images, DSP loop) and the first
+  hand-written custom effects.
 - [ELynx/zoom-fx-compressed](https://github.com/ELynx/zoom-fx-compressed):
-  stripped stock effects that free flash space.
-- [matujuice/zoom-ms-zdl-effects-pack](https://github.com/matujuice/zoom-ms-zdl-effects-pack)
-  and [matujuice/zoom-ms-midistomp](https://github.com/matujuice/zoom-ms-midistomp):
-  synth-oriented effects and MIDI clock firmware for MS pedals.
-- [Leemuzhko/HYBRID-IR](https://github.com/Leemuzhko/HYBRID-IR) and
-  [Leemuzhko/Zoom_FX_Project](https://github.com/Leemuzhko/Zoom_FX_Project):
-  cabinet IR effects without the TI compiler, knob display callbacks.
+  Zoom's stock effects with debug info stripped, so they take less flash.
+- [matujuice/zoom-ms-zdl-effects-pack](https://github.com/matujuice/zoom-ms-zdl-effects-pack):
+  custom effects for synthesizer use on MS pedals.
+- [matujuice/zoom-ms-midistomp](https://github.com/matujuice/zoom-ms-midistomp):
+  custom firmware for MS pedals that adds MIDI control and MIDI clock.
+- [Leemuzhko/HYBRID-IR](https://github.com/Leemuzhko/HYBRID-IR): a desktop
+  app that makes cabinet IR effects from WAV impulse responses without the
+  TI compiler.
+- [Leemuzhko/Zoom-ZDL-FX](https://github.com/Leemuzhko/Zoom-ZDL-FX):
+  ready-made ZDL effects (IR cabinets, IR loaders, amps, a synth).
 - [zisonzishen0415-stack/b1on-firmware-reverse](https://github.com/zisonzishen0415-stack/b1on-firmware-reverse):
-  G1on / B1on firmware reverse engineering, including the DSP cost budget.
-- [shooking/ZoomPedalFun](https://github.com/shooking/ZoomPedalFun): SysEx
-  tips and tools for many Zoom pedals.
-- [mungewell/zoom-zt2](https://github.com/mungewell/zoom-zt2): effect list and
-  file transfer for the newer Zoom pedals.
-- [thammer/stomphacks](https://github.com/thammer/stomphacks): custom
-  effects for the MS Plus pedals.
+  B1on / G1on firmware reverse engineering, with a Ghidra module for the
+  C6000 DSP.
+- [shooking/ZoomPedalFun](https://github.com/shooking/ZoomPedalFun): tips,
+  SysEx scripts and tools for many Zoom pedals.
+- [mungewell/zoom-zt2](https://github.com/mungewell/zoom-zt2): effect list
+  editing and file transfer for the newer (ZD2) Zoom pedals.
+- [thammer/stomphacks](https://github.com/thammer/stomphacks): a C-to-ZD2
+  pipeline for custom effects on the MS Plus pedals.
+- [Ziddle](https://berbasoft.com/ziddle/): an emulator that runs ZDL and ZD2
+  effects, with readers for Zoom's file formats and firmware images.
 
 ## Licence
 

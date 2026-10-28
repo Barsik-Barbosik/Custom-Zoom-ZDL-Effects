@@ -133,6 +133,10 @@ than tall, and scale previews 3:4.
   chains above its budget: **210 on the G1on/G1Xon OS** (~228 on the
   MS-70CDR). repeat98's placeholder of 20 lets the pedal build chains it
   can't run, which then crackle. Declare an honest cost.
+- The 210 is a float constant in the firmware's chain check: the
+  [Ziddle](https://berbasoft.com/ziddle/) emulator's firmware reader finds
+  210.0 in G1on-family 1.21 (and 225.0 in MS-60B 2.10). Its validator also
+  rejects a cost of 0: no stock effect declares one.
 - DrumBox's first engine synthesized every hit live and used up to ~85 %
   of a call's time. Rendering each kit once into a cache in `ctx[3]` and
   playing the cache brought playback to ~15 % (~35 % while a kit renders).
@@ -142,11 +146,39 @@ than tall, and scale previews 3:4.
 
 ## Flash
 
-- The G1Xon file system holds files in 4,090-byte blocks.
-- The pedal shows at most 200 effect files. A full pedal needs a file
-  deleted before another can be added.
+- The G1Xon file system holds files in 4,090-byte blocks (4,096-byte
+  flash blocks with a 6-byte header: previous block, next block, size).
+- **At most 200 files.** Uploading a 201st file over USB is refused when
+  the pedal creates it, even with free blocks left: the upload fails before
+  any data is sent, and nothing is written.
+  Every file counts, not just effects: `FLST_SEQ.ZDT` and sample files
+  too. With 200 effects and no `FLST_SEQ.ZDT`, the pedal starts and shows
+  all 200. A full pedal needs a file deleted before another can be added.
+  (The file table itself has room for 255 entries, per Ziddle's reader;
+  whether the pedal would show more than 200 files written some other way
+  is untested.)
+- Bytes +6..7 of the file system header read `C8 00` = 200, in the G1Xon
+  1.21 and MS-70CDR 2.10 updater images and in this pedal's flash (the
+  next two bytes are the total block count). It is likely the stored file
+  limit; not tested by changing it.
 - Stripping debug sections gains nothing for this linker's output (it
   writes none), and the stock effects on the G1Xon are already stripped.
+
+## Effect list (`FLST_SEQ.ZDT`)
+
+- The effect menu comes from `FLST_SEQ.ZDT` when that file exists. A newly
+  uploaded effect that isn't listed in it does not show up. Deleting the
+  file and restarting the pedal makes it scan the `.ZDL` files and list the
+  new effect. Back the file up first.
+- The pedal writes a new `FLST_SEQ.ZDT` by itself, at a restart or with
+  the next upload. The list written during an upload holds that effect
+  but not later ones. So upload all new effects first, delete the list
+  last, then restart. The new list is a file too, and counts toward the
+  200.
+- Format (from Ziddle's reader): exactly 316 records of 13 bytes (a name of
+  up to 12 characters plus a NUL), 4,108 bytes. Each category is a group:
+  `>>>` + NUL + group id, the effect file names, all-zero blank records,
+  then `<<<` + NUL + group id.
 
 ## USB file transfer (G1Xon)
 
