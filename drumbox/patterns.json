@@ -1,0 +1,3167 @@
+{
+ "format": "drumbox-patterns",
+ "version": 1,
+ "defaults": {
+  "BeatA": "Rock4",
+  "BeatB": "Funk",
+  "FillA": "Sn1",
+  "FillB": "Randm"
+ },
+ "beats": [
+  {
+   "group": "Basic",
+   "entries": [
+    {
+     "screen": "None",
+     "name": "None",
+     "lanes": {}
+    },
+    {
+     "screen": "Randm",
+     "name": "Random",
+     "lanes": {}
+    },
+    {
+     "screen": "Metro",
+     "name": "Metronome",
+     "lanes": {
+      "K": "x...............",
+      "H": "....x...x...x...",
+      "A": "x..............."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Rock / pop",
+   "entries": [
+    {
+     "screen": "Rock",
+     "name": "Rock",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Rock2",
+     "name": "Rock 2",
+     "lanes": {
+      "K": "x.....x.x.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Rock3",
+     "name": "Rock 3",
+     "lanes": {
+      "K": "x.x.....x.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Rock4",
+     "name": "Rock 4",
+     "lanes": {
+      "K": "x......x..x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Rk16",
+     "name": "Rock 16ths",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Rk16b",
+     "name": "Rock 16ths 2",
+     "lanes": {
+      "K": "x.....x.x.x.....",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "SyncR",
+     "name": "Syncopated Rock",
+     "lanes": {
+      "K": "x..x...x..x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "4Flr",
+     "name": "Four-Floor Rock",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Drive",
+     "name": "Driving 8ths",
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "HRock",
+     "name": "Hard Rock",
+     "lanes": {
+      "K": "x.x.....x.x.....",
+      "S": "....x.......x...",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "HRk2",
+     "name": "Hard Rock 2",
+     "lanes": {
+      "K": "x..x..x.x.......",
+      "S": "....x.......x...",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "RRock",
+     "name": "Ride Rock",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "RdFlr",
+     "name": "Ride Floor",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "OHRk",
+     "name": "Open-Hat Rock",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x...",
+      "O": "..............x."
+     }
+    },
+    {
+     "screen": "Balld",
+     "name": "Ballad",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x.......x...",
+      "H": "x...x...x...x...",
+      "A": "x.......x......."
+     }
+    },
+    {
+     "screen": "SlowR",
+     "name": "Slow Rock",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "H": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "RdBal",
+     "name": "Ride Ballad",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x.......x...",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "PwrBd",
+     "name": "Power Ballad",
+     "lanes": {
+      "K": "x.......xx......",
+      "S": "....x.......x...",
+      "H": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Pop2",
+     "name": "Pop 2",
+     "lanes": {
+      "K": "x..x....x.x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Pop3",
+     "name": "Pop 3",
+     "lanes": {
+      "K": "x..x..x...x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PopRk",
+     "name": "Pop Rock",
+     "lanes": {
+      "K": "x.....x.x.x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PopR2",
+     "name": "Pop Rock 2",
+     "lanes": {
+      "K": "x.....x...x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PwrPp",
+     "name": "Power Pop",
+     "lanes": {
+      "K": "x.x.....x.x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x.",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PBald",
+     "name": "Pop Ballad",
+     "lanes": {
+      "K": "x......xx.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Pop16",
+     "name": "Pop 16ths",
+     "lanes": {
+      "K": "x.......x..x....",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PSw16",
+     "name": "Pop 16ths Swing",
+     "swing": "sw16",
+     "lanes": {
+      "K": "x.......x..x....",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PopGr",
+     "name": "Pop Groove 16",
+     "lanes": {
+      "K": "x.......x..x..x.",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "PShuf",
+     "name": "Pop Shuffle",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.....x.x.....x.",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "DncPp",
+     "name": "Dance Pop",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "H": "x...x...x...x...",
+      "O": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Motwn",
+     "name": "Motown",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "x...x...x...x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "SoftR",
+     "name": "Soft Rock",
+     "lanes": {
+      "K": "x.......x..x....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "FolkR",
+     "name": "Folk Rock",
+     "lanes": {
+      "K": "x..x....x..x....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "FStmp",
+     "name": "Folk Stomp",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x..."
+     }
+    },
+    {
+     "screen": "ClRk",
+     "name": "Classic Rock",
+     "lanes": {
+      "K": "x.......x.xx....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "80sRk",
+     "name": "80s Rock",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x.......x...",
+      "H": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "South",
+     "name": "Southern Rock",
+     "lanes": {
+      "K": "x.......x.x..x..",
+      "S": "....x.......x...",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Indie",
+     "name": "Indie Rock",
+     "lanes": {
+      "K": "x.....xx..x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "AltRk",
+     "name": "Alt Rock",
+     "lanes": {
+      "K": "x.......xx.x....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Garag",
+     "name": "Garage Rock",
+     "lanes": {
+      "K": "x.x...x.x.x...x.",
+      "S": "....x.......x...",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Glam",
+     "name": "Glam Stomp",
+     "lanes": {
+      "K": "x.....x.x.......",
+      "S": "....x.......x...",
+      "A": "....x.......x..."
+     }
+    },
+    {
+     "screen": "Stomp",
+     "name": "Stadium Stomp",
+     "lanes": {
+      "K": "x.x.....x.x.....",
+      "S": "....x.......x..."
+     }
+    },
+    {
+     "screen": "HTRk",
+     "name": "Half-Time Rock",
+     "lanes": {
+      "K": "x.....x...x.....",
+      "S": "........x.......",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "HTShf",
+     "name": "Half-Time Shuffle",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.....x.x.......",
+      "S": "........x.......",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "FastR",
+     "name": "Fast Rock",
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "S": "....x.......x...",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Prog",
+     "name": "Prog Rock",
+     "lanes": {
+      "K": "x..x..x...x..x..",
+      "S": "....x.......x.x.",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Punk",
+     "name": "Punk",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "..x...x...x...x.",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "DBeat",
+     "name": "D-Beat",
+     "lanes": {
+      "K": "x.x...x.x.x...x.",
+      "S": "....x.......x...",
+      "O": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PopPk",
+     "name": "Pop Punk",
+     "lanes": {
+      "K": "x..x.x..x..x.x..",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "HCore",
+     "name": "Hardcore",
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "S": "..x...x...x...x.",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "PostP",
+     "name": "Post-Punk",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "NWave",
+     "name": "New Wave",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Grung",
+     "name": "Grunge",
+     "lanes": {
+      "K": "x..x..x.x.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Shufl",
+     "name": "Shuffle",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.....x.x.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Boogi",
+     "name": "Boogie",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.x.....x.x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Rkbly",
+     "name": "Rockabilly",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Surf",
+     "name": "Surf Toms",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "T": "x.x.....x.x.....",
+      "L": "....xxx.....xxx."
+     }
+    },
+    {
+     "screen": "BoDid",
+     "name": "Bo Diddley",
+     "lanes": {
+      "K": "x.......x.......",
+      "H": "x.x.x.x.x.x.x.x.",
+      "T": "..........x.x...",
+      "L": "x..x..x........."
+     }
+    },
+    {
+     "screen": "TomGr",
+     "name": "Tom Groove",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "T": "..xx..xx..xx..xx",
+      "L": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "FlTom",
+     "name": "Floor Tom Rock",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x.......x...",
+      "L": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "FlHat",
+     "name": "Floor Tom + Hats",
+     "lanes": {
+      "K": "x.....x.x.......",
+      "S": "....x.......x...",
+      "H": "..x...x...x...x.",
+      "L": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Train",
+     "name": "Train Beat",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "xxxxxxxxxxxxxxxx",
+      "A": "....x.......x..."
+     }
+    },
+    {
+     "screen": "TrSwg",
+     "name": "Train Swing",
+     "swing": "sw16",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "xxxxxxxxxxxxxxxx",
+      "A": "....x.......x..."
+     }
+    },
+    {
+     "screen": "Motor",
+     "name": "Motorik",
+     "lanes": {
+      "K": "x.x...x.x.x...x.",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Metal",
+   "entries": [
+    {
+     "screen": "Metal",
+     "name": "Metal",
+     "lanes": {
+      "K": "xxxxxxxxxxxxxxxx",
+      "S": "....x.......x...",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Thrsh",
+     "name": "Thrash",
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "S": "..x...x...x...x.",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Blast",
+     "name": "Blast Beat",
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "S": ".x.x.x.x.x.x.x.x",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Galop",
+     "name": "Gallop",
+     "lanes": {
+      "K": "x.xxx.xxx.xxx.xx",
+      "S": "....x.......x...",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Djent",
+     "name": "Djent",
+     "lanes": {
+      "K": "x..x.x...xx.x...",
+      "S": "....x.......x...",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "HTMtl",
+     "name": "Half-Time Metal",
+     "lanes": {
+      "K": "xx.x..x.xx.x..x.",
+      "S": "........x.......",
+      "R": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Brkdn",
+     "name": "Breakdown",
+     "lanes": {
+      "K": "x..x..x...x..x..",
+      "S": "........x.......",
+      "R": "x...x...x...x..."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Funk / soul",
+   "entries": [
+    {
+     "screen": "Funk",
+     "name": "Funk",
+     "lanes": {
+      "K": "x.x....x..x.....",
+      "S": "....x..x.x..x..x",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "SwFnk",
+     "name": "Swung Funk",
+     "swing": "sw16",
+     "lanes": {
+      "K": "x.x....x..x.....",
+      "S": "....x..x.x..x..x",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Funk2",
+     "name": "Funk 2",
+     "lanes": {
+      "K": "x..x..x...x..x..",
+      "S": "....x..x.x..x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "FDrum",
+     "name": "Funky Drummer",
+     "lanes": {
+      "K": "x.x...x...x..x..",
+      "S": "....x..x.x.xx..x",
+      "H": "x.x.x.x.xxx.x.x."
+     }
+    },
+    {
+     "screen": "Strut",
+     "name": "Strut",
+     "lanes": {
+      "K": "x..x.x....x..x..",
+      "S": "....x.......x..x",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "GoGo",
+     "name": "Go-Go",
+     "lanes": {
+      "K": "x.....x...x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x.",
+      "T": "..x....x........",
+      "L": ".........x...x.."
+     }
+    },
+    {
+     "screen": "NOLA",
+     "name": "New Orleans",
+     "lanes": {
+      "K": "x..x....x..x....",
+      "S": "...x..x...x.x..x",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Purdy",
+     "name": "Purdie Shuffle",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.....x.x.......",
+      "S": ".x..xx...x..xx..",
+      "H": "x.x.x.x.x.x.x.x.",
+      "A": "....x.......x..."
+     }
+    },
+    {
+     "screen": "LinFk",
+     "name": "Linear Funk",
+     "lanes": {
+      "K": "x..x.....x...x..",
+      "S": "....x..x....x...",
+      "H": ".xx..xx.x.xx..xx"
+     }
+    }
+   ]
+  },
+  {
+   "group": "Disco / dance / electronic",
+   "entries": [
+    {
+     "screen": "Disco",
+     "name": "Disco",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "H": "xx.xxx.xxx.xxx.x",
+      "O": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "DeepH",
+     "name": "Deep House",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "O": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "SwHse",
+     "name": "Swing House",
+     "swing": "sw16",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "H": "xx.xxx.xxx.xxx.x",
+      "O": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Minml",
+     "name": "Minimal",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "H": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Techn",
+     "name": "Techno",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx",
+      "R": "..x...x...x...x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Breaks",
+   "entries": [
+    {
+     "screen": "Break",
+     "name": "Breakbeat",
+     "lanes": {
+      "K": "x.x.......xx....",
+      "S": "....x..x.x..x..x",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Amen",
+     "name": "Amen",
+     "lanes": {
+      "K": "x.x.......xx....",
+      "S": "....x..x.x...x..",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Think",
+     "name": "Think Break",
+     "lanes": {
+      "K": "x.x.......x.x...",
+      "S": "....x..x.x..x...",
+      "H": "x.x.x.x.x.x.x...",
+      "O": "..............x.",
+      "A": "x...x.......x..."
+     }
+    },
+    {
+     "screen": "Apach",
+     "name": "Apache",
+     "lanes": {
+      "K": "x.....x.x.x.....",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx",
+      "T": "..x.......x.....",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Impch",
+     "name": "Impeach",
+     "lanes": {
+      "K": "x......x..x..x..",
+      "S": "....x.......x..x",
+      "H": "x.x.x.x.x.x.x...",
+      "O": "..............x.",
+      "A": "x...x.......x..."
+     }
+    },
+    {
+     "screen": "Levee",
+     "name": "Levee Break",
+     "lanes": {
+      "K": "xx.....x..x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x.",
+      "A": "x...x.......x..."
+     }
+    },
+    {
+     "screen": "CSwet",
+     "name": "Cold Sweat",
+     "lanes": {
+      "K": "x.......x.x.....",
+      "S": "....x..x..x.x...",
+      "H": "x.x.x.x.x.x.x.x.",
+      "A": "x...x.......x..."
+     }
+    },
+    {
+     "screen": "RollB",
+     "name": "Rolling Break",
+     "lanes": {
+      "K": "x.x.......x.....",
+      "S": "....x.xx.x..x.xx",
+      "H": "x.x.x.x.x.x.x.x.",
+      "A": "x...x.......x..."
+     }
+    },
+    {
+     "screen": "BrkB2",
+     "name": "Breakbeat 2",
+     "lanes": {
+      "K": "x.x...x...x..x..",
+      "S": "....x..x.x..x...",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "HHBrk",
+     "name": "Hip-Hop Break",
+     "lanes": {
+      "K": "x.x....x.xx.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x...",
+      "O": "..............x."
+     }
+    },
+    {
+     "screen": "BrkRd",
+     "name": "Breakbeat Ride",
+     "lanes": {
+      "K": "x.x.......xx....",
+      "S": "....x.......x...",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "NuSkl",
+     "name": "Nu Skool Breaks",
+     "lanes": {
+      "K": "x.........x..x..",
+      "S": "....x.......x...",
+      "H": "x.xxx.xxx.xxx.xx"
+     }
+    },
+    {
+     "screen": "HTBrk",
+     "name": "Half-Time Break",
+     "lanes": {
+      "K": "x.x.......x..x..",
+      "S": "........x.....x.",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.......x......."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Big beat",
+   "entries": [
+    {
+     "screen": "BigB1",
+     "name": "Big Beat",
+     "lanes": {
+      "K": "x.x...x...x.....",
+      "S": "....x.......x...",
+      "H": "xxxxxx.xxxxxxx.x",
+      "O": "......x.......x.",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "BigB2",
+     "name": "Big Beat 2",
+     "lanes": {
+      "K": "x.x....x..x.....",
+      "S": "....x..x....x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "BBShf",
+     "name": "Big Beat Shuffle",
+     "swing": "sw16h",
+     "lanes": {
+      "K": "x.....x...x..x..",
+      "S": "....x.......x...",
+      "H": "xxxxxx.xxxxxxx.x",
+      "O": "......x.......x."
+     }
+    },
+    {
+     "screen": "BBTom",
+     "name": "Big Beat Toms",
+     "lanes": {
+      "K": "x.x...x...x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x.",
+      "T": "......x.........",
+      "L": "..............x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Drum and bass / garage",
+   "entries": [
+    {
+     "screen": "DnB",
+     "name": "Drum and Bass",
+     "lanes": {
+      "K": "x.........x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Jungl",
+     "name": "Jungle",
+     "lanes": {
+      "K": "x.........x..x..",
+      "S": "....x..x.x..x...",
+      "H": "x.xxx.xxx.xxx.x."
+     }
+    },
+    {
+     "screen": "Dubst",
+     "name": "Dubstep",
+     "lanes": {
+      "K": "x.........x.....",
+      "S": "........x.......",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "2Step",
+     "name": "2-Step Garage",
+     "lanes": {
+      "K": "x......x..x.....",
+      "S": "....x.......x...",
+      "H": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "2StSw",
+     "name": "2-Step Swing",
+     "swing": "sw16h",
+     "lanes": {
+      "K": "x......x..x.....",
+      "S": "....x.......x...",
+      "H": "..xx..xx..xx..xx"
+     }
+    }
+   ]
+  },
+  {
+   "group": "Hip-hop / R&B",
+   "entries": [
+    {
+     "screen": "BBap",
+     "name": "Boom Bap",
+     "lanes": {
+      "K": "x......x.x......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x...",
+      "O": "..............x."
+     }
+    },
+    {
+     "screen": "BBap2",
+     "name": "Boom Bap 2",
+     "lanes": {
+      "K": "x.x....x..x.....",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "BBpSw",
+     "name": "Boom Bap Swing",
+     "swing": "sw16",
+     "lanes": {
+      "K": "x.x....x..x.....",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "LoFi",
+     "name": "Lo-Fi",
+     "lanes": {
+      "K": "x.....x..x......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "LoFiS",
+     "name": "Lo-Fi Swing",
+     "swing": "sw16",
+     "lanes": {
+      "K": "x.....x..x......",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "Half",
+     "name": "Half Time",
+     "lanes": {
+      "K": "x......x..x.....",
+      "S": "........x.......",
+      "H": "x.x.x.x.x.x.x.x.",
+      "A": "x.......x......."
+     }
+    },
+    {
+     "screen": "Drill",
+     "name": "Drill",
+     "lanes": {
+      "K": "x.....x.....x...",
+      "S": "......x......x..",
+      "H": "x..x..x.x..x..x."
+     }
+    },
+    {
+     "screen": "Trap",
+     "name": "Trap",
+     "lanes": {
+      "K": "x......x.x......",
+      "S": "........x.......",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "NJack",
+     "name": "New Jack Swing",
+     "lanes": {
+      "K": "x..x..x...x..x..",
+      "S": "....x.......x...",
+      "H": "x.xxx.xxx.xxx.xx"
+     }
+    },
+    {
+     "screen": "NeoSl",
+     "name": "Neo Soul",
+     "lanes": {
+      "K": "x......x..x..x..",
+      "S": "....x.......x...",
+      "H": "x.xx.xx.x.xx.xx."
+     }
+    },
+    {
+     "screen": "Dilla",
+     "name": "Dilla",
+     "swing": "sw16h",
+     "lanes": {
+      "K": "x......x..x..x..",
+      "S": "....x.......x...",
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    }
+   ]
+  },
+  {
+   "group": "Latin",
+   "entries": [
+    {
+     "screen": "Songo",
+     "name": "Songo",
+     "lanes": {
+      "K": "...x......x..x..",
+      "S": "..x..x.x..x...x.",
+      "H": "x.x.x.x.x.x.x.x.",
+      "T": "......x.........",
+      "L": "..............x."
+     }
+    },
+    {
+     "screen": "Bolro",
+     "name": "Bolero",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x...x...x..x",
+      "T": "......x.........",
+      "L": "..........x.x..."
+     }
+    },
+    {
+     "screen": "Cumbi",
+     "name": "Cumbia",
+     "lanes": {
+      "K": "x.......x.......",
+      "H": "x.xxx.xxx.xxx.xx",
+      "T": "..x.......x.....",
+      "L": "......x.......x."
+     }
+    },
+    {
+     "screen": "Rgtn",
+     "name": "Reggaeton",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "...x..x....x..x.",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Baiao",
+     "name": "Baiao",
+     "lanes": {
+      "K": "x..x....x..x....",
+      "H": "x.x.x.x.x.x.x.x.",
+      "L": "......x.......x."
+     }
+    },
+    {
+     "screen": "Tango",
+     "name": "Tango",
+     "lanes": {
+      "K": "x..x..x.x.x.x...",
+      "S": "....x.......x...",
+      "A": "x..x..x.x......."
+     }
+    },
+    {
+     "screen": "Calyp",
+     "name": "Calypso",
+     "lanes": {
+      "K": "x.....x.x.....x.",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Samba",
+     "name": "Samba",
+     "lanes": {
+      "K": "x..xx..xx..xx..x",
+      "S": "..x..x.x..x..x..",
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "....x.......x..."
+     }
+    },
+    {
+     "screen": "Bossa",
+     "name": "Bossa Nova",
+     "lanes": {
+      "K": "x..xx..xx..xx..x",
+      "S": "x..x..x...x..x..",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Reggae / ska",
+   "entries": [
+    {
+     "screen": "1Drop",
+     "name": "One Drop",
+     "lanes": {
+      "K": "........x.......",
+      "S": "........x.......",
+      "H": "x.x.x...x.x.x...",
+      "O": "......x.......x.",
+      "A": "........x......."
+     }
+    },
+    {
+     "screen": "Rckrs",
+     "name": "Rockers",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "........x.......",
+      "H": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Stepr",
+     "name": "Steppers",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "........x.......",
+      "H": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Ska",
+     "name": "Ska",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "H": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Dub",
+     "name": "Dub",
+     "lanes": {
+      "K": "........x.......",
+      "S": "........x.......",
+      "H": "x..x..x.x..x..x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Swing / jazz / country",
+   "entries": [
+    {
+     "screen": "Swing",
+     "name": "Swing",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": ".........x......",
+      "H": "....x.......x...",
+      "R": "x...x.x.x...x.x."
+     }
+    },
+    {
+     "screen": "Bebop",
+     "name": "Bebop",
+     "swing": "tri8",
+     "lanes": {
+      "K": "............x...",
+      "S": "......x.....x.x.",
+      "H": "....x.......x...",
+      "R": "x...x.x.x...x.x."
+     }
+    },
+    {
+     "screen": "Jazz4",
+     "name": "Jazz 4",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "H": "....x.......x...",
+      "R": "x...x.x.x...x.x.",
+      "A": "x..............."
+     }
+    },
+    {
+     "screen": "Texas",
+     "name": "Texas Shuffle",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "....x.......x...",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Blues",
+     "name": "Blues",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x.",
+      "A": "x.......x......."
+     }
+    },
+    {
+     "screen": "Cntry",
+     "name": "Country",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "CnShf",
+     "name": "Country Shuffle",
+     "swing": "tri8",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x...",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "March",
+     "name": "March",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "x.xxx.x.x.xxx.x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "World",
+   "entries": [
+    {
+     "screen": "Afro",
+     "name": "Afrobeat",
+     "lanes": {
+      "K": "x..x......x.....",
+      "S": "....x..x...x..x.",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Bhang",
+     "name": "Bhangra",
+     "lanes": {
+      "K": "x..x..x.x..x..x.",
+      "S": "....x.......x...",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Maqsm",
+     "name": "Maqsum",
+     "lanes": {
+      "K": "x.......x.......",
+      "H": "x.x.x.x.x.x.x.x.",
+      "T": "...x..x.........",
+      "L": "............x..."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Building blocks",
+   "entries": [
+    {
+     "screen": "SnRol",
+     "name": "Snare Roll",
+     "lanes": {
+      "S": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "Hats",
+     "name": "Hats Only",
+     "lanes": {
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "Shakr",
+     "name": "Offbeat Shaker",
+     "lanes": {
+      "H": "xxxxxxxxxxxxxxxx",
+      "A": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Kick",
+     "name": "Kick Only",
+     "lanes": {
+      "K": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "KSnr",
+     "name": "Kick and Snare",
+     "lanes": {
+      "K": "x.......x.......",
+      "S": "....x.......x..."
+     }
+    },
+    {
+     "screen": "Stop",
+     "name": "Stop",
+     "lanes": {
+      "K": "x...............",
+      "C": "x...............",
+      "A": "x..............."
+     }
+    }
+   ]
+  }
+ ],
+ "fills": [
+  {
+   "group": "Basic",
+   "entries": [
+    {
+     "screen": "None",
+     "name": "None",
+     "w": 15,
+     "lanes": {}
+    },
+    {
+     "screen": "Randm",
+     "name": "Random",
+     "w": 15,
+     "lanes": {}
+    }
+   ]
+  },
+  {
+   "group": "Pickups and open hats",
+   "entries": [
+    {
+     "screen": "Sp1",
+     "name": "Snare pickup",
+     "w": 15,
+     "lanes": {
+      "S": "...............x"
+     }
+    },
+    {
+     "screen": "Sp2",
+     "name": "Snare pickup x2",
+     "w": 14,
+     "lanes": {
+      "S": "..............xx"
+     }
+    },
+    {
+     "screen": "Sp3",
+     "name": "Snare pickups 2-and",
+     "w": 11,
+     "lanes": {
+      "S": "...........x...x"
+     }
+    },
+    {
+     "screen": "Kp1",
+     "name": "Kick pickup",
+     "w": 14,
+     "lanes": {
+      "K": "..............x."
+     }
+    },
+    {
+     "screen": "Kp2",
+     "name": "Kick pickup x2",
+     "w": 13,
+     "lanes": {
+      "K": ".............x.x"
+     }
+    },
+    {
+     "screen": "Kp3",
+     "name": "Kick push",
+     "w": 10,
+     "lanes": {
+      "K": "..........x...x."
+     }
+    },
+    {
+     "screen": "OHp",
+     "name": "Open hat end",
+     "w": 14,
+     "replace": "HO",
+     "lanes": {
+      "O": "..............x."
+     }
+    },
+    {
+     "screen": "OH1",
+     "name": "Open hats 4",
+     "w": 12,
+     "replace": "HO",
+     "lanes": {
+      "H": "............x...",
+      "O": "..............x."
+     }
+    },
+    {
+     "screen": "OH2",
+     "name": "Open hats 2",
+     "w": 8,
+     "replace": "HO",
+     "lanes": {
+      "H": "........x...x...",
+      "O": "..........x...x."
+     }
+    },
+    {
+     "screen": "OH4",
+     "name": "Open hats bar",
+     "w": 0,
+     "replace": "HO",
+     "lanes": {
+      "H": "x...x...x...x...",
+      "O": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Lp1",
+     "name": "Low tom pickup",
+     "w": 15,
+     "replace": "TL",
+     "lanes": {
+      "L": "...............x"
+     }
+    },
+    {
+     "screen": "Tp2",
+     "name": "Tom pickups",
+     "w": 14,
+     "replace": "TL",
+     "lanes": {
+      "T": "..............x.",
+      "L": "...............x"
+     }
+    },
+    {
+     "screen": "SLp",
+     "name": "Snare + low tom pickup",
+     "w": 14,
+     "replace": "TL",
+     "lanes": {
+      "S": "..............x.",
+      "L": "...............x"
+     }
+    }
+   ]
+  },
+  {
+   "group": "Snare rolls",
+   "entries": [
+    {
+     "screen": "Snh",
+     "name": "Snare 16ths h",
+     "w": 14,
+     "replace": "SHOR",
+     "lanes": {
+      "S": "..............xx"
+     }
+    },
+    {
+     "screen": "Sn1",
+     "name": "Snare 16ths 1",
+     "w": 12,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "............xxxx"
+     }
+    },
+    {
+     "screen": "Sn2",
+     "name": "Snare 16ths 2",
+     "w": 8,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "........xxxxxxxx"
+     }
+    },
+    {
+     "screen": "Sn4",
+     "name": "Snare 16ths 4",
+     "w": 0,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "S81",
+     "name": "Snare 8ths 1",
+     "w": 12,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "............x.x."
+     }
+    },
+    {
+     "screen": "S82",
+     "name": "Snare 8ths 2",
+     "w": 8,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "........x.x.x.x."
+     }
+    },
+    {
+     "screen": "S84",
+     "name": "Snare 8ths 4",
+     "w": 0,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "SC2",
+     "name": "Snare crescendo 2",
+     "w": 8,
+     "replace": "SHORA",
+     "crash": true,
+     "lanes": {
+      "S": "........x.x.xxxx",
+      "A": "........x...x.x."
+     }
+    },
+    {
+     "screen": "SC4",
+     "name": "Snare crescendo 4",
+     "w": 0,
+     "replace": "SHORA",
+     "crash": true,
+     "lanes": {
+      "S": "x.x.x.x.x.x.xxxx",
+      "A": "x...x...x...x.x."
+     }
+    },
+    {
+     "screen": "Fl1",
+     "name": "Snare doubles 1",
+     "w": 12,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "............xx.."
+     }
+    },
+    {
+     "screen": "Fl2",
+     "name": "Snare doubles 2",
+     "w": 8,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "........xx..xx.."
+     }
+    },
+    {
+     "screen": "Fl4",
+     "name": "Snare doubles 4",
+     "w": 0,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "xx..xx..xx..xx.."
+     }
+    },
+    {
+     "screen": "Gh1",
+     "name": "Ghost snare roll 1",
+     "w": 12,
+     "replace": "SA",
+     "crash": true,
+     "lanes": {
+      "S": "............xx.x",
+      "A": "............x..."
+     }
+    },
+    {
+     "screen": "Gh2",
+     "name": "Ghost snare roll 2",
+     "w": 8,
+     "replace": "SA",
+     "crash": true,
+     "lanes": {
+      "S": "........xx.xxx.x",
+      "A": "........x...x..."
+     }
+    },
+    {
+     "screen": "Gh4",
+     "name": "Ghost snare roll 4",
+     "w": 0,
+     "replace": "SA",
+     "crash": true,
+     "lanes": {
+      "S": "xx.xxx.xxx.xxx.x",
+      "A": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Tr1",
+     "name": "Snare 3-3-2 1",
+     "w": 12,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "............x..x"
+     }
+    },
+    {
+     "screen": "Tr2",
+     "name": "Snare 3-3-2 2",
+     "w": 8,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "........x..x..x."
+     }
+    },
+    {
+     "screen": "Tr4",
+     "name": "Snare 3-3-2 4",
+     "w": 0,
+     "replace": "SHOR",
+     "crash": true,
+     "lanes": {
+      "S": "x..x..x.x..x..x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Kick + snare",
+   "entries": [
+    {
+     "screen": "Rl1",
+     "name": "Kick + snare roll 1",
+     "w": 12,
+     "replace": "KSHOR",
+     "crash": true,
+     "lanes": {
+      "K": "............x...",
+      "S": ".............xxx"
+     }
+    },
+    {
+     "screen": "Rl2",
+     "name": "Kick + snare roll 2",
+     "w": 8,
+     "replace": "KSHOR",
+     "crash": true,
+     "lanes": {
+      "K": "........x...x...",
+      "S": ".........xxx.xxx"
+     }
+    },
+    {
+     "screen": "Rl4",
+     "name": "Kick + snare roll 4",
+     "w": 0,
+     "replace": "KSHOR",
+     "crash": true,
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": ".xxx.xxx.xxx.xxx"
+     }
+    },
+    {
+     "screen": "KS1",
+     "name": "Kick + snare 8ths 1",
+     "w": 12,
+     "replace": "KSHORA",
+     "crash": true,
+     "lanes": {
+      "K": "............x.x.",
+      "S": "............x.x.",
+      "A": "............x.x."
+     }
+    },
+    {
+     "screen": "KS2",
+     "name": "Kick + snare 8ths 2",
+     "w": 8,
+     "replace": "KSHORA",
+     "crash": true,
+     "lanes": {
+      "K": "........x.x.x.x.",
+      "S": "........x.x.x.x.",
+      "A": "........x.x.x.x."
+     }
+    },
+    {
+     "screen": "KS4",
+     "name": "Kick + snare 8ths 4",
+     "w": 0,
+     "replace": "KSHORA",
+     "crash": true,
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "S": "x.x.x.x.x.x.x.x.",
+      "A": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Ch1",
+     "name": "Break chop 1",
+     "w": 12,
+     "replace": "KS",
+     "lanes": {
+      "K": "............x.x.",
+      "S": "...............x"
+     }
+    },
+    {
+     "screen": "Ch2",
+     "name": "Break chop 2",
+     "w": 8,
+     "replace": "KS",
+     "crash": true,
+     "lanes": {
+      "K": "........x.x..x..",
+      "S": "...........x..xx"
+     }
+    },
+    {
+     "screen": "Ch4",
+     "name": "Break chop 4",
+     "w": 0,
+     "replace": "KS",
+     "crash": true,
+     "lanes": {
+      "K": "x.x..x..x.x..x..",
+      "S": "...x..xx...x..xx"
+     }
+    },
+    {
+     "screen": "KKh",
+     "name": "Kick / snare 16ths h",
+     "w": 14,
+     "replace": "KSHO",
+     "lanes": {
+      "K": "..............xx"
+     }
+    },
+    {
+     "screen": "KK1",
+     "name": "Kick / snare 16ths 1",
+     "w": 12,
+     "replace": "KSHO",
+     "crash": true,
+     "lanes": {
+      "K": "............xx..",
+      "S": "..............xx"
+     }
+    },
+    {
+     "screen": "KK2",
+     "name": "Kick / snare 16ths 2",
+     "w": 8,
+     "replace": "KSHO",
+     "crash": true,
+     "lanes": {
+      "K": "........xx..xx..",
+      "S": "..........xx..xx"
+     }
+    },
+    {
+     "screen": "KK4",
+     "name": "Kick / snare 16ths 4",
+     "w": 0,
+     "replace": "KSHO",
+     "crash": true,
+     "lanes": {
+      "K": "xx..xx..xx..xx..",
+      "S": "..xx..xx..xx..xx"
+     }
+    },
+    {
+     "screen": "Bd2",
+     "name": "Build 2",
+     "w": 8,
+     "replace": "KSHORA",
+     "crash": true,
+     "lanes": {
+      "K": "........x...x...",
+      "S": "........x.x.xxxx",
+      "A": "............xxxx"
+     }
+    },
+    {
+     "screen": "Bd4",
+     "name": "Build 4",
+     "w": 0,
+     "replace": "KSHORA",
+     "crash": true,
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "x...x...x.x.xxxx",
+      "A": "............xxxx"
+     }
+    },
+    {
+     "screen": "BBh",
+     "name": "Big beat roll h",
+     "w": 14,
+     "replace": "KSHO",
+     "lanes": {
+      "K": "..............x.",
+      "S": "..............xx"
+     }
+    },
+    {
+     "screen": "BB1",
+     "name": "Big beat roll 1",
+     "w": 12,
+     "replace": "KSHO",
+     "crash": true,
+     "lanes": {
+      "K": "............x...",
+      "S": "............xxxx",
+      "O": "..............x."
+     }
+    },
+    {
+     "screen": "BB2",
+     "name": "Big beat roll 2",
+     "w": 8,
+     "replace": "KSHO",
+     "crash": true,
+     "lanes": {
+      "K": "........x...x...",
+      "S": "........xxxxxxxx",
+      "O": "..........x...x."
+     }
+    },
+    {
+     "screen": "BB4",
+     "name": "Big beat roll 4",
+     "w": 0,
+     "replace": "KSHO",
+     "crash": true,
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "xxxxxxxxxxxxxxxx",
+      "O": "..x...x...x...x."
+     }
+    },
+    {
+     "screen": "Bn1",
+     "name": "Bonham triplets 1",
+     "w": 12,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "..............x.",
+      "S": "............x..x",
+      "T": ".............x.."
+     }
+    },
+    {
+     "screen": "Bn2",
+     "name": "Bonham triplets 2",
+     "w": 8,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "..........x..x..",
+      "S": "........x..x..x.",
+      "T": ".........x......",
+      "L": "............x..x"
+     }
+    },
+    {
+     "screen": "Bn4",
+     "name": "Bonham triplets 4",
+     "w": 0,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "..x..x..x..x..x.",
+      "S": "x..x..x..x..x..x",
+      "T": ".x..x..x........",
+      "L": "..........x..x.."
+     }
+    },
+    {
+     "screen": "Ln1",
+     "name": "Linear K-S-T-S 1",
+     "w": 12,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "............x...",
+      "S": ".............x.x",
+      "T": "..............x."
+     }
+    },
+    {
+     "screen": "Ln2",
+     "name": "Linear K-S-T-S 2",
+     "w": 8,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "........x...x...",
+      "S": ".........x.x.x.x",
+      "T": "..........x.....",
+      "L": "..............x."
+     }
+    },
+    {
+     "screen": "Ln4",
+     "name": "Linear K-S-T-S 4",
+     "w": 0,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": ".x.x.x.x.x.x.x.x",
+      "T": "..x.......x.....",
+      "L": "......x.......x."
+     }
+    },
+    {
+     "screen": "KT1",
+     "name": "Kick + tom 8ths 1",
+     "w": 12,
+     "replace": "KSHORTAL",
+     "crash": true,
+     "lanes": {
+      "K": "............x.x.",
+      "T": "............x...",
+      "A": "............x.x.",
+      "L": "..............x."
+     }
+    },
+    {
+     "screen": "KT2",
+     "name": "Kick + tom 8ths 2",
+     "w": 8,
+     "replace": "KSHORTAL",
+     "crash": true,
+     "lanes": {
+      "K": "........x.x.x.x.",
+      "T": "........x.x.....",
+      "A": "........x.x.x.x.",
+      "L": "............x.x."
+     }
+    },
+    {
+     "screen": "KT4",
+     "name": "Kick + tom 8ths 4",
+     "w": 0,
+     "replace": "KSHORTAL",
+     "crash": true,
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "T": "x.x.x.x.........",
+      "A": "x.x.x.x.x.x.x.x.",
+      "L": "........x.x.x.x."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Toms",
+   "entries": [
+    {
+     "screen": "Tmh",
+     "name": "Tom 16ths h",
+     "w": 14,
+     "replace": "SHORTL",
+     "lanes": {
+      "T": "..............x.",
+      "L": "...............x"
+     }
+    },
+    {
+     "screen": "Tm1",
+     "name": "Tom 16ths 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "............xx..",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "Tm2",
+     "name": "Tom 16ths 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "........xxxx....",
+      "L": "............xxxx"
+     }
+    },
+    {
+     "screen": "Tm4",
+     "name": "Tom 16ths 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "xxxxxxxx........",
+      "L": "........xxxxxxxx"
+     }
+    },
+    {
+     "screen": "T81",
+     "name": "Tom 8ths 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "............x...",
+      "L": "..............x."
+     }
+    },
+    {
+     "screen": "T82",
+     "name": "Tom 8ths 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "........x.x.....",
+      "L": "............x.x."
+     }
+    },
+    {
+     "screen": "T84",
+     "name": "Tom 8ths 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "x.x.x.x.........",
+      "L": "........x.x.x.x."
+     }
+    },
+    {
+     "screen": "HL1",
+     "name": "High / low tom 16ths 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "............x.x.",
+      "L": ".............x.x"
+     }
+    },
+    {
+     "screen": "HL2",
+     "name": "High / low tom 16ths 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "........x.x.x.x.",
+      "L": ".........x.x.x.x"
+     }
+    },
+    {
+     "screen": "HL4",
+     "name": "High / low tom 16ths 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "x.x.x.x.x.x.x.x.",
+      "L": ".x.x.x.x.x.x.x.x"
+     }
+    },
+    {
+     "screen": "TC2",
+     "name": "Tom crescendo 2",
+     "w": 8,
+     "replace": "SHORTAL",
+     "crash": true,
+     "lanes": {
+      "T": "........x.x.....",
+      "A": "........x...x.x.",
+      "L": "............xxxx"
+     }
+    },
+    {
+     "screen": "TC4",
+     "name": "Tom crescendo 4",
+     "w": 0,
+     "replace": "SHORTAL",
+     "crash": true,
+     "lanes": {
+      "T": "x.x.x.x.........",
+      "A": "x...x...x...x.x.",
+      "L": "........x.x.xxxx"
+     }
+    },
+    {
+     "screen": "Tt1",
+     "name": "Tom 3-3-2 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "............x...",
+      "L": "...............x"
+     }
+    },
+    {
+     "screen": "Tt2",
+     "name": "Tom 3-3-2 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "........x..x....",
+      "L": "..............x."
+     }
+    },
+    {
+     "screen": "Tt4",
+     "name": "Tom 3-3-2 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "x..x..x.........",
+      "L": "........x..x..x."
+     }
+    },
+    {
+     "screen": "Gl1",
+     "name": "Tom gallop 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "............x...",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "Gl2",
+     "name": "Tom gallop 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "........x.xx....",
+      "L": "............x.xx"
+     }
+    },
+    {
+     "screen": "Gl4",
+     "name": "Tom gallop 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "T": "x.xxx.xx........",
+      "L": "........x.xxx.xx"
+     }
+    },
+    {
+     "screen": "LK1",
+     "name": "Kick + low tom 8ths 1",
+     "w": 12,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "............x.x.",
+      "L": "............x.x."
+     }
+    },
+    {
+     "screen": "LK2",
+     "name": "Kick + low tom 8ths 2",
+     "w": 8,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "........x.x.x.x.",
+      "L": "........x.x.x.x."
+     }
+    },
+    {
+     "screen": "LK4",
+     "name": "Kick + low tom 8ths 4",
+     "w": 0,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "x.x.x.x.x.x.x.x.",
+      "L": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "TK1",
+     "name": "Kick + tom roll 1",
+     "w": 12,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "............x...",
+      "T": ".............x..",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "TK2",
+     "name": "Kick + tom roll 2",
+     "w": 8,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "........x...x...",
+      "T": ".........xxx....",
+      "L": ".............xxx"
+     }
+    },
+    {
+     "screen": "TK4",
+     "name": "Kick + tom roll 4",
+     "w": 0,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "x...x...x...x...",
+      "T": ".xxx.xxx........",
+      "L": ".........xxx.xxx"
+     }
+    },
+    {
+     "screen": "ST1",
+     "name": "Snare to tom 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "............xx..",
+      "T": "..............x.",
+      "L": "...............x"
+     }
+    },
+    {
+     "screen": "ST2",
+     "name": "Snare to tom 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "........xxxx....",
+      "T": "............xx..",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "ST4",
+     "name": "Snare to tom 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "xxxxxxxx........",
+      "T": "........xxxx....",
+      "L": "............xxxx"
+     }
+    },
+    {
+     "screen": "Sx4",
+     "name": "Snare into toms 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "xxxxxxxxxxxx....",
+      "T": "............xx..",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "TS1",
+     "name": "Tom to snare 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "..............xx",
+      "T": "............x...",
+      "L": ".............x.."
+     }
+    },
+    {
+     "screen": "TS2",
+     "name": "Tom to snare 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "............xxxx",
+      "T": "........xx......",
+      "L": "..........xx...."
+     }
+    },
+    {
+     "screen": "TS4",
+     "name": "Tom to snare 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "........xxxxxxxx",
+      "T": "xxxx............",
+      "L": "....xxxx........"
+     }
+    },
+    {
+     "screen": "Mx1",
+     "name": "Snare + tom 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "............x.xx"
+     }
+    },
+    {
+     "screen": "Mx2",
+     "name": "Snare + tom 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "........x.xx....",
+      "T": "............x...",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "Mx4",
+     "name": "Snare + tom 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "x.xx....x.xx....",
+      "T": "....x.......x...",
+      "L": "......xx......xx"
+     }
+    },
+    {
+     "screen": "Al1",
+     "name": "Snare / tom 16ths 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "............x.x.",
+      "T": ".............x..",
+      "L": "...............x"
+     }
+    },
+    {
+     "screen": "Al2",
+     "name": "Snare / tom 16ths 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "........x.x.x.x.",
+      "T": ".........x.x....",
+      "L": ".............x.x"
+     }
+    },
+    {
+     "screen": "Al4",
+     "name": "Snare / tom 16ths 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "x.x.x.x.x.x.x.x.",
+      "T": ".x.x.x.x........",
+      "L": ".........x.x.x.x"
+     }
+    },
+    {
+     "screen": "SL1",
+     "name": "Snare / low tom 16ths 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "............x.x.",
+      "L": ".............x.x"
+     }
+    },
+    {
+     "screen": "SL2",
+     "name": "Snare / low tom 16ths 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "........x.x.x.x.",
+      "L": ".........x.x.x.x"
+     }
+    },
+    {
+     "screen": "SL4",
+     "name": "Snare / low tom 16ths 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "x.x.x.x.x.x.x.x.",
+      "L": ".x.x.x.x.x.x.x.x"
+     }
+    },
+    {
+     "screen": "Cs2",
+     "name": "Snare, toms, kick 2",
+     "w": 8,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "..............xx",
+      "S": "........xxxx....",
+      "T": "............x...",
+      "L": ".............x.."
+     }
+    },
+    {
+     "screen": "Cs4",
+     "name": "Snare, toms, kick 4",
+     "w": 0,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "............xxxx",
+      "S": "xxxxxx..........",
+      "T": "......xxx.......",
+      "L": ".........xxx...."
+     }
+    },
+    {
+     "screen": "Ak1",
+     "name": "Around the kit 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "............x...",
+      "T": ".............x..",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "Ak2",
+     "name": "Around the kit 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "........xx......",
+      "T": "..........xx....",
+      "L": "............xxxx"
+     }
+    },
+    {
+     "screen": "Ak4",
+     "name": "Around the kit 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "S": "xxxx............",
+      "T": "....xxxx........",
+      "L": "........xxxxxxxx"
+     }
+    }
+   ]
+  },
+  {
+   "group": "Classic fills",
+   "entries": [
+    {
+     "screen": "SnF",
+     "name": "Snare fill",
+     "w": 8,
+     "replace": "KSHOR",
+     "crash": true,
+     "lanes": {
+      "K": "........x.......",
+      "S": "........x.x.xxxx"
+     }
+    },
+    {
+     "screen": "MixF",
+     "name": "Snare tom mix",
+     "w": 8,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "........x.......",
+      "S": "........x.xx....",
+      "T": "............x...",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "RkFil",
+     "name": "Rock fill",
+     "w": 7,
+     "replace": "KSHOTL",
+     "crash": true,
+     "lanes": {
+      "K": ".......xx.x.....",
+      "S": "............x.xx",
+      "H": "........x.x.....",
+      "T": "............x...",
+      "L": "..............x."
+     }
+    },
+    {
+     "screen": "RkFl2",
+     "name": "Rock fill 2",
+     "w": 0,
+     "replace": "KSHORTAL",
+     "crash": true,
+     "lanes": {
+      "K": "x.x.x.x.x.......",
+      "S": "........xxxxxxxx",
+      "T": "............xx..",
+      "A": "x...x...x...x...",
+      "L": "..............xx"
+     }
+    },
+    {
+     "screen": "TomFl",
+     "name": "Tom fill bar",
+     "w": 0,
+     "replace": "KSHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "x...............",
+      "T": "x.x.x.x.........",
+      "L": "........x.x.xxxx"
+     }
+    },
+    {
+     "screen": "Build",
+     "name": "Build-up bar",
+     "w": 0,
+     "replace": "KSHORA",
+     "crash": true,
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "x.x.x.x.xxxxxxxx",
+      "A": "x...x...xxxxxxxx"
+     }
+    },
+    {
+     "screen": "AmenB",
+     "name": "Amen bar 2",
+     "w": 0,
+     "replace": "KSHOR",
+     "lanes": {
+      "K": "x.x.......x.....",
+      "S": "....x..x.x....x.",
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "AmCh",
+     "name": "Amen chop",
+     "w": 8,
+     "replace": "KSHOR",
+     "crash": true,
+     "lanes": {
+      "K": "..........xx....",
+      "S": "........x..x.xx.",
+      "R": "........x.x.x..."
+     }
+    },
+    {
+     "screen": "FDFil",
+     "name": "Funky Drummer fill",
+     "w": 8,
+     "replace": "KSHO",
+     "crash": true,
+     "lanes": {
+      "K": "........x.x...x.",
+      "S": "..........x.x.xx",
+      "H": ".........x.x.x..",
+      "O": "........x......."
+     }
+    }
+   ]
+  },
+  {
+   "group": "Hits and drops",
+   "entries": [
+    {
+     "screen": "Hit1",
+     "name": "Crash hits 1",
+     "w": 12,
+     "replace": "KSHORC",
+     "lanes": {
+      "K": "............x...",
+      "S": "............x...",
+      "C": "............x..."
+     }
+    },
+    {
+     "screen": "Hit2",
+     "name": "Crash hits 2",
+     "w": 8,
+     "replace": "KSHORC",
+     "lanes": {
+      "K": "........x...x...",
+      "S": "........x...x...",
+      "C": "........x...x..."
+     }
+    },
+    {
+     "screen": "Hit4",
+     "name": "Crash hits 4",
+     "w": 0,
+     "replace": "KSHORC",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "x...x...x...x...",
+      "C": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Sy2",
+     "name": "Syncopated hits 2",
+     "w": 8,
+     "replace": "KSHORC",
+     "lanes": {
+      "K": "........x..x..x.",
+      "S": "........x..x..x.",
+      "C": "........x..x..x."
+     }
+    },
+    {
+     "screen": "Sy4",
+     "name": "Syncopated hits 4",
+     "w": 0,
+     "replace": "KSHORC",
+     "lanes": {
+      "K": "x..x..x.x..x..x.",
+      "S": "x..x..x.x..x..x.",
+      "C": "x..x..x.x..x..x."
+     }
+    },
+    {
+     "screen": "Stab",
+     "name": "Big beat stabs",
+     "w": 12,
+     "replace": "KSHORC",
+     "lanes": {
+      "K": "............x.x.",
+      "S": "............x.x.",
+      "C": "............x.x."
+     }
+    },
+    {
+     "screen": "KD1",
+     "name": "Double kick 1",
+     "w": 12,
+     "replace": "KSHOR",
+     "crash": true,
+     "lanes": {
+      "K": "............xxxx",
+      "S": "............x..."
+     }
+    },
+    {
+     "screen": "KD2",
+     "name": "Double kick 2",
+     "w": 8,
+     "replace": "KSHOR",
+     "crash": true,
+     "lanes": {
+      "K": "........xxxxxxxx",
+      "S": "........x...x..."
+     }
+    },
+    {
+     "screen": "Hat1",
+     "name": "Hats only 1",
+     "w": 12,
+     "replace": "KSHORTL",
+     "lanes": {
+      "H": "............xxxx"
+     }
+    },
+    {
+     "screen": "Hat2",
+     "name": "Hats only 2",
+     "w": 8,
+     "replace": "KSHORTL",
+     "lanes": {
+      "H": "........xxxxxxxx"
+     }
+    },
+    {
+     "screen": "Hat4",
+     "name": "Hats only 4",
+     "w": 0,
+     "replace": "KSHORTL",
+     "lanes": {
+      "H": "xxxxxxxxxxxxxxxx"
+     }
+    },
+    {
+     "screen": "Dk1",
+     "name": "Kick drop 1",
+     "w": 12,
+     "replace": "SHORTL",
+     "lanes": {
+      "K": "............x..."
+     }
+    },
+    {
+     "screen": "Dk2",
+     "name": "Kick drop 2",
+     "w": 8,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "........x...x..."
+     }
+    },
+    {
+     "screen": "Dk4",
+     "name": "Kick drop 4",
+     "w": 0,
+     "replace": "SHORTL",
+     "crash": true,
+     "lanes": {
+      "K": "x...x...x...x..."
+     }
+    },
+    {
+     "screen": "Dh1",
+     "name": "Snare drop 1",
+     "w": 12,
+     "replace": "S",
+     "lanes": {}
+    },
+    {
+     "screen": "Dh2",
+     "name": "Snare drop 2",
+     "w": 8,
+     "replace": "S",
+     "crash": true,
+     "lanes": {}
+    },
+    {
+     "screen": "Dh4",
+     "name": "Snare drop 4",
+     "w": 0,
+     "replace": "S",
+     "crash": true,
+     "lanes": {}
+    }
+   ]
+  },
+  {
+   "group": "Groove changes",
+   "entries": [
+    {
+     "screen": "Rd2",
+     "name": "Ride swap 2",
+     "w": 8,
+     "replace": "HOR",
+     "lanes": {
+      "R": "........x.x.x.x."
+     }
+    },
+    {
+     "screen": "Rd4",
+     "name": "Ride swap 4",
+     "w": 0,
+     "replace": "HOR",
+     "lanes": {
+      "R": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "RdBld",
+     "name": "Ride build (8ths, then 16ths + kick)",
+     "w": 8,
+     "replace": "KHORA",
+     "crash": true,
+     "lanes": {
+      "K": "........x...x.xx",
+      "R": "........x.x.xxxx",
+      "A": "........x...x.x."
+     }
+    },
+    {
+     "screen": "Ht2",
+     "name": "Half time 2",
+     "w": 8,
+     "replace": "KSHO",
+     "lanes": {
+      "K": "........x.......",
+      "S": "............x...",
+      "H": "........x.x.x.x."
+     }
+    },
+    {
+     "screen": "Ht4",
+     "name": "Half time 4",
+     "w": 0,
+     "replace": "KSHO",
+     "lanes": {
+      "K": "x...............",
+      "S": "........x.......",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Dt2",
+     "name": "Double time 2",
+     "w": 8,
+     "replace": "KSHO",
+     "lanes": {
+      "K": "........x...x...",
+      "S": "..........x...x.",
+      "H": "........x.x.x.x."
+     }
+    },
+    {
+     "screen": "Dt4",
+     "name": "Double time 4",
+     "w": 0,
+     "replace": "KSHO",
+     "lanes": {
+      "K": "x...x...x...x...",
+      "S": "..x...x...x...x.",
+      "H": "x.x.x.x.x.x.x.x."
+     }
+    },
+    {
+     "screen": "Push",
+     "name": "Push (kick + crash on 4-and)",
+     "w": 14,
+     "replace": "KSHOR",
+     "lanes": {
+      "K": "..............x.",
+      "C": "..............x."
+     }
+    },
+    {
+     "screen": "Stph",
+     "name": "Stop h",
+     "w": 14,
+     "replace": "KSHORCTL",
+     "lanes": {
+      "K": "..............x.",
+      "C": "..............x."
+     }
+    },
+    {
+     "screen": "Stp1",
+     "name": "Stop 1",
+     "w": 12,
+     "replace": "KSHORCTL",
+     "norandom": true,
+     "lanes": {
+      "K": "............x...",
+      "C": "............x..."
+     }
+    },
+    {
+     "screen": "Stp2",
+     "name": "Stop 2",
+     "w": 8,
+     "replace": "KSHORCTL",
+     "norandom": true,
+     "lanes": {
+      "K": "........x.......",
+      "C": "........x......."
+     }
+    },
+    {
+     "screen": "Stp4",
+     "name": "Stop 4",
+     "w": 0,
+     "replace": "KSHORCTL",
+     "norandom": true,
+     "lanes": {
+      "K": "x...............",
+      "C": "x..............."
+     }
+    },
+    {
+     "screen": "Brkh",
+     "name": "Break h",
+     "w": 14,
+     "replace": "KSHORCTL",
+     "norandom": true,
+     "lanes": {}
+    },
+    {
+     "screen": "Brk1",
+     "name": "Break 1",
+     "w": 12,
+     "replace": "KSHORCTL",
+     "crash": true,
+     "norandom": true,
+     "lanes": {}
+    },
+    {
+     "screen": "Brk2",
+     "name": "Break 2",
+     "w": 8,
+     "replace": "KSHORCTL",
+     "crash": true,
+     "norandom": true,
+     "lanes": {}
+    },
+    {
+     "screen": "Brk4",
+     "name": "Break 4",
+     "w": 0,
+     "replace": "KSHORCTL",
+     "crash": true,
+     "norandom": true,
+     "lanes": {}
+    },
+    {
+     "screen": "BP1",
+     "name": "Break + pickup 1",
+     "w": 12,
+     "replace": "KSHORCTL",
+     "crash": true,
+     "norandom": true,
+     "lanes": {
+      "S": "..............xx"
+     }
+    },
+    {
+     "screen": "BP2",
+     "name": "Break + pickup 2",
+     "w": 8,
+     "replace": "KSHORCTL",
+     "crash": true,
+     "norandom": true,
+     "lanes": {
+      "S": "..............xx"
+     }
+    },
+    {
+     "screen": "BP4",
+     "name": "Break + pickup 4",
+     "w": 0,
+     "replace": "KSHORCTL",
+     "crash": true,
+     "norandom": true,
+     "lanes": {
+      "S": "..............xx"
+     }
+    }
+   ]
+  }
+ ]
+}

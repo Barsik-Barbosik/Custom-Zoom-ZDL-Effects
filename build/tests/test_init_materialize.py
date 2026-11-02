@@ -71,6 +71,25 @@ class InitCalls(unittest.TestCase):
             with self.assertRaises(ValueError):
                 linker._init_materialize_body(targets, base)
 
+    def test_loop_block(self):
+        def addk(blk, off):
+            v = (struct.unpack_from('<I', blk, off)[0] >> 7) & 0xFFFF
+            return v - 0x10000 if v & 0x8000 else v
+        blk = linker._init_loop_block(0x3340, 0x2F20, 96, 7)
+        self.assertEqual(len(blk), len(linker._INIT_LOOP))
+        self.assertEqual(addk(blk, linker._INIT_LOOP_FIRST_OFF), 0x2F20 - 0x3340)
+        self.assertEqual(addk(blk, linker._INIT_LOOP_STRIDE_OFF), 96)
+        self.assertEqual(addk(blk, linker._INIT_LOOP_END_OFF), 0x2F20 + 7 * 96 - 0x3340)
+        body = linker._init_materialize_body([0x2E40, 0x2E8C], 0x31E0, 56,
+                                             (0x2F20, 96, 7))
+        lp = len(linker._INIT_MAT_PROLOGUE) + len(linker._INIT_SETUP) + 2 * linker._INIT_MAT_STRIDE
+        self.assertEqual(body[lp:lp + len(blk)], blk)
+        self.assertEqual(body[lp + len(blk):], linker._INIT_MAT_EPILOGUE)
+        for bad in [(0x3341, 0x2F20, 96, 7), (0x3340, 0x2F22, 96, 7),
+                    (0x3340, 0x2F20, 0, 7), (0x3340, 0x100000, 96, 7)]:
+            with self.assertRaises(ValueError):
+                linker._init_loop_block(*bad)
+
 
 if __name__ == '__main__':
     unittest.main()

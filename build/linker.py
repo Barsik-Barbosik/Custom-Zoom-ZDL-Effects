@@ -20,6 +20,11 @@ means byte-identical output to repeat98's):
     calls ctx[34](params, zeros, 4 * (5 + knobs)) as every stock _init does
     (_INIT_SETUP, from init_param_setup.asm). Required on the G1Xon: without
     it the handler calls froze the pedal or left the knobs dead.
+  * LinkerConfig.init_extra_calls: names of `.obj` functions the
+    materializing _init calls after the knob handlers (same call block).
+  * Param.store (manifest "store": true): a knob the DSP never reads through
+    params[] (it reads the patch column itself), so its cloned handler keeps
+    LineSel's 0..150 law and any max is allowed (stock knobs go up to 4022).
   * LinkerConfig.knob_bitmap = (width, height, frames, data): the effect's
     own knob graphic, as stock Ice Delay / Corona Tri do. The knob info in
     .fardata becomes {w, h, frames, 0, 255, -> bitmap} (ABS32 .rela.dyn on
@@ -36,7 +41,8 @@ means byte-identical output to repeat98's):
     only, the address is wrong once the pedal places .const.
   * An .obj may declare `extern unsigned int _<audio>_Info[]`: it resolves
     to effectTypeImageInfo (from themanro's linker), for effects that point
-    the cover pointer (word 5) at pictures they draw.
+    the cover pointer (word 5) at pictures they draw. Likewise
+    `_<audio>_Desc[]` resolves to the descriptor table.
   * LinkerConfig.drop_unused_divf: leaves the 640-byte __c6xabi_divf RTS
     out of .text when the .obj doesn't reference it. Nothing else branches
     into it (the handler blob carries its own RTS helpers).
@@ -56,6 +62,19 @@ means byte-identical output to repeat98's):
     patch and refuses a chain past its budget (G1on OS: 210; MS-70CDR
     ~228). 20.0 is the default placeholder; a heavy effect declaring 20
     lets the pedal build chains that crackle.
+  * LinkerConfig.compact_edit_stubs (needs synthesize + compact clones +
+    trim, synth_edit_start_index 0): one shared copy of LineSel's knob1
+    handler that takes the knob id in B4 and the params[] offset in B7, and
+    a 16-byte entry stub per knob; a lone NOP_RETURN (8 B) goes into the
+    stubs' padding. Floppy: 9 handlers 992 -> 416 B. Untested on hardware.
+  * LinkerConfig.drop_ti_abs_symbols / dynamic_entries: leave out the four
+    SHN_ABS __TI_* dynsyms and the DT_NULL padding of .dynamic (17 entries
+    instead of Exciter's 21). Untested on hardware.
+  * LinkerConfig.init_call_loop (with materialize_init + compact clones):
+    the _init calls the cloned knob handlers (a run at a fixed stride) from
+    one 160-B loop block (_INIT_LOOP, source build/init_call_loop.asm)
+    instead of one 64-B call block each: DrumBox 9 knobs 864 -> 576 B.
+    Untested on hardware.
 
 This is a near-verbatim port of v1's `airwindowsZoom/build/link_zdl.py`,
 parameterised so the same code can build any plugin instead of being
@@ -224,6 +243,7 @@ class Param:
     audio_default: Optional[float] = None
     labels: list[str] = field(default_factory=list)
     getstr: str = ""     # .text value-to-string function name (descriptor +0x24)
+    store: bool = False  # params[] unused: any max, cloned handler keeps the 0..150 law
 
     @classmethod
     def from_manifest(cls, raw: dict) -> "Param":
@@ -248,6 +268,7 @@ class Param:
             audio_default=None if audio_default is None else float(audio_default),
             labels=list(raw.get("labels", [])),
             getstr=str(raw.get("getstr", "")),
+            store=bool(raw.get("store", False)),
         )
 
     @property
@@ -388,6 +409,17 @@ class LinkerConfig:
     compact_linesel_clones: bool = False
     # LineSel blob without its unused parts (needs compact_linesel_clones).
     trim_linesel_blob: bool = False
+    # Edit stubs (needs synthesize + compact clones + trim, synth start 0):
+    # one shared copy of LineSel's knob1 handler that takes the knob id in
+    # B4 and the params[] byte offset in B7, plus a 16-byte entry stub per
+    # knob (B body; MVK id,B4; MVK off,B7; NOP 3). See _EDIT_STUB_*.
+    compact_edit_stubs: bool = False
+    # Leave out the four SHN_ABS bookkeeping dynsyms (__TI_STATIC_BASE,
+    # __TI_pprof_out_hndl, __TI_prof_data_size, __TI_prof_data_start) that
+    # stock files carry. Untested on hardware.
+    drop_ti_abs_symbols: bool = False
+    # .dynamic entries (16 used + DT_NULL padding); 21 = Exciter's shape.
+    dynamic_entries: int = 21
     # DSP cost at the name entry's +0x28 (firmware budget per patch).
     dsp_cost: float = 20.0
 
@@ -399,6 +431,13 @@ class LinkerConfig:
     # like every stock _init (_INIT_SETUP). Required on the G1Xon, where the
     # handler calls without it freeze or leave knobs dead.
     init_param_setup: bool = False
+    # With materialize_init: .obj functions (`void f(void)`, in .text) the
+    # _init also calls, after the knob handlers, in the same guarded block.
+    init_extra_calls: list[str] = field(default_factory=list)
+    # With materialize_init and compact_linesel_clones: call the cloned knob
+    # handlers (a run at a fixed stride) from one loop block (_INIT_LOOP,
+    # 160 B) instead of one 64-B call block each (knobs 3..9: -288 B).
+    init_call_loop: bool = False
 
     def __post_init__(self) -> None:
         if self.audio_func_name is None:
@@ -873,6 +912,35 @@ _TRIM_STUB = 0x100
 _TRIM_CALLPS = (0x0C, 0x6C, 0x78, 0xB8, 0xC8)
 
 
+# compact_edit_stubs: the blob keeps onf + knob1 (+0x000..+0x0BF) and
+# call_stub (moved to +0x0C0). knob1 becomes the shared body: its
+# MVK.L2 <id>,B4 (+0x10) turns into MV.L2 B4,B4 and its MVK.S1 <off>,A4
+# (+0x44) into MV.L1X B7,A4 (compact encodings from asm6x 8.3.15). B4 and
+# B7 come from the stub; call_stub saves and restores B5:B4 / B7:B6 around
+# both host calls, and the body never writes B7.
+_EDIT_STUB_KEEP = ((0x000, 0x0C0), (0x140, 0x180))
+_EDIT_STUB_CALL = 0x0C0
+_EDIT_STUB_CALLPS = (0x0C, 0x6C, 0x78, 0xB8)   # 0xB8: knob2's dead head, aimed anyway
+_EDIT_STUB_BODY = 0x060
+_EDIT_STUB_ID_PATCH = (0x10, 0x4627, 0x8247)     # (body offset, LineSel knob1, new)
+_EDIT_STUB_OFF_PATCH = (0x44, 0x9212, 0x93C6)
+_EDIT_STUB_SIZE = 16
+
+
+def _edit_stub(stub_va: int, body_va: int, knob_id: int, param_off: int) -> bytes:
+    """B.S2 body; MVK.S2 knob_id,B4; MVK.S2 param_off,B7; NOP 3 (plain
+    32-bit words, no compact header in the stub packets)."""
+    disp = body_va - (stub_va & ~31)
+    if disp % 4 or not -(1 << 22) <= disp < (1 << 22):
+        raise ValueError(f"edit stub branch out of range: {disp}")
+    mvk_s2 = lambda c, d: (d << 23) | ((c & 0xFFFF) << 7) | (0b01010 << 2) | 0b10
+    return struct.pack('<4I',
+                       (((disp >> 2) & 0x1FFFFF) << 7) | 0x12,   # B.S2 body
+                       mvk_s2(knob_id, 4),                        # MVK.S2 id,B4
+                       mvk_s2(param_off, 7),                      # MVK.S2 off,B7
+                       0x00004000)                                # NOP 3
+
+
 def _aim_callp(buf: bytearray, off: int, va: int, target_va: int) -> None:
     """Re-encode the CALLP.S2 at buf[off] (at address va) to call target_va:
     cst21 (bits 7..27) = words from the instruction's fetch packet."""
@@ -962,10 +1030,49 @@ def _init_setup_block(nbytes: int) -> bytes:
     return bytes(blk)
 
 
+# Loop block (LinkerConfig.init_call_loop): calls `count` handlers at
+# first, first + stride, ... with the call block's guard and ctx reload; the
+# next handler address is kept in the frame word *+B15[3]. TI-assembled from
+# build/init_call_loop.asm; do not hand-edit. ADDK constants patched: FIRST
+# (first handler - block start), STRIDE, END (first + count * stride - block
+# start), all PC-relative from the block's own ADDKPC.
+_INIT_LOOP = bytes.fromhex(
+    "62010002d2880802f6623c020080000000000000000000000000000000000000e4423c0200600000"
+    "64e29300e6623c020060000012100090008000006203100062018801006000000000000000000000"
+    "00000000000000000000000000000000e6623c020060000052111102f6623c026201e802d2999902"
+    "fa8a140012f8ff2f0080000000000000000000000000000000000000000000000000000000000000")
+_INIT_LOOP_FIRST_OFF = 0x04
+_INIT_LOOP_STRIDE_OFF = 0x68
+_INIT_LOOP_END_OFF = 0x74
+
+
+def _patch_addk(blk: bytearray, off: int, placeholder: int, value: int) -> None:
+    word = struct.unpack_from('<I', blk, off)[0]
+    if (word & 0x7C) != 0x50 or (word >> 7) & 0xFFFF != placeholder:
+        raise ValueError(f"init loop template: no ADDK {placeholder:#x} at +{off:#x}")
+    if not -0x8000 <= value < 0x8000:
+        raise ValueError(f"init loop: ADDK constant {value} out of 16-bit range")
+    struct.pack_into('<I', blk, off, (word & ~(0xFFFF << 7)) | ((value & 0xFFFF) << 7))
+
+
+def _init_loop_block(block_va: int, first_va: int, stride: int, count: int) -> bytes:
+    """_INIT_LOOP placed at block_va, calling count handlers from first_va."""
+    if block_va % 32 or first_va % 4 or stride % 4 or stride <= 0 or count < 1:
+        raise ValueError("init loop: unaligned block / handler or bad stride")
+    blk = bytearray(_INIT_LOOP)
+    _patch_addk(blk, _INIT_LOOP_FIRST_OFF, 0x1111, first_va - block_va)
+    _patch_addk(blk, _INIT_LOOP_STRIDE_OFF, 0x2222, stride)
+    _patch_addk(blk, _INIT_LOOP_END_OFF, 0x3333, first_va + count * stride - block_va)
+    return bytes(blk)
+
+
 def _init_materialize_body(handler_vas: list[int], init_va: int,
-                           setup_bytes: int = 0) -> bytes:
+                           setup_bytes: int = 0,
+                           loop: tuple[int, int, int] | None = None) -> bytes:
     """Emit calls that remain valid when the loader rebases the text segment.
-    setup_bytes > 0 adds the ctx[34](params, zeros, setup_bytes) block first."""
+    setup_bytes > 0 adds the ctx[34](params, zeros, setup_bytes) block first.
+    loop = (first_va, stride, count) adds one loop block after the single
+    call blocks (LinkerConfig.init_call_loop)."""
     if init_va % 32:
         raise ValueError("materializing init must be fetch-packet aligned")
     out = bytearray(_INIT_MAT_PROLOGUE)
@@ -978,6 +1085,8 @@ def _init_materialize_body(handler_vas: list[int], init_va: int,
             raise ValueError("unaligned materializing init branch/handler")
         _patch_pcr_s21(blk, _INIT_MAT_BRANCH_OFF, va, branch_va)
         out += blk
+    if loop is not None:
+        out += _init_loop_block(init_va + len(out), *loop)
     out += _INIT_MAT_EPILOGUE
     return bytes(out)
 
@@ -1098,13 +1207,23 @@ def link(cfg: LinkerConfig) -> None:
                 raise ValueError("trim_linesel_blob expects LineSel's 480-byte blob")
             # Compact clones slice +0x60..+0xBF, kept as is (their CALLPs
             # are re-aimed again where they are placed).
-            trimmed = bytearray(b"".join(handler_blob[a:b] for a, b in _TRIM_KEEP))
-            for o in _TRIM_CALLPS:
-                _aim_callp(trimmed, o, o, _TRIM_STUB)
+            keep, callps, stub = ((_EDIT_STUB_KEEP, _EDIT_STUB_CALLPS, _EDIT_STUB_CALL)
+                                  if cfg.compact_edit_stubs else
+                                  (_TRIM_KEEP, _TRIM_CALLPS, _TRIM_STUB))
+            trimmed = bytearray(b"".join(handler_blob[a:b] for a, b in keep))
+            for o in callps:
+                _aim_callp(trimmed, o, o, stub)
+            if cfg.compact_edit_stubs:
+                for rel, old, new in (_EDIT_STUB_ID_PATCH, _EDIT_STUB_OFF_PATCH):
+                    o = _EDIT_STUB_BODY + rel
+                    if _u16(trimmed, o) != old:
+                        raise ValueError(f"edit stub body: 0x{_u16(trimmed, o):04X} at +0x{o:X}")
+                    _p16(trimmed, o, new)
             handler_blob = bytes(trimmed)
             handler_funcs = {k: v for k, v in handler_funcs.items()
-                             if k in ("onf", "knob1_edit", "knob2_edit")}
-            handler_funcs["call_stub"] = _TRIM_STUB
+                             if k in (("onf",) if cfg.compact_edit_stubs else
+                                      ("onf", "knob1_edit", "knob2_edit"))}
+            handler_funcs["call_stub"] = stub
             print(f"  handlers trimmed to {len(handler_blob)} bytes")
 
     # ----- Build LineSel-cloned synthetic edit handlers -----
@@ -1117,14 +1236,26 @@ def link(cfg: LinkerConfig) -> None:
         for i in range(len(cfg.params)):
             if i >= cfg.synth_edit_start_index:
                 synth_specs.append((i, i + 2, 20 + i * 4))
-            elif cfg.params[i].max_val > _LINESEL_RANGE_MAX:
+            elif cfg.params[i].max_val > _LINESEL_RANGE_MAX and not cfg.params[i].store:
                 raise ValueError(f"param {i} max {cfg.params[i].max_val} > "
                                  f"{_LINESEL_RANGE_MAX} needs a synthesized handler "
                                  f"(synth_edit_start_index <= {i})")
-        if synth_specs:
+        if synth_specs and cfg.compact_edit_stubs:
+            if not (cfg.trim_linesel_blob and cfg.synth_edit_start_index == 0):
+                raise ValueError("compact_edit_stubs needs trim_linesel_blob and "
+                                 "synth_edit_start_index 0")
+            for i, _k, _o in synth_specs:
+                if cfg.params[i].max_val > _LINESEL_RANGE_MAX and not cfg.params[i].store:
+                    raise ValueError(f"compact_edit_stubs: param {i} needs its own range law")
+            # Placeholder; the stubs are written once their VAs are known.
+            synth_handler_blob = bytes(_align_up(_EDIT_STUB_SIZE * len(synth_specs), 32))
+            print(f"  synth:   {len(synth_specs)} edit stub(s) -> shared knob1 body "
+                  f"({len(synth_handler_blob)} bytes)")
+        elif synth_specs:
             synth_parts = [
                 _patch_linesel_knob_clone(handler_blob, knob_id, param_off,
-                                          cfg.params[i].max_val)
+                                          _LINESEL_RANGE_MAX if cfg.params[i].store
+                                          else cfg.params[i].max_val)
                 for i, knob_id, param_off in synth_specs
             ]
             if cfg.compact_linesel_clones:
@@ -1225,12 +1356,32 @@ def link(cfg: LinkerConfig) -> None:
     NOP_RET_OFF       = _align_up(DIVF_OFF + DIVF_SIZE, 32)
     NOP_RET_STUB_SIZE = 32
     NOP_RET_SIZE      = NOP_RET_STUB_SIZE * NOP_RETURN_COUNT
+    INIT_MAT_OFF      = NOP_RET_OFF + NOP_RET_SIZE
+    # compact_edit_stubs: a single NOP_RETURN (B B3; NOP 5, 8 bytes) fits in
+    # the stub packets' padding instead of its own 32-byte packet.
+    stubs_end = SYNTH_OFF + _EDIT_STUB_SIZE * len(synth_specs)
+    if (cfg.compact_edit_stubs and synth_specs and NOP_RETURN_COUNT == 1
+            and SYNTH_OFF + SYNTH_SIZE - stubs_end >= 8):
+        INIT_MAT_OFF      = NOP_RET_OFF
+        NOP_RET_OFF       = stubs_end
+        NOP_RET_STUB_SIZE = 8
+        NOP_RET_SIZE      = 8
     # Reserved before the handler VAs are known (size depends only on the
     # knob count); the body is written once the VAs exist.
-    INIT_MAT_OFF      = NOP_RET_OFF + NOP_RET_SIZE
+    # init_call_loop: the cloned handlers (compact clones, knobs
+    # synth_edit_start_index..) from one loop block (needs 2+ of them)
+    use_init_loop = (cfg.materialize_init and cfg.init_call_loop
+                     and cfg.compact_linesel_clones and cfg.synthesize_linesel_edit_handlers
+                     and len(cfg.params) - cfg.synth_edit_start_index >= 2)
+    if cfg.init_call_loop and not use_init_loop:
+        raise ValueError("init_call_loop needs materialize_init, compact_linesel_clones "
+                         "and 2+ synthesized knob handlers")
     INIT_MAT_SIZE     = (len(_INIT_MAT_PROLOGUE)
                          + (len(_INIT_SETUP) if cfg.init_param_setup else 0)
-                         + _INIT_MAT_STRIDE * len(cfg.params)
+                         + (_INIT_MAT_STRIDE * (min(cfg.synth_edit_start_index, len(cfg.params))
+                                                + len(cfg.init_extra_calls)) + len(_INIT_LOOP)
+                            if use_init_loop else
+                            _INIT_MAT_STRIDE * (len(cfg.params) + len(cfg.init_extra_calls)))
                          + len(_INIT_MAT_EPILOGUE)
                          if cfg.materialize_init else 0)
     DLL_OFF           = INIT_MAT_OFF + INIT_MAT_SIZE
@@ -1262,7 +1413,13 @@ def link(cfg: LinkerConfig) -> None:
         out_text[HANDLER_OFF:HANDLER_OFF + HANDLER_SIZE] = handler_blob
     if SYNTH_SIZE:
         out_text[SYNTH_OFF:SYNTH_OFF + SYNTH_SIZE] = synth_handler_blob
-        if cfg.compact_linesel_clones:
+        if cfg.compact_edit_stubs:
+            body_va = TEXT_VA + HANDLER_OFF + _EDIT_STUB_BODY
+            for k, (_i, knob_id, param_off) in enumerate(synth_specs):
+                o = SYNTH_OFF + k * _EDIT_STUB_SIZE
+                out_text[o:o + _EDIT_STUB_SIZE] = _edit_stub(TEXT_VA + o, body_va,
+                                                             knob_id, param_off)
+        elif cfg.compact_linesel_clones:
             stub_off = HANDLER_OFF + handler_funcs["call_stub"]
             for k in range(len(synth_specs)):
                 for c in _CLONE_CALLPS:
@@ -1276,7 +1433,7 @@ def link(cfg: LinkerConfig) -> None:
     # VAs so different roles using NOP_RETURN don't collide in va_to_idx).
     for k in range(NOP_RETURN_COUNT):
         stub_off = NOP_RET_OFF + k * NOP_RET_STUB_SIZE
-        out_text[stub_off:stub_off + NOP_RET_STUB_SIZE] = _NOP_RETURN
+        out_text[stub_off:stub_off + NOP_RET_STUB_SIZE] = _NOP_RETURN[:NOP_RET_STUB_SIZE]
     out_text[DLL_OFF:DLL_OFF + DLL_SIZE] = _build_dll(2 + len(cfg.params))
 
     # Resolve handler VAs (one per logical name)
@@ -1286,6 +1443,8 @@ def link(cfg: LinkerConfig) -> None:
     if synth_specs:
         for clone_idx, (param_idx, _knob_id, _param_off) in enumerate(synth_specs):
             synth_handler_vas_by_param[param_idx] = (
+                TEXT_VA + SYNTH_OFF + clone_idx * _EDIT_STUB_SIZE
+                if cfg.compact_edit_stubs else
                 TEXT_VA + SYNTH_OFF + (clone_idx * _CLONE_SIZE
                                        if cfg.compact_linesel_clones else
                                        clone_idx * len(handler_blob) + 0x60)
@@ -1384,16 +1543,36 @@ def link(cfg: LinkerConfig) -> None:
         if _max is not None:
             call_vas = call_vas[:int(_max)]
             print(f"  init:    BISECT -- capped to {int(_max)} handler call(s)")
+        for name in cfg.init_extra_calls:
+            va = obj_symbol_va.get(name)
+            if va is None:
+                raise ValueError(f"init_extra_calls: {name!r} not found in the .obj")
+            print(f"  init:    + call {name} @ 0x{va:04X} after the handlers")
+            call_vas.append(va)
         setup_bytes = 4 * (5 + len(cfg.params)) if cfg.init_param_setup else 0
         if setup_bytes:
             print(f"  init:    ctx[34](params, zeros, {setup_bytes}) before the handler calls")
-        body = _init_materialize_body(call_vas, TEXT_VA + INIT_MAT_OFF, setup_bytes)
+        loop = None
+        if use_init_loop:
+            # the cloned handlers (knobs synth_edit_start_index..): one run at
+            # a fixed stride, called from the loop block after the others
+            k0 = cfg.synth_edit_start_index
+            run = knob_edit_vas[k0:]
+            stride = run[1] - run[0]
+            if (_max is not None or call_vas[:len(knob_edit_vas)] != knob_edit_vas
+                    or any(b - a != stride for a, b in zip(run, run[1:]))):
+                raise RuntimeError("init_call_loop: cloned handlers not one fixed-stride run")
+            call_vas = call_vas[:k0] + call_vas[len(knob_edit_vas):]
+            loop = (run[0], stride, len(run))
+            print(f"  init:    loop over {len(run)} cloned handler(s) @ 0x{run[0]:04X}, "
+                  f"stride {stride}")
+        body = _init_materialize_body(call_vas, TEXT_VA + INIT_MAT_OFF, setup_bytes, loop)
         if len(body) > INIT_MAT_SIZE:
             raise RuntimeError(
                 f"materialize_init body {len(body)}B exceeds reserved {INIT_MAT_SIZE}B")
         out_text[INIT_MAT_OFF:INIT_MAT_OFF + len(body)] = body
         init_va = TEXT_VA + INIT_MAT_OFF
-        print(f"  init:    materializing {len(call_vas)} param(s) at load "
+        print(f"  init:    materializing {len(call_vas) + (loop[2] if loop else 0)} param(s) at load "
               f"(_init @ 0x{init_va:08X}, {len(body)}B)")
 
     getstr_vas: list[int] = []
@@ -1581,6 +1760,11 @@ def link(cfg: LinkerConfig) -> None:
     info_sym_name = f"_{cfg.audio_func_name}_Info"
     if info_sym_name in undefined:
         sym_addr[undefined[info_sym_name]] = INFO_VA
+    # Descriptor table (0x30-byte entries: OnOff, name, knob 1..n), for
+    # effects that rewrite a knob's name at run time.
+    desc_sym_name = f"_{cfg.audio_func_name}_Desc"
+    if desc_sym_name in undefined:
+        sym_addr[undefined[desc_sym_name]] = DESC_VA
 
     # Compiler-emitted register save/restore helpers — resolve to the
     # spliced LineSel copies if present.  Without these, any moderately
@@ -1757,7 +1941,8 @@ def link(cfg: LinkerConfig) -> None:
 
     # 3. Profiling/static-base locals (SHN_ABS)
     SHN_ABS = 0xFFF1
-    for sn in ('__TI_STATIC_BASE', '__TI_pprof_out_hndl', '__TI_prof_data_size', '__TI_prof_data_start'):
+    for sn in (() if cfg.drop_ti_abs_symbols else
+               ('__TI_STATIC_BASE', '__TI_pprof_out_hndl', '__TI_prof_data_size', '__TI_prof_data_start')):
         val = 0xFFFFFFFF if 'pprof' in sn or 'prof_data' in sn else 0
         shndx = SHN_ABS if val == 0xFFFFFFFF else 0
         # These ABI bookkeeping symbols are not relocation targets for our
@@ -1841,7 +2026,9 @@ def link(cfg: LinkerConfig) -> None:
     fardata_file_off = _align_up(cur, 4);              cur = fardata_file_off + len(fardata_data)
     rela_dyn_file_off = _align_up(cur, 4);             cur = rela_dyn_file_off + len(rela_dyn_data)
     rela_plt_file_off = cur                            # empty
-    dynamic_size = 21 * 8                              # match Exciter
+    if cfg.dynamic_entries < 17:
+        raise ValueError("dynamic_entries: 16 tags + DT_NULL need 17")
+    dynamic_size = cfg.dynamic_entries * 8             # 21 = match Exciter
     dynamic_file_off = _align_up(cur, 4);              cur = dynamic_file_off + dynamic_size
     dynsym_file_off = _align_up(cur, 4);               cur = dynsym_file_off + len(dynsym_data)
     dynstr_file_off = _align_up(cur, 4);               cur = dynstr_file_off + len(dynstr_data)

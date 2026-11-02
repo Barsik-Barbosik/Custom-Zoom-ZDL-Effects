@@ -345,8 +345,8 @@ def render(beat_a, fill_a, bars_a, beat_b, fill_b, bars_b, bpm, level_n, bars, k
     count = [0] * len(PLANES)               # count-in bar: closed hat quarters, beat 1 accented
     count[SOUND_LANES[2]], count[ACCENT] = 0x1111, 1
     n_out, end = 0, 0
-    counting = True                         # count-in bars until the kit is ready
-    count_n = -1                            # countN: count-in bars played - 1
+    counting = True                         # until the song's first bar
+    count_n = 2 if cache.r_lane < len(SOUND_LANES) else 0   # countN: count-in bars left (2 while the kit renders)
     while counting or n_out < end:
         if n_out % 8 == 0:                  # each audio call: render, then 8 samples
             cache.render_n()
@@ -355,9 +355,9 @@ def render(beat_a, fill_a, bars_a, beat_b, fill_b, bars_b, bpm, level_n, bars, k
         if phase >= length:
             phase -= length
             step = (step + 1) & 15
-            if step == 0 and (cache.r_lane < len(SOUND_LANES) or (count_n > 1 and not count_n & 1)):
-                masks = count               # count-in bar: kit still rendering, or 1 / even bars
-                count_n += 1
+            if step == 0 and count_n > 0:
+                masks = count               # count-in bar (lanes still rendering join the song later)
+                count_n -= 1
             elif step == 0:
                 if counting:                # the song starts: --bars from here
                     counting, end = False, n_out + total

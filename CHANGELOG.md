@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Count-in is always 2 bars, and only when the song starts while the kit is
+  still rendering. A Kit change no longer stops the song: the beat goes on
+  and the new drums come in as they are ready.
+- Beats and fills are kept in `drumbox/patterns.json` (data for a future
+  editor) instead of Python code; the built effect is unchanged by this.
+- Smaller knob setup code at load (-288 B), still 8 flash blocks.
+
 ## 1.0.1 (2026-10-26)
 
 - Fixed: replacing DrumBox with a delay played about 1 s of loud noise.

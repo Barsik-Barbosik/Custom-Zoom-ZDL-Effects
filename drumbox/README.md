@@ -29,7 +29,7 @@ started and stopped with the footswitch.
 ## Install
 
 `DrumBox.ZDL` (from the [Releases](../../../releases) page or
-`../dist/`) needs 8 free flash blocks (32,714 B). Install it as described
+`../dist/`) needs 8 free flash blocks (32,634 B). Install it as described
 in the [main README](../README.md#install). It is in the **SFX** category
 (gid 7, fxid 520 = 0x208). Pedals it was tested on: see the
 [main README](../README.md#pedals).
@@ -72,7 +72,7 @@ How the knobs work inside:
 
 - The DSP gets raw = knob value / 100, whatever the knob's max, so each
   beat, fill, length and kit gets exactly one knob step. `build.py` sets
-  the knob maxes from `patterns.py` and `kits.py`.
+  the knob maxes from `patterns.json` and `kits.py`.
 - All knobs but Volume show text through display callbacks (`"getstr"` in
   the manifest → `GetString_Db*` in `drumbox.c`; the two beat, fill and
   length knobs share one callback each).
@@ -619,10 +619,12 @@ sampled drums, synth hats and cymbals). Ac1..Ac8 ride `ride` and crash
 
 **Kit cache:** when the kit changes, each lane's drum is rendered once
 into a cache in the effect's memory (~700 KB). Rendering runs in the
-background and takes a few seconds. The closed hi-hat renders first and
-counts quarter notes (beat 1 accented) while the other drums render; the
-song starts (at beat 1) on the next bar line once the kit is ready, after
-1 count bar or an even number of them.
+background and takes a few seconds. When the song starts while the kit is
+still rendering (DrumBox added, a patch loaded), the closed hi-hat renders
+first and plays 2 count-in bars of quarter notes (beat 1 accented); then
+the song starts at beat 1, and drums that are still rendering join as soon
+as they are ready. A Kit change while the song plays doesn't stop it: the
+beat goes on and the new kit's drums come in one by one.
 
 The cache stays in the slot's memory after DrumBox is replaced, and the
 next effect gets it as it is. A delay uses that memory as its delay line
@@ -685,7 +687,8 @@ toms) and `synth_cymbal` (hats, rides, crashes).
 | File | Purpose |
 |---|---|
 | `manifest.json` | Effect metadata and knobs → `drumbox_params.h` |
-| `patterns.py` | Beats and fills as `x...x...` strings → `drumbox_patterns.h` |
+| `patterns.json` | Beats and fills as `x...x...` lanes (format described in `patterns.py`) |
+| `patterns.py` | Reads and checks `patterns.json` → `drumbox_patterns.h`; lengths, swing amounts |
 | `drums/` | The drum palette, one file per drum |
 | `kits.py` | Loads `drums/`, the kits and their names → `drumbox_kits.h` (tables) and `drumbox_synth.h` (synth drum code) |
 | `synth_lib.py` | Python mirrors of the DSP helpers the synth drums use |
@@ -711,6 +714,7 @@ python -B build.py                     # full build -> ../dist/DrumBox.ZDL
 python -B build.py --out PATH          # write the ZDL elsewhere
 python -B build.py --gid 7 --out PATH  # another category (testing)
 python -B build.py --no-init           # without _init: saved knob values load only when touched (testing)
+python -B build.py --no-follow         # without follow mode (knobs driven by another effect in the chain)
 ```
 
 Preview on the desktop (WAVs in `preview/`):
@@ -725,7 +729,7 @@ python -B preview.py --beat-a Rock --len-a 2Bar --len-b 1Bar --bars 12
 
 After building, check the linker log:
 
-- `.fardata: 0 bytes`;
+- `.fardata: 4 bytes` (0 with `--no-follow`);
 - `Applied N .obj relocations (N absolute, each with a .rela.dyn entry)`,
   both numbers equal (the tables in `.const`; the pedal fixes their
   addresses at load);

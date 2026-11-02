@@ -65,11 +65,62 @@ DB_EXPAND_PRAGMA(CODE_SECTION(GetString_DbBeat, ".text"))
 DB_EXPAND_PRAGMA(CODE_SECTION(GetString_DbFill, ".text"))
 DB_EXPAND_PRAGMA(CODE_SECTION(GetString_DbKit, ".text"))
 DB_EXPAND_PRAGMA(CODE_SECTION(GetString_DbLength, ".text"))
+DB_EXPAND_PRAGMA(CODE_SECTION(db_name, ".text"))
+DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
 
 #define ZDL_PTR(type, word) ((type)(uintptr_t)(word))
 
 #define DB_MAGIC   0x44524D42u   /* 'DRMB' */
 #define DB_VERSION 43u  /* 43: state at the arena's end; 42: offset cache; 41: countN; 40: rMask, closed hat rendered first; 39: start gate (lastCall, ckWait); 38: cache check; 37: synp, synth params of the drum being rendered (bump when the state layout changes) */
+#ifdef DB_FOLLOW
+/* Follow mode (default; build.py --no-follow leaves it out): another effect
+ * in the chain (a song sequencer) may drive the knobs by writing this slot's
+ * state[31] table row. On a known OS (G1on family; MS-70CDR 2.10 untested)
+ * the row is copied into params[] every call; LenA / LenB turning from both
+ * Skip to a length (or back) restarts the song at once. While driven (LenA
+ * holds a marker, below) the song never waits for the kit: no start gate, no
+ * count-in, a kit change or a patch switch keeps the song's place (lanes
+ * play once rendered, nothing until the cache check after a patch switch has
+ * passed). Not driven, DrumBox plays as without follow mode. */
+#undef DB_VERSION
+#define DB_VERSION 44u  /* 44: fSkip */
+/* LenA markers written by the driving effect (above the Len list, <= 100 so
+ * raw = v / 100 survives db_param's clamp): song playing = 1 bar, song
+ * stopped = Skip, count-in = 1 bar played as count bars (closed hat
+ * quarters) while it lasts. The knob page passes the patch record's value to the text
+ * callback, not the table's, so the audio call tells the callbacks through
+ * db_drv (.fardata 4 B, as zmenu's zm_g): set = all knobs but Volume and Kit
+ * show "Song". */
+#define DB_SONG_ON  90
+#define DB_SONG_OFF 91
+#define DB_SONG_CNT 92
+static volatile int db_drv = 0;
+/* Known OSes, 8 words each: 3 fingerprint words (address, value; from
+ * zmenu.h's zm_fws, the ones that differ between the two), the state[31]
+ * table rows (44 B per slot, col 2.. = knobs) and the slot count. DrumBox
+ * only reads its own row, so a short fingerprint can't do harm elsewhere. */
+#define DB_F_NFW 2u
+static const uint32_t db_f_fw[DB_F_NFW * 8u] = {
+    /* G1on / G1Xon 1.21, B1on / B1Xon 1.30 (HW) */
+    0xC00B05CCu, 0x02C53A2Bu, 0xC00B05D0u, 0x01C50628u, 0xC009B278u, 0x0200736Du,
+    0x1181B370u, 5u,
+    /* MS-70CDR 2.10 (untested; zmenu's static rows) */
+    0xC00CBF4Cu, 0x02E7442Bu, 0xC00CBF50u, 0x01E74228u, 0xC00BB168u, 0x1021BC13u,
+    0xC009C1A0u, 6u,
+};
+#define DB_ALONE (!st->fDrv)  /* not driven: start gate */
+/* Count-in: on its own, 2 bars when the song starts while the kit still
+ * renders (countN = count bars left; a kit change later gets none, lanes
+ * join when rendered); driven, while LenA holds DB_SONG_CNT */
+#define DB_CN_START ((DB_ALONE && st->rLane < DB_NUM_LANES) ? 2 : 0)
+#define DB_COUNT_BAR (cnt || st->countN > 0)
+#define DB_COUNT_STEP st->countN--
+#else
+#define DB_ALONE 1
+#define DB_CN_START (-1)
+#define DB_COUNT_BAR (st->rLane < DB_NUM_LANES || (st->countN > 1 && !(st->countN & 1)))
+#define DB_COUNT_STEP st->countN++
+#endif
 /* A crash fill crashes the next downbeat only if the last crash is at
  * least this many bars back (short sections: a crash every 4th bar at
  * most). Must match CRASH_GAP in preview.py. */
@@ -210,6 +261,10 @@ typedef struct DBState {
     int32_t  vCur[DB_NUM_LANES];
     int32_t  vIdx[2 * DB_NUM_LANES], vRem[2 * DB_NUM_LANES];
     float    vGain[2 * DB_NUM_LANES], vStep[2 * DB_NUM_LANES];
+#ifdef DB_FOLLOW
+    /* follow: both Len on Skip; driven (db_drv's copy: no address load) */
+    uint32_t fSkip, fDrv;
+#endif
 } DBState;
 
 DB_ALWAYS_INLINE(db_clamp)
@@ -382,7 +437,36 @@ static inline void db_init_state(DBState *st)
     st->sinceCrash = DB_CRASH_GAP;
     st->beatRng = DB_BEAT_RNG_SEED;
     st->randBeat = -1;
+#ifdef DB_FOLLOW
+    st->fSkip = 0u;
+#endif
 }
+
+#ifdef DB_FOLLOW
+/* This slot's table row (written by another effect, or by the OS after a
+ * knob turn) goes into params[] as raw = value / 100, every call (a value
+ * written before this effect's first call counts too). Unknown OS: nothing. */
+DB_ALWAYS_INLINE(db_follow)
+static inline void db_follow(unsigned int *ctx, float *params)
+{
+    uint32_t slot = (uint32_t)ctx[0], k, v, f;
+    const uint32_t *t;
+    volatile const uint32_t *row;
+    for (f = 0u; f < DB_F_NFW; f++) {
+        t = &db_f_fw[f * 8u];
+        for (k = 0u; k < 6u; k += 2u)
+            if (*(volatile const uint32_t *)(uintptr_t)t[k] != t[k + 1u]) break;
+        if (k == 6u) break;
+    }
+    if (f == DB_F_NFW || slot >= t[7]) return;
+    row = (volatile const uint32_t *)(uintptr_t)(t[6] + 44u * slot + 8u);
+    for (k = 0u; k < 9u; k++) {
+        v = row[k];
+        if (v <= 200u)
+            params[5u + k] = (float)(int32_t)v * 0.01f;
+    }
+}
+#endif
 
 /* Effective bar = beat with the fill laid over its end: lanes the fill
  * replaces are cleared from the window start w to step 15, then the fill's
@@ -586,7 +670,11 @@ static inline void db_trigger_step(DBState *st, const DBEng *E, int kit, int ste
                     ((p[3] & bit) ? 64u : 0u) | ((p[4] & bit) ? 128u : 0u);
     int lane, v;
 
+#ifdef DB_FOLLOW
+    hits &= st->ckWait ? 0u : st->rMask;    /* also silent until the cache is checked */
+#else
     hits &= st->rMask;                  /* lanes not rendered yet stay silent */
+#endif
     if (hits & 4u) {                    /* a closed hat chokes the open one */
         v = 6 + st->vCur[3];
         st->vStep[v] = -st->vGain[v] * (1.0f / DB_CHOKE_SAMPLES);
@@ -929,8 +1017,11 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     }
 #endif
 
+#ifdef DB_FOLLOW
+    db_follow(ctx, params);
+#endif
     /* Pages: BeatA, FillA, LenA / BeatB, FillB, LenB / Tempo, Volume, Kit. */
-    float beatAN   = db_param_list(params[DRUMBOX_BEATA_SLOT], DRUMBOX_BEATA_DEFAULT_NORM);
+    float beatAN  = db_param_list(params[DRUMBOX_BEATA_SLOT], DRUMBOX_BEATA_DEFAULT_NORM);
     float fillAN   = db_param_list(params[DRUMBOX_FILLA_SLOT], DRUMBOX_FILLA_DEFAULT_NORM);
     float lenAN    = db_param(params[DRUMBOX_LENA_SLOT],       DRUMBOX_LENA_DEFAULT_NORM);
     float beatBN   = db_param_list(params[DRUMBOX_BEATB_SLOT], DRUMBOX_BEATB_DEFAULT_NORM);
@@ -972,7 +1063,20 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     int kitKnob = (int)(kitN * 100.0f + 0.5f);
     /* LenA / LenB: one knob step per entry; bars of each section and
      * whether its fill also plays in the middle. */
+#ifdef DB_FOLLOW
+    int lenA, cnt;
+    {
+        int k = (int)(lenAN * 100.0f + 0.5f);
+        uint32_t d = (uint32_t)(k - DB_SONG_ON) < 3u;  /* ON, CNT -> 1 bar, OFF -> Skip */
+        db_drv = d;
+        st->fDrv = d;
+        cnt = (k == DB_SONG_CNT);
+        if (d) k = (k != DB_SONG_OFF);
+        lenA = DB_LENGTH_FROM_KNOB(k);
+    }
+#else
     int lenA = DB_LENGTH_FROM_KNOB((int)(lenAN * 100.0f + 0.5f));
+#endif
     int lenB = DB_LENGTH_FROM_KNOB((int)(lenBN * 100.0f + 0.5f));
     int barsA = lenA & 255, midA = lenA >> 8;
     int barsB = lenB & 255, midB = lenB >> 8;
@@ -995,7 +1099,9 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     int i;
     if (kit != st->cKit) {
         st->cKit = kit;
-        st->running = 0u;
+#ifndef DB_FOLLOW
+        st->running = 0u;       /* follow: the song keeps its place, lanes join when rendered */
+#endif
         st->rLane = st->rPos = st->rEnd = 0;
         st->rMask = 0u;
         st->ckOk = st->ckPos = st->ckWait = 0;
@@ -1074,6 +1180,17 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         st->ckAcc = acc;
     }
 
+#ifdef DB_FOLLOW
+    /* both Len on Skip <-> a length, or driven <-> alone: restart now (the
+     * next sample is beat 1) */
+    {
+        uint32_t sk = (barsA == 0 && barsB == 0) | st->fDrv << 1;   /* or driven <-> alone */
+        if (sk != st->fSkip) {
+            st->fSkip = sk;
+            st->running = 0u;
+        }
+    }
+#endif
     /* Footswitch off: stop the sequencer so the next ON restarts at beat 1. */
     if (params[0] < 0.5f) {
         st->running = 0u;
@@ -1084,10 +1201,10 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         /* Start gate: wait (guitar only) until the closed hat is in the
          * cache and, after a gap, the cache check has passed; with lanes
          * still rendering the bars are count-in bars (below) */
-        if (!(st->rMask & 4u) || st->ckWait) return;
+        if (DB_ALONE && (!(st->rMask & 4u) || st->ckWait)) return;     /* driven: no gate */
         /* Park at the end of the last step so the next sample fires step 0. */
         st->running = 1u;
-        st->countN = -1;
+        st->countN = DB_CN_START;
         st->step = 15;
         st->sect = 1;           /* past section B's end: the next bar is section A's bar 0 */
         st->bar = barsB;
@@ -1111,12 +1228,12 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         if (st->phase >= len) {
             st->phase -= len;
             st->step = (st->step + 1) & 15;
-            if (st->step == 0 && (st->rLane < DB_NUM_LANES ||
-                                  (st->countN > 1 && !(st->countN & 1)))) {
+            if (st->step == 0 && DB_COUNT_BAR) {
                 /* count-in bar (the kit is still rendering, or to make the
-                 * count 1 or even bars): closed hat quarters, beat 1
-                 * accented; the song state waits */
-                st->countN++;
+                 * count 1 or even bars; follow mode: 2 bars, or the driver's
+                 * count-in): closed hat quarters, beat 1 accented; the song
+                 * state waits */
+                DB_COUNT_STEP;
                 st->cur[0] = st->cur[2] = st->cur[4] = 0u;
                 st->cur[1] = 0x1111u;
                 st->cur[3] = 0x10000u;
@@ -1203,8 +1320,41 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
  * buffer; they write a NUL-terminated string and return its length.
  * Names come from static const tables in .const (drumbox_patterns.h /
  * drumbox_kits.h, addresses fixed by the pedal via .rela.dyn); no string
- * literals, loops, division or calls.
+ * literals, loops or division. The name callbacks share one copy of the
+ * lookup (db_name): the call stays inside .text and is resolved by the
+ * assembler (no relocation); inlined, it cost ~150 B per callback.
  * ---------------------------------------------------------------------- */
+
+/* Name `v` (clamped to the last entry) of a table of 5-byte names
+ * (<= 5 chars, NUL-padded; the 6th byte is always NUL). */
+static int db_name(const uint8_t *tab, unsigned int last, unsigned int v, char *s)
+{
+    const uint8_t *p = &tab[5u * (v > last ? last : v)];
+    unsigned int w0 = _mem4_const(p);
+    unsigned int b4 = p[4];
+    _mem4((void *)s) = w0;
+    s[4] = (char)b4;
+    s[5] = 0;
+    return (int)(((w0 & 0xFFu) != 0u) + ((w0 & 0xFF00u) != 0u) +
+                 ((w0 & 0xFF0000u) != 0u) + ((w0 >> 24) != 0u) + (b4 != 0u));
+}
+#define DB_NAME(tab, v, s) db_name(tab, sizeof(tab) / 5u - 1u, v, s)
+
+#ifdef DB_FOLLOW
+/* "Song" while a song drives the knobs, else 0; one shared copy, called
+ * inside .text (the only text-side use of db_drv: one address load). */
+DB_EXPAND_PRAGMA(CODE_SECTION(db_song, ".text"))
+DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_song))
+static int db_song(char *s)
+{
+    if (!db_drv) return 0;
+    s[0] = 'S'; s[1] = 'o'; s[2] = 'n'; s[3] = 'g'; s[4] = 0;
+    return 4;
+}
+#define DB_SONG_TEXT(s) do { int n_ = db_song(s); if (n_) return n_; } while (0)
+#else
+#define DB_SONG_TEXT(s) do { } while (0)
+#endif
 
 /* Tempo: v 0..200 -> "40".."240" (BPM = 40 + v, same as the DSP; the
  * constant division folds at compile time). */
@@ -1212,6 +1362,7 @@ int GetString_DbTempo(unsigned int v, char *s)
 {
     unsigned int bpm, h = 0u, t = 0u;
     int n = 0;
+    DB_SONG_TEXT(s);
     if (v > DRUMBOX_TEMPO_UI_MAX) v = DRUMBOX_TEMPO_UI_MAX;
     bpm = 40u + v * (200u / DRUMBOX_TEMPO_UI_MAX);
     /* Digits by compare-and-subtract, no loops: TI pipelines loops with
@@ -1232,23 +1383,26 @@ int GetString_DbTempo(unsigned int v, char *s)
 /* Beat: v 0..100 -> beat name (generated from patterns.py). */
 int GetString_DbBeat(unsigned int v, char *s)
 {
-    DB_BEAT_GETSTR_BODY(v, s);
+    DB_SONG_TEXT(s);
+    return DB_NAME(db_beat_names, v, s);
 }
 
 /* FillA and FillB (one callback for both knobs): v -> fill name. */
 int GetString_DbFill(unsigned int v, char *s)
 {
-    DB_FILL_GETSTR_BODY(v, s);
+    DB_SONG_TEXT(s);
+    return DB_NAME(db_fill_names, v, s);
 }
 
-/* Kit: v 0..100 -> kit name (generated from kits.py). */
+/* Kit: v 0..100 -> kit name (generated from kits.py; one step per kit). */
 int GetString_DbKit(unsigned int v, char *s)
 {
-    DB_KIT_GETSTR_BODY(v, s);
+    return DB_NAME(db_kit_names, v, s);
 }
 
 /* LenA and LenB: v -> "1Bar".."16Bar" (generated from patterns.py). */
 int GetString_DbLength(unsigned int v, char *s)
 {
-    DB_LENGTH_GETSTR_BODY(v, s);
+    DB_SONG_TEXT(s);
+    return DB_NAME(db_length_names, v, s);
 }

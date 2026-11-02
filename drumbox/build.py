@@ -15,6 +15,7 @@ Usage:
   python -B build.py --out P    # write the ZDL to P instead
   python -B build.py --gid 7 --out P   # another category (7 = SFX), for testing
   python -B build.py --probe --out P   # load probe: cycle meter + beep report at Volume 0 (DB_PROBE)
+  python -B build.py --no-follow       # without follow mode (DB_FOLLOW: knobs driven by another effect)
   ZDL_MATERIALIZE_INIT_MAX_CALLS=0 python -B build.py   # init frame + ctx[34] only (bisect)
 """
 
@@ -127,6 +128,10 @@ def main() -> None:
         if "--out" not in sys.argv:
             sys.exit("[drumbox] --probe needs --out (probes never go to dist/)")
         cflags.append("--define=DB_PROBE=1")
+    follow = "--no-follow" not in args
+    if follow:
+        # follow mode: a song sequencer in the chain may drive the knobs
+        cflags.append("--define=DB_FOLLOW=1")
     if "--gid" in sys.argv:
         # another category: the SONAME prefix and the function names follow it
         from linker import GID_PREFIX
@@ -190,6 +195,13 @@ def main() -> None:
         # after a kit change -> 60.
         dsp_cost=manifest.get("dsp_cost", 20.0),
     )
+    if follow:
+        # no __TI_* SHN_ABS dynsyms, no DT_NULL padding (works on the B1Xon
+        # 1.30), to stay in 8 flash blocks
+        cfg.drop_ti_abs_symbols = True
+        cfg.dynamic_entries = 17
+        # knob 3-9 handler calls from one loop block in _init (-288 B)
+        cfg.init_call_loop = True
     link(cfg)
     print(f"\n[drumbox] done -> {out_zdl}")
 

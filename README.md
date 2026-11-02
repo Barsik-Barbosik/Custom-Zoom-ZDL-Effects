@@ -65,7 +65,7 @@ Each effect has its own `build.py`; see its README for the commands.
 
 | Path | What |
 |---|---|
-| `drumbox/` | DrumBox: DSP (`drumbox.c`), beats and fills (`patterns.py`), kits (`kits.py`), drums (`drums/`), build and preview scripts |
+| `drumbox/` | DrumBox: DSP (`drumbox.c`), beats and fills (`patterns.json`), kits (`kits.py`), drums (`drums/`), build and preview scripts |
 | `build/` | The linker that turns the TI object file into a ZDL, based on repeat98's, with additions (see its header) |
 | `tools/` | Experimental G1Xon USB file transfer, used during development (not for general use yet) |
 | `docs/HARDWARE-NOTES.md` | What was learned on the hardware: load limit, `_init`, knob ranges, DSP load, ... |
