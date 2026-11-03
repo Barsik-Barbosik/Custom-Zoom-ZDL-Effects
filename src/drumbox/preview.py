@@ -26,8 +26,11 @@ from __future__ import annotations
 
 import argparse
 import struct
+import sys
 import wave
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "patterns"))   # patterns.py
 
 from kits import (BANDS, CHOKE_SAMPLES, GRID, GRID_INV, KITS, MAX_PARTIALS, NUM_BANDS,
                   NUM_SEG, SMP_DIV, SMP_STEP_MAX, SMP_STEP_MIN, amp_of_code, kit_index,

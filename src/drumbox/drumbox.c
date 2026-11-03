@@ -96,10 +96,10 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
 #define DB_SONG_CNT 92
 static volatile int db_drv = 0;
 /* Known OSes, 8 words each: 3 fingerprint words (address, value; from
- * zmenu.h's zm_fws, the ones that differ between the two), the state[31]
+ * zmenu.h's zm_fws, ones that differ between them), the state[31]
  * table rows (44 B per slot, col 2.. = knobs) and the slot count. DrumBox
  * only reads its own row, so a short fingerprint can't do harm elsewhere. */
-#define DB_F_NFW 2u
+#define DB_F_NFW 4u
 static const uint32_t db_f_fw[DB_F_NFW * 8u] = {
     /* G1on / G1Xon 1.21, B1on / B1Xon 1.30 (HW) */
     0xC00B05CCu, 0x02C53A2Bu, 0xC00B05D0u, 0x01C50628u, 0xC009B278u, 0x0200736Du,
@@ -107,6 +107,12 @@ static const uint32_t db_f_fw[DB_F_NFW * 8u] = {
     /* MS-70CDR 2.10 (untested; zmenu's static rows) */
     0xC00CBF4Cu, 0x02E7442Bu, 0xC00CBF50u, 0x01E74228u, 0xC00BB168u, 0x1021BC13u,
     0xC009C1A0u, 6u,
+    /* MS-50G 3.10 (untested) */
+    0xC00CC68Cu, 0x02E9C02Bu, 0xC00CC690u, 0x01E9BE28u, 0xC00AB784u, 0x1041E013u,
+    0xC009C1A0u, 6u,
+    /* MS-60B 2.10 (untested) */
+    0xC00BC50Cu, 0x02EA982Bu, 0xC00BC510u, 0x01EA9628u, 0xC009B5E4u, 0x1041E413u,
+    0xC008C838u, 4u,
 };
 #define DB_ALONE (!st->fDrv)  /* not driven: start gate */
 /* Count-in: on its own, 2 bars when the song starts while the kit still

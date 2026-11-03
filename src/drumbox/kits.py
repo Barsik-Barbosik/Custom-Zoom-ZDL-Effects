@@ -469,6 +469,9 @@ def write_header(out_path: str | Path) -> None:
     """drumbox_kits.h (tables) and, next to it, drumbox_synth.h (the synth
     drums' code and its dispatch)."""
     _validate()
+    import sys
+    if str(HERE / "patterns") not in sys.path:
+        sys.path.insert(0, str(HERE / "patterns"))
     from patterns import _getstr_table_lines
     drums = used_drums()
     algos = used_algos()

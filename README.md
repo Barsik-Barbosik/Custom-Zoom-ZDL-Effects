@@ -4,7 +4,7 @@ Custom effects (ZDL) for Zoom pedals of the MultiStomp / G1on / B1on family.
 
 | Effect | Screen | Category | What it is | Demo | Download |
 |---|---|---|---|---|---|
-| [DrumBox](drumbox/README.md) | <a href="drumbox/README.md"><img src="drumbox/screen.png" width="192" height="128" alt="DrumBox on the pedal's screen"></a> | SFX | Drum machine: 150 beats, 150 fills, 22 kits, songs of two sections | [Video](https://www.youtube.com/watch?v=9CBZu1qY9KA "DrumBox: a custom drum machine effect for Zoom pedals that load ZDL effects") | [Releases](../../releases) |
+| [DrumBox](src/drumbox/README.md) | <a href="src/drumbox/README.md"><img src="src/drumbox/screen.png" width="192" height="128" alt="DrumBox on the pedal's screen"></a> | SFX | Drum machine: 150 beats, 150 fills, 22 kits, songs of two sections | [Video](https://www.youtube.com/watch?v=9CBZu1qY9KA "DrumBox: a custom drum machine effect for Zoom pedals that load ZDL effects") | [Releases](../../releases) |
 
 More effects will follow.
 
@@ -65,10 +65,11 @@ Each effect has its own `build.py`; see its README for the commands.
 
 | Path | What |
 |---|---|
-| `drumbox/` | DrumBox: DSP (`drumbox.c`), beats and fills (`patterns.json`), kits (`kits.py`), drums (`drums/`), build and preview scripts |
+| `src/drumbox/` | DrumBox: DSP (`drumbox.c`), beats and fills (`patterns/patterns.json`), kits (`kits.py`), drums (`drums/`), build and preview scripts |
 | `build/` | The linker that turns the TI object file into a ZDL, based on repeat98's, with additions (see its header) |
 | `tools/` | Experimental G1Xon USB file transfer, used during development (not for general use yet) |
 | `docs/HARDWARE-NOTES.md` | What was learned on the hardware: load limit, `_init`, knob ranges, DSP load, ... |
+| `docs/CROSS-PEDAL-ZDL-SUMMARY.md` | What one ZDL needs to run on both the MS pedals and the G1on family |
 | `dist/` | The current builds of the effects |
 
 ## Inspiration and documentation

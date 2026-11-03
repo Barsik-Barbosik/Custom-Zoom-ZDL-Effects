@@ -49,7 +49,7 @@ You need a check only when the effect reads or calls fixed firmware addresses:
 | Using the footswitch as a button (G1on) | On/Off words at 0x1181B160 / 0x1181B370 |
 
 How the check works:
-1. At start-up, read a few code words spread over the code you depend on, and compare them with the known values for each supported firmware (MS-70CDR 2.10, G1on family: G1on / G1Xon 1.21, B1on / B1Xon 1.30).
+1. At start-up, read a few code words spread over the code you depend on, and compare them with the known values for each supported firmware (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10, G1on family: G1on / G1Xon 1.21, B1on / B1Xon 1.30).
 2. If one matches, use that firmware's address table. If none matches, do nothing beyond the standard interface (a static picture, plain audio).
 3. Check again before every firmware call. On a wrong guess the effect calls into random code.
 
@@ -64,20 +64,24 @@ Keeping the check small (themanro's `zvis.h`, table version, tested on B1Xon 1.3
 
 ## Addresses
 
-| What | MS-70CDR 2.10 | G1on family (G1on / G1Xon 1.21, B1on / B1Xon 1.30) |
-|---|---|---|
-| `Event_post(evt, mask)` | 0xC00CBF40 | 0xC00B05C0 |
-| Screen task event object | `*(0xC00EF9D8)` | `*(0xC00DEBCC)` |
-| Redraw bit | 0x01 | 0x01 (never post 0x40: it loops the boot animation) |
-| Data page B14 | 0xC00EF748 | 0xC00DEA00 |
-| Selected effect (byte, 0-based) | 0xC009C064 | 0xC0078CB4 (equals `ctx[0]` when your effect is selected) |
-| Slot records, 44-byte rows | 0xC009BF58 | 0x1181B160 (live patch: word +0 On/Off, word +4 = gid << 24 \| fxid) |
-| `state[31]` slot table (col 0 = On/Off copy) | 0xC009C1A0 | 0x1181B370 |
-| Saved patch copy (EDITED = differs from live) | — | 0x1181B268 |
-| Logo page vs knob page | 0xC009D398 and others | no variable; count `getstr` calls |
-| Selected knob (1-based) | — | 0xC0078CAC |
-| `Event_pend` / `Semaphore_pend` | 0xC00BE680 / 0xC00C7EE0 | 0xC009F700 / 0xC00AB540 |
-| LCD send | 0xC00B57C8 | 0xC0093CE4 |
+| What | MS-70CDR 2.10 | MS-50G 3.10 | MS-60B 2.10 | G1on family (G1on / G1Xon 1.21, B1on / B1Xon 1.30) |
+|---|---|---|---|---|
+| `Event_post(evt, mask)` | 0xC00CBF40 | 0xC00CC680 | 0xC00BC500 | 0xC00B05C0 |
+| Screen task event object | `*(0xC00EF9D8)` | `*(0xC00EFF64)` | `*(0xC00DFF88)` | `*(0xC00DEBCC)` |
+| Redraw bit | 0x01 | 0x01 | 0x01 | 0x01 (never post 0x40: it loops the boot animation) |
+| Data page B14 | 0xC00EF748 | 0xC00EFCC0 | 0xC00DFCF0 | 0xC00DEA00 |
+| Selected effect (byte, 0-based) | 0xC009C064 | 0xC009C064 | 0xC008C754 | 0xC0078CB4 (equals `ctx[0]` when your effect is selected) |
+| Slot records, 44-byte rows | 0xC009BF58 | 0xC009BF58 | 0xC008C6A0 | 0x1181B160 (live patch: word +0 On/Off, word +4 = gid << 24 \| fxid) |
+| `state[31]` slot table (col 0 = On/Off copy) | 0xC009C1A0 | 0xC009C1A0 | 0xC008C838 | 0x1181B370 |
+| Slots per patch | 6 | 6 | 4 | 5 |
+| Current patch number | 0xC00EF88C | 0xC00EFE0C | 0xC00DFE3C | 0xC00DEADC |
+| Saved patch copy (EDITED = differs from live) | — | — | — | 0x1181B268 |
+| Logo page vs knob page | 0xC009D398 and others | 0xC009D398 and others | 0xC008D230 and others | no variable; count `getstr` calls |
+| Selected knob (1-based) | — | — | — | 0xC0078CAC |
+| `Event_pend` / `Semaphore_pend` | 0xC00BE680 / 0xC00C7EE0 | 0xC00BE7E0 / 0xC00C7C60 | 0xC00AE7C0 / 0xC00B8520 | 0xC009F700 / 0xC00AB540 |
+| LCD send | 0xC00B57C8 | 0xC00B5A80 | 0xC00A5B88 | 0xC0093CE4 |
+
+The MS-50G and MS-60B columns were found in the official updaters by matching the code that uses each MS-70CDR address; they are not tested on those pedals.
 | Fingerprint words | `Event_post` starts `27773577 85778677` (LM_DINO checks 18 more words) | `0xC00B05C0..D0` = `27773577 85778677 B64631F7 02C53A2B 01C50628`; `0xC009B278` = `0200736D`, `0xC009B280` = `10089013`, `0xC008B318` = `02C65A28`, `0xC008B320` = `02104CA0` |
 
 The G1on column is hardware-tested (G1Xon 1.21; `Event_post`, event object, redraw bit, selected effect and fingerprint also on B1Xon 1.30) except the saved patch copy, `Event_pend` / `Semaphore_pend` and LCD send (static analysis). The MS-70CDR column comes from LM_DINO's table and matches the 2.10 updater, but was not tested on hardware here.

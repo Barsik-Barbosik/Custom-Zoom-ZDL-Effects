@@ -1,6 +1,6 @@
 # DrumBox — drum machine ZDL for Zoom pedals
 
-![DrumBox screen image](../docs/images/screen.png)
+![DrumBox screen image](../../docs/images/screen.png)
 
 DrumBox is a full drum machine that plays along with your guitar,
 started and stopped with the footswitch.
@@ -28,11 +28,11 @@ started and stopped with the footswitch.
 
 ## Install
 
-`DrumBox.ZDL` (from the [Releases](../../../releases) page or
-`../dist/`) needs 8 free flash blocks (32,634 B). Install it as described
-in the [main README](../README.md#install). It is in the **SFX** category
+`DrumBox.ZDL` (from the [Releases](../../../../releases) page or
+`../../dist/`) needs 8 free flash blocks (32,634 B). Install it as described
+in the [main README](../../README.md#install). It is in the **SFX** category
 (gid 7, fxid 520 = 0x208). Pedals it was tested on: see the
-[main README](../README.md#pedals).
+[main README](../../README.md#pedals).
 
 ## How it works
 
@@ -43,7 +43,7 @@ in the [main README](../README.md#install). It is in the **SFX** category
     plays that data back;
   - **synth drums**, each with its own C code and parameters.
 - **State** lives in the effect's `ctx[3]` memory.
-- **Build:** the linker in `../build/` (based on repeat98's).
+- **Build:** the linker in `../../build/` (based on repeat98's).
 
 ## Controls
 
@@ -72,7 +72,7 @@ How the knobs work inside:
 
 - The DSP gets raw = knob value / 100, whatever the knob's max, so each
   beat, fill, length and kit gets exactly one knob step. `build.py` sets
-  the knob maxes from `patterns.json` and `kits.py`.
+  the knob maxes from `patterns/patterns.json` and `kits.py`.
 - All knobs but Volume show text through display callbacks (`"getstr"` in
   the manifest → `GetString_Db*` in `drumbox.c`; the two beat, fill and
   length knobs share one callback each).
@@ -687,13 +687,13 @@ toms) and `synth_cymbal` (hats, rides, crashes).
 | File | Purpose |
 |---|---|
 | `manifest.json` | Effect metadata and knobs → `drumbox_params.h` |
-| `patterns.json` | Beats and fills as `x...x...` lanes (format described in `patterns.py`) |
-| `patterns.py` | Reads and checks `patterns.json` → `drumbox_patterns.h`; lengths, swing amounts |
+| `patterns/patterns.json` | Beats and fills as `x...x...` lanes (format described in `patterns.py`) |
+| `patterns/patterns.py` | Reads and checks `patterns.json` → `drumbox_patterns.h`; lengths, swing amounts |
 | `drums/` | The drum palette, one file per drum |
 | `kits.py` | Loads `drums/`, the kits and their names → `drumbox_kits.h` (tables) and `drumbox_synth.h` (synth drum code) |
 | `synth_lib.py` | Python mirrors of the DSP helpers the synth drums use |
 | `drumbox.c` | Audio function `Fx_SFX_DrumBox`: sound engine and sequencer |
-| `build.py` | Generates the headers, runs `cl6x`, then the linker → `../dist/DrumBox.ZDL` |
+| `build.py` | Generates the headers, runs `cl6x`, then the linker → `../../dist/DrumBox.ZDL` |
 | `preview.py` | Python mirror of the DSP; renders songs to `preview/*.wav` |
 | `drum_analyze.py` | WAV samples → sampled drum files (needs numpy) |
 | `drum_sample.py` | Adds a real-sample start (ADPCM) to a sampled drum |
@@ -710,7 +710,7 @@ at `TI_CGT_ROOT` first, then at `C:/ti/...` (8.5.0 preferred).
 ```
 python -B build.py --headers           # regenerate the headers only (no TI needed)
 python -B build.py --nop               # smoke build: UI only, DSP replaced with NOP
-python -B build.py                     # full build -> ../dist/DrumBox.ZDL
+python -B build.py                     # full build -> ../../dist/DrumBox.ZDL
 python -B build.py --out PATH          # write the ZDL elsewhere
 python -B build.py --gid 7 --out PATH  # another category (testing)
 python -B build.py --no-init           # without _init: saved knob values load only when touched (testing)
@@ -734,7 +734,7 @@ After building, check the linker log:
   both numbers equal (the tables in `.const`; the pedal fixes their
   addresses at load);
 - the allocated size (`.text` + `.const` totals) stays under ~29,968 B,
-  the largest known to load on the G1Xon (see `../docs/HARDWARE-NOTES.md`).
+  the largest known to load on the G1Xon (see `../../docs/HARDWARE-NOTES.md`).
 
 ## Known limitations
 

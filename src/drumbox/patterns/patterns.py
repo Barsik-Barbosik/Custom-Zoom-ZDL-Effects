@@ -17,8 +17,8 @@ start of its section; fill 0 "None" is the plain beat, fill 1 "Randm" a
 random fill per fill bar. Beats carry no crash of their own: the crash
 comes with the fills (a crash on every phrase start gets annoying).
 
-  python -B patterns.py              # check, write drumbox_patterns.h
-  python -B patterns.py --export P   # patterns.json rewritten in its layout to P
+  python -B patterns/patterns.py              # check, write drumbox_patterns.h
+  python -B patterns/patterns.py --export P   # patterns.json rewritten in its layout to P
 
 Lengths, swing amounts and the random seeds stay here (the DSP's laws).
 """
@@ -644,5 +644,5 @@ if __name__ == "__main__":
         out.write_bytes(_PF.text().encode("utf-8"))
         print(f"{len(BEATS)} beats, {len(FILLS)} fills -> {out}")
     else:
-        write_header(Path(__file__).resolve().parent / "drumbox_patterns.h")
+        write_header(Path(__file__).resolve().parent.parent / "drumbox_patterns.h")
         print(f"{len(BEATS)} beats, {len(FILLS)} fills")

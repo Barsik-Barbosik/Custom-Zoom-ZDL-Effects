@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Build DrumBox.ZDL from drumbox.c + manifest.json + patterns.py + kits.py.
 
-Uses the linker in ../build/ (based on repeat98's).
+Uses the linker in ../../build/ (based on repeat98's).
 
 TI compiler lookup order:
   1. TI_CGT_ROOT environment variable
   2. common Windows install locations (C:/ti/...)
 
 Usage:
-  python -B build.py            # full build -> ../dist/DrumBox.ZDL
+  python -B build.py            # full build -> ../../dist/DrumBox.ZDL
   python -B build.py --nop      # smoke build: UI only, DSP replaced by NOP
   python -B build.py --headers  # only regenerate headers (no TI needed)
   python -B build.py --no-init  # without the materializing _init (bisect only)
@@ -29,8 +29,9 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-PROJECT = HERE.parent                                   # Custom-Zoom-ZDL/
+PROJECT = HERE.parent.parent                            # Custom-Zoom-ZDL/
 sys.path.insert(0, str(PROJECT / "build"))            # linker, screen_image, manifest_params
+sys.path.insert(0, str(HERE / "patterns"))            # patterns.py, patterns.json
 
 if "--probe" in sys.argv:
     # room for the meter under the load limit: Ac2 and Ac3
