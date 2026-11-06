@@ -1,6 +1,6 @@
 # SongBox — chord song sequencer ZDL for Zoom pedals
 
-![SongBox screen image](screen.png)
+<img src="../../docs/images/songbox.png" width="538" height="358" alt="SongBox screen image">
 
 SongBox plays a chord song with bass and chords (electric piano or organ)
 along with your guitar. You write the song on the pedal, bar by bar, and it can drive
@@ -34,7 +34,7 @@ layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SONGBOX.ZDL` (33,722 B) needs 9 free flash blocks; `FLOPPY.ZDL` 1 more.
+`SONGBOX.ZDL` (29,099 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
 It is in the **SFX** category (gid 7, fxid 521). Install both as described
 in the [main README](../../README.md#install), then put SongBox, Floppy
 and (optionally) DrumBox into one patch.
@@ -82,8 +82,7 @@ change PLAY goes back to LOOP and OCTAVE / LENGTH to the saved values.
 
 Read only. The knob names show the song's size in bits, used / capacity,
 and the playing bar ("Size:" "55/106" "B: 12"; "Pack" while saving).
-Without Floppy the first two take turns, one per bar (about 1.5 s each
-when not playing): "Size: 55/0", "Can't save!", "(no  floppy)". The values
+Without Floppy the first two take turns, about 1.5 s each: "Size: 55/0", "Can't save!", "(no  floppy)". The values
 show the playing chord and, after an arrow, the next one ("STATUS" "Am"
 "→  G").
 
@@ -136,7 +135,7 @@ Rhy2 Funk, Rhy3 Balld.
 |---|---|
 | `songbox.c` | Audio function `Fx_SFX_SongBox`: editor, packer, player, DrumBox control |
 | `build.py` | Generates the headers, runs `cl6x`, then the linker |
-| `instruments/` | One file pair per instrument: `<id>.py` (Python model) and `<id>.c` (its C mirror); `inst_lib.h` C helpers. Used: `epiano`, `organ_jazz`, `organ_rock`; `synth_pad`, `synth_bass` and `finger_bass` are kept for later sets |
+| `instruments/` | `engine.c` (the one instrument engine: a wavetable voice driven by a record, `SsInst` in `engine.h`) and its Python mirror `engine.py`; one `<id>.py` per instrument with its record and wavetable harmonics: `epiano`, `organ_jazz`, `organ_rock`; `inst_lib.h` C helper |
 | `inst_lib.py` | Helpers shared by the instrument models (sine, decay coefficients, voice) |
 | `sets.py` | Instrument sets (one keys + one bass instrument each) and the Instr knob values → `songbox_instr.h` |
 | `proto.py` | Patterns and note increments → `songbox_sound.h`; renders WAV prototypes of each set |

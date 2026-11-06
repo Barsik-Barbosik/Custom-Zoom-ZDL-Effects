@@ -9,7 +9,14 @@ New effects (in `src/`, built separately from DrumBox):
   played by electric piano, jazz or rock organ (bass + chords), with MENU
   settings (play once / loop, chord octave, chord every bar / half / beat).
   Drives DrumBox in the same patch. Works on the B1Xon 1.30; MS pedals
-  untested.
+  untested. 8 flash blocks (29,099 B): all instruments run on one engine
+  (an instrument is data), rarely-run code is called instead of inlined,
+  rhythms are stored sparse, all tables sit in one struct.
+- `build/linker.py`: new options `rela_const_base` (the `.const`
+  relocations share one dynamic symbol, offsets as addends, as Zoom's own
+  effects do) and `drop_attributes`; `compact_edit_stubs` now also takes a
+  knob over 150 (the shared handler gets the 200-step law); calls from the
+  audio function into `.text` are fixed.
 - **Floppy:** silent storage effect that saves SongBox's song in the patch
   (106 bits per copy, up to 4 copies).
 - **zmenu** (`src/common/zmenu/`): C library for knob menus and data saved

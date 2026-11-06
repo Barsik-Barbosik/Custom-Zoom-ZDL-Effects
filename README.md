@@ -75,6 +75,8 @@ Each effect has its own `build.py`; see its README for the commands.
 | `tools/` | Experimental G1Xon USB file transfer, used during development (not for general use yet) |
 | `docs/HARDWARE-NOTES.md` | What was learned on the hardware: load limit, `_init`, knob ranges, DSP load, ... |
 | `docs/CROSS-PEDAL-ZDL-SUMMARY.md` | What one ZDL needs to run on both the MS pedals and the G1on family |
+| `docs/ZDL-SIZE-TIPS.md` | What made our ZDLs smaller (flash and load limit), with measured savings |
+| `docs/ZDL-CPU-TIPS.md` | What made our effects cheaper to run (load probes, pipelined loops, work spread over calls), measured |
 | `dist/` | The current builds of the effects |
 
 ## Inspiration and documentation

@@ -1,6 +1,6 @@
 # DrumBox — drum machine ZDL for Zoom pedals
 
-![DrumBox screen image](../../docs/images/screen.png)
+<img src="../../docs/images/screen.png" width="538" height="358" alt="DrumBox screen image">
 
 DrumBox is a full drum machine that plays along with your guitar,
 started and stopped with the footswitch.

@@ -84,10 +84,17 @@ means byte-identical output to repeat98's):
     trim, synth_edit_start_index 0): one shared copy of LineSel's knob1
     handler that takes the knob id in B4 and the params[] offset in B7, and
     a 16-byte entry stub per knob; a lone NOP_RETURN (8 B) goes into the
-    stubs' padding. Floppy: 9 handlers 992 -> 416 B. Untested on hardware.
+    stubs' padding. Floppy: 9 handlers 992 -> 416 B (works). A knob max
+    over 150 (in _COMPACT_RANGE_LAW) gives the shared body that law for
+    every knob (raw = v / 100 either way); SongBox (Tempo 210): works.
   * LinkerConfig.drop_ti_abs_symbols / dynamic_entries: leave out the four
     SHN_ABS __TI_* dynsyms and the DT_NULL padding of .dynamic (17 entries
     instead of Exciter's 21). Untested on hardware.
+  * LinkerConfig.rela_const_base: the MVKL/MVKH .rela.dyn entries into
+    .const share one dynsym with nonzero addends (stock shape, 82 of 265
+    stock ZDLs use such addends), one dynsym per table less. Works (SongBox, B1Xon 1.30).
+  * LinkerConfig.drop_attributes: no .c6xabi.attributes section (every
+    stock effect has one; 12 sections instead of 13). Works (SongBox, B1Xon 1.30).
   * LinkerConfig.init_call_loop (with materialize_init + compact clones):
     the _init calls the cloned knob handlers (a run at a fixed stride) from
     one 160-B loop block (_INIT_LOOP, source build/init_call_loop.asm)
@@ -444,6 +451,13 @@ class LinkerConfig:
     drop_ti_abs_symbols: bool = False
     # .dynamic entries (16 used + DT_NULL padding); 21 = Exciter's shape.
     dynamic_entries: int = 21
+    # MVKL/MVKH relocations into .const share one dynsym (the lowest such
+    # target), each with addend = target - it, as stock effects do (e.g.
+    # ALIEN: AmpEqSetting + 0xC). Works (SongBox, B1Xon 1.30).
+    rela_const_base: bool = False
+    # Leave out .c6xabi.attributes (62 B + its section header and name).
+    # Every stock effect has one. Works without (SongBox, B1Xon 1.30).
+    drop_attributes: bool = False
     # DSP cost at the name entry's +0x28 (firmware budget per patch).
     dsp_cost: float = 20.0
 
@@ -919,6 +933,7 @@ _COMPACT_RANGE_LAW = {
     200: (0x2F52, 0x0612, 0xF602),   # 201,A6; 128,A4; SHL 23 -> 2.0f
     210: (0x2F52, 0x0612, 0xF602),   # the same: raw = v / 100 past 200
 }
+_COMPACT_RANGE_LAW_NAME = {(0x2F52, 0x0612, 0xF602): 200}
 
 
 def _patch_linesel_knob_clone(blob: bytes, knob_id: int, param_byte_off: int,
@@ -1299,9 +1314,25 @@ def link(cfg: LinkerConfig) -> None:
             if not (cfg.trim_linesel_blob and cfg.synth_edit_start_index == 0):
                 raise ValueError("compact_edit_stubs needs trim_linesel_blob and "
                                  "synth_edit_start_index 0")
-            for i, _k, _o in synth_specs:
-                if cfg.params[i].max_val > _LINESEL_RANGE_MAX and not cfg.params[i].store:
-                    raise ValueError(f"compact_edit_stubs: param {i} needs its own range law")
+            # One shared body = one range law for every knob. Any law gives
+            # raw = v / 100 (LineSel's 151 law serves every max <= 150), so a
+            # knob over 150 switches the whole body to its law (max 210:
+            # the 200 law, unclamped past 200).
+            laws = {_COMPACT_RANGE_LAW.get(cfg.params[i].max_val)
+                    for i, _k, _o in synth_specs
+                    if cfg.params[i].max_val > _LINESEL_RANGE_MAX and not cfg.params[i].store}
+            if None in laws or len(laws) > 1:
+                raise ValueError("compact_edit_stubs: knob maxes over "
+                                 f"{_LINESEL_RANGE_MAX} need one shared law in "
+                                 f"_COMPACT_RANGE_LAW (have {sorted(_COMPACT_RANGE_LAW)})")
+            if laws:
+                law = laws.pop()
+                body = bytearray(handler_blob)
+                for rel, enc in zip((0x12, 0x16, 0x24), law):
+                    _p16(body, _EDIT_STUB_BODY + rel, enc)
+                handler_blob = bytes(body)
+                print(f"  edit stub body: range law of max {_COMPACT_RANGE_LAW_NAME[law]} "
+                      f"for every knob (raw = v / 100)")
             # Placeholder; the stubs are written once their VAs are known.
             synth_handler_blob = bytes(_align_up(_EDIT_STUB_SIZE * len(synth_specs), 32))
             print(f"  synth:   {len(synth_specs)} edit stub(s) -> shared knob1 body "
@@ -1889,6 +1920,15 @@ def link(cfg: LinkerConfig) -> None:
             elif rtype == RT_ABS_H16:
                 _patch_abs_h16(out_text, file_off, target)
                 dyn_relocs.append((TEXT_VA + file_off, rtype, target))
+            elif rtype == RT_PCR_S21 and sym['shndx'] not in (0, sec['idx']):
+                # a call into another section of the .obj (.audio -> a
+                # .text helper): cl6x leaves the field as the implicit
+                # addend (0 for a plain call); the displacement counts
+                # from the call's 32-byte fetch packet (PCE1)
+                w = struct.unpack_from('<I', out_text, file_off)[0]
+                imp = ((w >> 7) & 0x1FFFFF) - (((w >> 7) & 0x100000) << 1)
+                target = sym_addr[rel['sym_idx']] + (imp << 2)
+                _patch_pcr_s21(out_text, file_off, target, (TEXT_VA + file_off) & ~31)
             elif rtype == RT_PCR_S21:
                 _patch_pcr_s21(out_text, file_off, target, TEXT_VA + file_off)
             else:
@@ -1983,8 +2023,20 @@ def link(cfg: LinkerConfig) -> None:
     if KBMP_VA:
         abi_vas.add(KBMP_VA)
 
+    # rela_const_base: .const targets reached only by MVKL/MVKH share the
+    # lowest one's symbol, the rest as the entry's addend (fold[tgt] = base)
+    fold: dict[int, int] = {}
+    if cfg.rela_const_base:
+        hl = (RT_ABS_L16, RT_ABS_H16)
+        other = {tgt for _, rtype, tgt in all_rela if rtype not in hl}
+        cand = sorted({tgt for _, rtype, tgt in all_rela if rtype in hl
+                       and CONST_VA <= tgt < FARDATA_VA and tgt not in abi_vas
+                       and tgt not in other and tgt != COE_VA})
+        fold = {tgt: cand[0] for tgt in cand}
+        print(f"  rela_const_base: {len(cand)} .const targets -> 1 symbol + addends")
+
     for tgt in sorted(dynsym_targets.keys()):
-        if tgt not in abi_vas:
+        if tgt not in abi_vas and fold.get(tgt, tgt) == tgt:
             stype = STT_FUNC if tgt < 0x80000000 else STT_OBJECT
             _add_sym('', tgt, 0, stype, STB_LOCAL, STV_HIDDEN)
 
@@ -2037,8 +2089,9 @@ def link(cfg: LinkerConfig) -> None:
     # ----- Pack dynamic structures -----
     rela_dyn_data = bytearray()
     for va, rtype, tgt in all_rela:
-        sym_idx = va_to_idx.get(tgt, 0)
-        rela_dyn_data.extend(struct.pack('<Iii', va, (sym_idx << 8) | rtype, 0))
+        base = fold.get(tgt, tgt)
+        sym_idx = va_to_idx.get(base, 0)
+        rela_dyn_data.extend(struct.pack('<Iii', va, (sym_idx << 8) | rtype, tgt - base))
 
     dynsym_data = bytearray()
     for s in dynsym_list:
@@ -2081,7 +2134,7 @@ def link(cfg: LinkerConfig) -> None:
     # Exciter's 62-byte blob verbatim (Tag_ISA=C6740, ABI_DSBT/PID/PIC
     # all matching the bare-metal-non-DSBT model we actually produce).
     c6xabi_path = REPEAT98_BUILD / "c6xabi_attributes.bin"
-    c6xabi_attrs = c6xabi_path.read_bytes()
+    c6xabi_attrs = b'' if cfg.drop_attributes else c6xabi_path.read_bytes()
 
     # Stock ZDL ELFs place .text at file offset 0x40 and put the program
     # header table near EOF, immediately before the section headers. Keep
@@ -2111,11 +2164,13 @@ def link(cfg: LinkerConfig) -> None:
     shstr_names = ['', '.rela.dyn', '.rela.plt', '.audio', '.text',
                    '.const', '.fardata', '.dynamic', '.dynsym', '.dynstr',
                    '.hash', '.c6xabi.attributes', '.shstrtab']
+    if cfg.drop_attributes:
+        shstr_names.remove('.c6xabi.attributes')
     shname_idx = {n: shstr.add(n) for n in shstr_names}
     shstr_data = shstr.get_bytes()
     shstrtab_file_off = _align_up(cur, 4);             cur = shstrtab_file_off + len(shstr_data)
 
-    NUM_SECTIONS = 13
+    NUM_SECTIONS = 12 if cfg.drop_attributes else 13
     SHDR_SIZE    = 0x28
     phdr_file_off = cur;                               cur = phdr_file_off + PHDR_TABLE
     shdr_file_off = cur;                               cur = shdr_file_off + NUM_SECTIONS * SHDR_SIZE
@@ -2261,9 +2316,10 @@ def link(cfg: LinkerConfig) -> None:
         0, hash_file_off, len(hash_data), link=8)
     # SHT_C6000_ATTRIBUTES = 0x70000003 (SHT_LOPROC + 3) per SPRAB89B Ch.17.
     # Stock effects emit this as a non-allocated, non-loaded section.
-    _sh(11, '.c6xabi.attributes', 0x70000003, 0,
-        0, c6xabi_file_off, len(c6xabi_attrs))
-    _sh(12, '.shstrtab', SHT_STRTAB, 0,
+    if not cfg.drop_attributes:
+        _sh(11, '.c6xabi.attributes', 0x70000003, 0,
+            0, c6xabi_file_off, len(c6xabi_attrs))
+    _sh(NUM_SECTIONS - 1, '.shstrtab', SHT_STRTAB, 0,
         0, shstrtab_file_off, len(shstr_data))
 
     # ----- Combine + optional audio NOP -----

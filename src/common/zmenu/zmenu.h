@@ -66,6 +66,11 @@
 #define ZM_DO_PRAGMA(x) _Pragma(#x)
 #define ZM_EXPAND_PRAGMA(x) ZM_DO_PRAGMA(x)
 #define ZM_INLINE(f) ZM_EXPAND_PRAGMA(FUNC_ALWAYS_INLINE(f))
+/* Helpers an effect may keep out of line (one copy, called): define
+ * ZM_COLD(f) before including zmenu.h; inlined by default. */
+#ifndef ZM_COLD
+#define ZM_COLD(f) ZM_INLINE(f)
+#endif
 #define ZM_U32(a) (*(const volatile uint32_t *)(uintptr_t)(a))
 
 #define ZM_FW_MS70  1                   /* zm_fw_ok(): index into zm_fws[] + 1 */
@@ -228,7 +233,7 @@ static inline void zm_set_col(const ZmFw *t, uint32_t slot, uint32_t col, uint32
 }
 
 /* Knob raw (value / 100) -> 0..max. */
-ZM_INLINE(zm_knob)
+ZM_COLD(zm_knob)
 static inline uint32_t zm_knob(float raw, uint32_t max)
 {
     int k;
@@ -513,13 +518,15 @@ typedef struct {
     uint32_t posts, postWait;
     uint32_t fcol[ZM_S_PARTS][9];       /* each part's columns as last read / written */
     uint32_t fwx;                       /* ~fw: fw is checked again when it doesn't match */
+    const ZmFw *ft;                     /* zm_fws row of fw, 0 = none: set by zm_s_poll every
+                                         * call (each slot's code image has its own zm_fws) */
 } ZmStream;
 
 /* Own and Floppy rows (any known OS). */
 ZM_INLINE(zm_s_fw)
 static inline const ZmFw *zm_s_fw(const ZmStream *z)
 {
-    return z->fw ? &zm_fws[z->fw - 1u] : 0;
+    return z->ft;                       /* only after this call's zm_s_poll */
 }
 
 /* Part of the Floppy in slot s: 0 unmarked, 1..ZM_S_PARTS - 1 marked,
@@ -557,7 +564,8 @@ static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
         for (q = 0u; q < ZM_S_PARTS; ++q) z->fcol[q][0] = ZM_NOCOL;
         z->posts = 0u; z->postWait = 0u;
     }
-    t = zm_s_fw(z);                     /* any known OS (MS pedals untested) */
+    t = z->fw ? &zm_fws[z->fw - 1u] : 0;    /* any known OS (MS pedals untested) */
+    z->ft = t;
     for (q = 0u; q < ZM_S_PARTS; ++q) z->pslot[q] = ZM_NOSLOT;
     if (t && z->slot < t->slots) {
         /* marked copies first (a repeated marker: the first one), then the
@@ -610,7 +618,7 @@ static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
 
 /* All parts' 106 bits -> w[4 q .. 4 q + 3] (part q), bit 0 first (column 1's
  * bit 0); a missing part reads as zeros. Markers are left in. */
-ZM_INLINE(zm_s_get)
+ZM_COLD(zm_s_get)
 static inline void zm_s_get(const ZmStream *z, uint32_t *w)
 {
     uint32_t q, c, p, v, sh;
@@ -630,7 +638,7 @@ static inline void zm_s_get(const ZmStream *z, uint32_t *w)
 /* w[4 q .. 4 q + 3] -> part q's columns for the parts 1..nparts, writing
  * the changed ones to both rows; extra parts get their marker in bits
  * 0..3. Returns 0 without part 1 (nothing saved). */
-ZM_INLINE(zm_s_put)
+ZM_COLD(zm_s_put)
 static inline uint32_t zm_s_put(ZmStream *z, const uint32_t *w)
 {
     const ZmFw *t = zm_s_fw(z);
@@ -655,7 +663,7 @@ static inline uint32_t zm_s_put(ZmStream *z, const uint32_t *w)
 
 /* Own knob k (0-based) jumps to v (its patch columns and params[]) and the
  * page is redrawn. Returns 0 on an unknown OS (knob not moved). */
-ZM_INLINE(zm_s_jump)
+ZM_COLD(zm_s_jump)
 static inline uint32_t zm_s_jump(ZmStream *z, unsigned int *ctx, uint32_t k, uint32_t v)
 {
     const ZmFw *t = zm_s_fw(z);

@@ -1,6 +1,6 @@
 # Floppy — storage effect for zmenu effects
 
-![Floppy screen image](screen.png)
+<img src="../../docs/images/floppy.png" width="538" height="358" alt="Floppy screen image">
 
 Floppy makes no sound. It sits in another slot of the same patch and holds
 data for an effect that uses [zmenu](../common/zmenu/README.md) (e.g.

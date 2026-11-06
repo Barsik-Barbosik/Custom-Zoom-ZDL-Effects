@@ -67,3 +67,28 @@ def link_common() -> dict:
         compact_linesel_clones=True,
         trim_linesel_blob=True,
     )
+
+README_IMAGES = {                                         # effect folder -> README picture
+    "drumbox": "screen.png",
+    "songbox": "songbox.png",
+    "floppy": "floppy.png",
+}
+
+
+def readme_image(source: Path, path: Path, sx: int = 6, sy: int = 8) -> None:
+    """A 128x64 screen PNG upscaled for a README: each pixel sx x sy (the
+    pedal's pixels are about 1.33x taller than wide), black and white."""
+    from PIL import Image
+    src = Image.open(source).convert("L")
+    assert src.size == (128, 64), f"{source} is {src.size}, need 128x64"
+    img = src.point(lambda v: 255 if v > 127 else 0).convert("1")
+    img = img.resize((128 * sx, 64 * sy), Image.NEAREST)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path)
+    print("wrote", path)
+
+
+if __name__ == "__main__":
+    if "--readme" in sys.argv:                            # python -B build/zdl_build.py --readme
+        for name, out in README_IMAGES.items():
+            readme_image(HERE.parent / "src" / name / "screen.png", HERE.parent / "docs" / "images" / out)

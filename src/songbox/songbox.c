@@ -62,6 +62,14 @@
 #define ZM_DESC _Fx_SFX_SongBox_Desc
 #define ZM_MAGIC 0x53505232u            /* 'SPR2' */
 #define ZM_FLOPPY_FXID 522u
+/* Code that runs rarely (loads, packing, edits, knob reads): one copy in
+ * .text, called from the audio function, instead of inlined into it (the
+ * linker resolves the calls; their loops stay interruptible). */
+#define SS_DO_PRAGMA(x) _Pragma(#x)
+#define SS_EXPAND_PRAGMA(x) SS_DO_PRAGMA(x)
+#define SS_COLD(f) SS_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(f)) SS_EXPAND_PRAGMA(CODE_SECTION(f, ".text")) SS_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(f, 1))
+#define ZM_COLD(f) SS_COLD(f)
+#define SP_COLD(f) SS_COLD(f)
 #include "zmenu.h"
 #include "songpack.h"
 #include "songbox_sound.h"              /* patterns + note increments, from proto.py */
@@ -92,7 +100,7 @@
 ZM_EXPAND_PRAGMA(CODE_SECTION(SS_AUDIO_FUNC, ".audio"))
 ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 
-#define SS_MAGIC     0x53535453u        /* bump on a state layout change */
+#define SS_MAGIC     0x53535456u        /* bump on a state layout change */
 /* Patch change (a gap between audio calls, as DrumBox's DB_AWAY_CYC): the
  * song starts again at bar 1 after SS_AWAY_HOLD calls of silence, which also
  * gives DrumBox time for its cache check (else beat 1 would be dropped). */
@@ -123,13 +131,13 @@ ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 typedef struct {
     float inc, p, p2, p3, env, menv, lp, lp2, bp, att, gate;
     uint32_t trig;
-    uint32_t ip, ip2, ip3;              /* integer phases (2^32 = a cycle; TABLE instruments) */
+    uint32_t ip, ip2, ip3;              /* integer phases (2^32 = a cycle) */
 } SsVoice;
 /* voice d := voice s, field by field (ss_run's register copy; no memcpy) */
 #define SS_VCOPY(d, s) ((d).inc = (s).inc, (d).p = (s).p, (d).p2 = (s).p2, (d).p3 = (s).p3, \
     (d).env = (s).env, (d).menv = (s).menv, (d).lp = (s).lp, (d).lp2 = (s).lp2, (d).bp = (s).bp, \
     (d).att = (s).att, (d).gate = (s).gate, (d).trig = (s).trig, (d).ip = (s).ip, (d).ip2 = (s).ip2, (d).ip3 = (s).ip3)
-#include "songbox_instr.h"              /* instruments (ss_run), sets, Instr table, from sets.py */
+#include "songbox_instr.h"              /* instrument records, sets, Instr table, from sets.py */
 #define SS_CH_END   0u                  /* Chord knob: END, 1..24 = chord + 1, Rest */
 #define SS_CH_REST  25u
 #define SS_B_END    25u                 /* END bar in cand / bars (never packed) */
@@ -143,6 +151,100 @@ typedef struct {
 #define SS_PM_OFF   0u                  /* play modes */
 #define SS_PM_ONCE  1u
 #define SS_PM_LOOP  2u
+
+/* Page 1 knob names, 8 bytes each: Bar, Chord, Rhythm, then on MENU the
+ * names of knobs 1, 2, 3 per option, one word per knob (the OS centres each
+ * name over its knob, so words split across knobs don't join). STATUS
+ * builds its names at run time. */
+#define SS_KNOB_NAMES_INIT   /* ss_knob_names[(3u + 3u * SS_NOPT) * 8u] */ \
+    "Bar\0\0\0\0\0"    "Chord\0\0\0"   "Rhythm\0\0" \
+    "Select\0\0"       "play\0\0\0\0"  "mode:\0\0\0"         /* PLAY */ \
+    "Shift\0\0\0"      "chords\0\0"    "by:\0\0\0\0\0"       /* OCTAVE */ \
+    "Change\0\0"       "chord\0\0\0"   "every:\0\0"          /* LENGTH */ \
+    "Trim\0\0\0\0"     "after\0\0\0"   "END?\0\0\0\0"         /* TRIM */ \
+    "Clear\0\0\0"      "the\0\0\0\0\0" "song?\0\0"           /* CLEAR */
+
+/* Knob texts, 8 bytes each (<= 7 characters): MENU options 0..SS_NOPT - 1
+ * (Chord knob on MENU), the fixed knob texts and STATUS's texts (Instr's:
+ * ss_instr_names, songbox_instr.h). */
+#define SS_W_MENU   5u
+#define SS_W_DASH3  6u
+#define SS_W_END    7u
+#define SS_W_FLOP   8u
+#define SS_W_ERR    9u
+#define SS_W_FULL   10u
+#define SS_W_OFF    11u                 /* 3 values each for PLAY, OCTAVE, LENGTH */
+#define SS_W_NO     20u
+#define SS_W_YES    21u
+#define SS_W_PACK   22u
+#define SS_W_DONE   23u
+#define SS_W_STATUS 24u
+#define SS_W_SIZE   25u                 /* "Size:" */
+#define SS_W_NOFL   26u                 /* "Can't" "save!", then "(no" "floppy)" */
+#define SS_NWORDS   30u
+#define SS_WORDS_INIT   /* ss_words[SS_NWORDS * 8u] */ \
+    "PLAY\0\0\0\0" "OCTAVE\0\0" "LENGTH\0\0" "TRIM\0\0\0\0" "CLEAR\0\0\0" \
+    "MENU\0\0\0\0" \
+    "---\0\0\0\0\0" "END\0\0\0\0\0" "Flop?\0\0\0" "Err\0\0\0\0\0" "Full\0\0\0\0" \
+    "OFF\0\0\0\0\0" "ONCE\0\0\0\0" "LOOP\0\0\0\0" \
+    "-1\0\0\0\0\0\0" "0\0\0\0\0\0\0\0" "+1\0\0\0\0\0\0" \
+    "BAR\0\0\0\0\0" "HALF\0\0\0\0" "BEAT\0\0\0\0" \
+    "NO\0\0\0\0\0\0" "YES\0\0\0\0\0" "Pack\0\0\0\0" \
+    "DONE\0\0\0\0" "STATUS\0\0" "Size:\0\0\0" \
+    "Can't\0\0\0" "save!\0\0\0" "(no  \0\0\0" "floppy)\0"
+
+#define SS_CHORD_NAMES_INIT   /* ss_chord_names[25u * 4u] */ \
+    "C\0\0\0" "C#\0\0" "D\0\0\0" "D#\0\0" "E\0\0\0" "F\0\0\0" \
+    "F#\0\0" "G\0\0\0" "G#\0\0" "A\0\0\0" "A#\0\0" "B\0\0\0" \
+    "Rest"
+
+/* All of SongBox's tables in one struct, so the linker's rela_const_base
+ * gives every MVKL / MVKH of them one dynamic symbol (+ the member offset
+ * as addend) instead of one per table. The generated headers give the
+ * initializers; the old table names stay as aliases. */
+typedef struct {
+    SsInst inst_tab[SS_NINST];
+    uint32_t wt_terms[SS_WT_NTERMS];
+    float inc[12];
+    float lvl_keys[SS_NSETS], lvl_bass[SS_NSETS];
+    uint16_t pat[SS_NPAT * 3u];
+    uint8_t pat_notes[SS_NNOTES];
+    uint8_t db_style[SS_NPAT * 3u];
+    uint8_t wt_end[SS_WT_NEND];
+    uint8_t instr[SS_NINSTR];
+    uint8_t set_keys[SS_NSETS], set_bass[SS_NSETS];
+    char pat_names[SS_NPAT * 5u + 1u];
+    char instr_names[SS_NINSTR * 8u];
+    char knob_names[(3u + 3u * SS_NOPT) * 8u];
+    char words[SS_NWORDS * 8u];
+    char chord_names[25u * 4u];
+} SsConst;
+static const SsConst ss_c = {
+    SS_INST_TAB_INIT, SS_WT_TERMS_INIT, SS_INC_INIT, SS_LVL_KEYS_INIT, SS_LVL_BASS_INIT,
+    SS_PAT_INIT, SS_PAT_NOTES_INIT, SS_DB_STYLE_INIT, SS_WT_END_INIT, SS_INSTR_INIT,
+    SS_SET_KEYS_INIT, SS_SET_BASS_INIT, SS_PAT_NAMES_INIT, SS_INSTR_NAMES_INIT,
+    SS_KNOB_NAMES_INIT, SS_WORDS_INIT, SS_CHORD_NAMES_INIT
+};
+#define ss_inst_tab    (ss_c.inst_tab)
+#define ss_wt_terms    (ss_c.wt_terms)
+#define ss_inc         (ss_c.inc)
+#define ss_lvl_keys    (ss_c.lvl_keys)
+#define ss_lvl_bass    (ss_c.lvl_bass)
+#define ss_pat         (ss_c.pat)
+#define ss_pat_notes   (ss_c.pat_notes)
+#define ss_db_style    (ss_c.db_style)
+#define ss_wt_end      (ss_c.wt_end)
+#define ss_instr       (ss_c.instr)
+#define ss_set_keys    (ss_c.set_keys)
+#define ss_set_bass    (ss_c.set_bass)
+#define ss_pat_names   (ss_c.pat_names)
+#define ss_instr_names (ss_c.instr_names)
+#define ss_knob_names  (ss_c.knob_names)
+#define ss_words       (ss_c.words)
+#define ss_chord_names (ss_c.chord_names)
+
+#include "instruments/inst_lib.h"
+#include "instruments/engine.c"         /* the instrument engine: ss_wt_build, ss_run */
 
 #define SS_PK_IDLE 0u
 #define SS_PK_EDIT 1u                   /* write Floppy when it fits */
@@ -183,7 +285,7 @@ typedef struct {
     float stepPh;                       /* 16th phase 0..1 */
     SsVoice vk[4];                      /* keys 0..2, bass SS_VB */
     float acc[8];                       /* ss_play: this call's bass + keys samples */
-    uint32_t si[16];                    /* ss_run's scratch (TABLE instruments: 2 per sample) */
+    uint32_t si[16];                    /* ss_run's scratch (2 per sample) */
     float sf[24];
     uint32_t retry;                     /* packs again after a failed verify */
     uint32_t dslot, dtgt, dbeat, dfill; /* DrumBox: slot, bar whose values are written, they */
@@ -198,6 +300,9 @@ typedef struct {
     uint8_t bars[SP_MAX_BARS], cand[SP_MAX_BARS];
     uint8_t tmp[SP_MAX_BARS], trh[SP_MAX_BARS];
     SpPack pk;
+    uint32_t tail;                      /* SS_MAGIC again, the state's last word: another
+                                         * effect's (smaller) state at the arena's end
+                                         * overwrites it first */
 } SsState;
 
 static volatile SsState *ss_g = 0;      /* for the knob text callbacks */
@@ -266,17 +371,16 @@ static inline uint32_t ss_pm_pct(const SsMeter *m, uint32_t c)
 #define SS_PM_BYTES 0u
 #endif
 
-/* The TABLE instruments' wavetables (songbox_instr.h, SS_WT_WORDS words)
- * below the state (and the probe's meter). Built SS_WT_STEP rows per call
- * while the song waits; again after a patch change (ctx[3] is lent out to
- * other patches). Each word reads as a tiny float (ss_t_<id>). */
+/* The instruments' wavetables (songbox_instr.h, SS_WT_WORDS words) below
+ * the state (and the probe's meter). Built SS_WT_STEP rows per call
+ * (ss_wt_build) while the song waits; again after a patch change (ctx[3] is
+ * lent out to other patches). Each word reads as a tiny float. */
 #define SS_WT_BYTES (SS_WT_WORDS * 4u)
 #define SS_WT_OF(st) ((uint32_t *)(((uintptr_t)(st) - SS_PM_BYTES - SS_WT_BYTES) & ~(uintptr_t)7u))
-#define SS_WT_STEP  32u                 /* rows per call (a word of each table; ~65 calls) */
 
 
-ZM_INLINE(ss_sum)
-static inline uint32_t ss_sum(const uint8_t *b, uint32_t n)
+SS_COLD(ss_sum)
+static uint32_t ss_sum(const uint8_t *b, uint32_t n)
 {
     uint32_t s = n * 0x9E3779B1u, i;
     for (i = 0u; i < n; ++i) s = s * 31u + b[i] + 1u;
@@ -285,8 +389,8 @@ static inline uint32_t ss_sum(const uint8_t *b, uint32_t n)
 
 /* Rhythm state before bar q: the last chord bar's rhythm (not a rest or
  * END), else 0. */
-ZM_INLINE(ss_state_at)
-static inline uint32_t ss_state_at(const uint8_t *b, uint32_t q)
+SS_COLD(ss_state_at)
+static uint32_t ss_state_at(const uint8_t *b, uint32_t q)
 {
     while (q > 0u) {
         q--;
@@ -335,8 +439,8 @@ static inline uint32_t ss_ms_pre(const SsState *st)
 }
 
 /* OCTAVE and LENGTH from a settings code c (0..8). */
-ZM_INLINE(ss_ms_set)
-static inline void ss_ms_set(SsState *st, uint32_t c)
+SS_COLD(ss_ms_set)
+static void ss_ms_set(SsState *st, uint32_t c)
 {
     uint32_t len = c >= 6u ? 2u : c >= 3u ? 1u : 0u, a = c - 3u * len;
     st->ms[SS_OPT_OCT] = a == 0u ? 1u : a == 1u ? 2u : 0u;
@@ -345,8 +449,8 @@ static inline void ss_ms_set(SsState *st, uint32_t c)
 }
 
 /* Pack cand. */
-ZM_INLINE(ss_request_pack)
-static inline void ss_request_pack(SsState *st, uint32_t mode)
+SS_COLD(ss_request_pack)
+static void ss_request_pack(SsState *st, uint32_t mode)
 {
     st->csum = ss_sum(st->cand, st->cn);
     st->vreq = 0u;                      /* a stale result is never saved */
@@ -359,12 +463,16 @@ static inline void ss_request_pack(SsState *st, uint32_t mode)
     st->packing = mode;
 }
 
-ZM_INLINE(ss_fresh)
+SS_COLD(ss_fresh)
 static inline void ss_fresh(SsState *st, unsigned int *ctx)
 {
     float *params = (float *)(uintptr_t)ctx[1];
     uint32_t i;
+    /* all of it: another effect's state (DrumBox's) may have used this
+     * arena, and its magic must not survive in a field we never write */
+    for (i = 0u; i < sizeof(SsState) / 4u; ++i) ((volatile uint32_t *)st)[i] = 0u;
     st->magic = SS_MAGIC;
+    st->tail = SS_MAGIC;
     for (i = 0u; i < 9u; ++i) st->last[i] = zm_knob(params[5u + i], 150u);
     st->sel = st->last[SS_K_BAR]; st->stat = 0u;
     st->opt = 0u;
@@ -387,8 +495,8 @@ static inline void ss_fresh(SsState *st, unsigned int *ctx)
 }
 
 /* The packer finished. */
-ZM_INLINE(ss_pack_done)
-static inline void ss_pack_done(SsState *st)
+SS_COLD(ss_pack_done)
+static void ss_pack_done(SsState *st)
 {
     uint32_t ok, i;
     /* a song that needs a missing Floppy: only clearing it is saved */
@@ -419,8 +527,8 @@ static inline void ss_pack_done(SsState *st)
 }
 
 /* The one unpack of this call: a Floppy load first, then a verify. */
-ZM_INLINE(ss_unpack_job)
-static inline void ss_unpack_job(SsState *st)
+SS_COLD(ss_unpack_job)
+static void ss_unpack_job(SsState *st)
 {
     const uint32_t *src;
     uint32_t req, n, ok, i, parts, how, set;
@@ -467,8 +575,8 @@ static inline void ss_unpack_job(SsState *st)
     }
 }
 
-ZM_INLINE(ss_edit)
-static inline void ss_edit(SsState *st, unsigned int *ctx)
+SS_COLD(ss_edit)
+static void ss_edit(SsState *st, unsigned int *ctx)
 {
     float *params = (float *)(uintptr_t)ctx[1];
     uint32_t sel, v, idx, lim, f, b, e;
@@ -577,8 +685,8 @@ static inline void ss_edit(SsState *st, unsigned int *ctx)
  * Mirror of proto.py's renderer (16th steps by a phase accumulator
  * instead of whole samples per step); the instruments in instruments/. */
 
-ZM_INLINE(ss_trigger)
-static inline void ss_trigger(SsVoice *v, uint32_t note, float gate)
+SS_COLD(ss_trigger)
+static void ss_trigger(SsVoice *v, uint32_t note, float gate)
 {
     float inc = 1.0f;
     while (note >= 12u) { note -= 12u; inc *= 2.0f; }
@@ -589,7 +697,7 @@ static inline void ss_trigger(SsVoice *v, uint32_t note, float gate)
 
 /* Events of st->bar / st->step: bass and keys from the bar's pattern (step
  * = the 16th of the drum bar, so a short song bar plays part of it). */
-ZM_INLINE(ss_events)
+SS_COLD(ss_events)
 static inline void ss_events(SsState *st, const float *params)
 {
     uint32_t b = st->bar < st->pn ? st->bars[st->bar] : SP_REST, root, minor, pat, code, i, t, n0, n1, n2, x;
@@ -602,15 +710,28 @@ static inline void ss_events(SsState *st, const float *params)
     }
     root = (b & 31u) >> 1;
     minor = b & 1u;
-    pat = zm_knob(params[5u + SS_K_RHY1 + (b >> 5)], SS_NPAT - 1u) * 16u + st->step;  /* Rhy1..3 */
-    code = ss_pat_bass[pat];
+    pat = zm_knob(params[5u + SS_K_RHY1 + (b >> 5)], SS_NPAT - 1u) * 3u;  /* Rhy1..3 */
+    /* lane = onset mask (bit = step) + its notes in ss_pat_notes from the
+     * pattern's offset: bass notes, then keys notes */
+    i = st->step;
+    x = ss_pat[pat + 2u];
+    code = 0u;
+    #pragma UNROLL(1)
+    for (n0 = 0u; n0 < 2u; ++n0) {      /* code = bass note, then keys note */
+        t = ss_pat[pat + n0];
+        n1 = code;
+        code = (t >> i) & 1u ? ss_pat_notes[x + SS_BITS(t & ((1u << i) - 1u))] : 0u;
+        x += SS_BITS(t);
+    }
+    pat = code;                         /* keys note */
+    code = n1;                          /* bass note */
     if (code) {
         t = root + 8u;                  /* 28 + (root - 4) mod 12: E1..D#2 */
         if (t >= 12u) t -= 12u;
         t += 28u + ((code & 15u) == 1u ? 7u : (code & 15u) == 2u ? 12u : 0u);
         ss_trigger(&st->vk[SS_VB], t, (float)(code >> 4) - 0.25f);
     }
-    code = ss_pat_keys[pat];
+    code = pat;                         /* keys note */
     if (!code) return;
     /* triad folded into 55..67 (G3..G4), sorted, then OCTAVE */
     n0 = root; n1 = root + (minor ? 3u : 4u); n2 = root + 7u;
@@ -641,8 +762,8 @@ static inline void ss_events(SsState *st, const float *params)
 
 /* DrumBox knob k := v in its table row, and with rec in its patch record
  * row too (written only when it differs). */
-ZM_INLINE(ss_db_col)
-static inline void ss_db_col(const ZmFw *t, uint32_t slot, uint32_t k, uint32_t v, uint32_t rec)
+SS_COLD(ss_db_col)
+static void ss_db_col(const ZmFw *t, uint32_t slot, uint32_t k, uint32_t v, uint32_t rec)
 {
     volatile uint32_t *p = (volatile uint32_t *)(uintptr_t)(t->tab + 44u * slot + 4u * (2u + k));
     if (*p != v) *p = v;
@@ -672,7 +793,7 @@ static inline uint32_t ss_second(const SsState *st)
 }
 
 /* Find DrumBox; write its knobs for the player's state (see SS_DB_ID). */
-ZM_INLINE(ss_drums)
+SS_COLD(ss_drums)
 static inline void ss_drums(SsState *st, const float *params)
 {
     const ZmFw *t = zm_s_fw(&st->zm);  /* own rows of the known OS, 0 = none */
@@ -842,8 +963,9 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
         { uint32_t tv = TSCL;
 #endif
         for (j = 0u; j < 4u; ++j)                   /* keys 0..2, then the bass */
-            ss_run(&st->vk[j], j < SS_VB ? ki : bi, j == SS_VB, j < SS_VB ? kg : bg, inc,
-                   &st->acc[i0], e - i0, SS_WT_OF(st), st->si, st->sf);
+            ss_run(&st->vk[j], &ss_inst_tab[j < SS_VB ? ki : bi], j < SS_VB ? kg : bg, inc,
+                   &st->acc[i0], e - i0, SS_WT_OF(st) + (j < SS_VB ? ki : bi) * SS_WT_ROWS,
+                   st->si, st->sf);
 #ifdef SS_PROBE
         SS_PM_OF(st)->cur[3] += TSCL - tv; }
 #endif
@@ -863,57 +985,10 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
     }
 }
 
-/* Page 1 knob names, 8 bytes each: Bar, Chord, Rhythm, then on MENU the
- * names of knobs 1, 2, 3 per option, one word per knob (the OS centres each
- * name over its knob, so words split across knobs don't join). STATUS
- * builds its names at run time. */
-static const char ss_knob_names[(3u + 3u * SS_NOPT) * 8u] =
-    "Bar\0\0\0\0\0"    "Chord\0\0\0"   "Rhythm\0\0"
-    "Select\0\0"       "play\0\0\0\0"  "mode:\0\0\0"         /* PLAY */
-    "Shift\0\0\0"      "chords\0\0"    "by:\0\0\0\0\0"       /* OCTAVE */
-    "Change\0\0"       "chord\0\0\0"   "every:\0\0"          /* LENGTH */
-    "Trim\0\0\0\0"     "after\0\0\0"   "END?\0\0\0\0"         /* TRIM */
-    "Clear\0\0\0"      "the\0\0\0\0\0" "song?\0\0";          /* CLEAR */
-
-/* Knob texts, 8 bytes each (<= 7 characters): MENU options 0..SS_NOPT - 1
- * (Chord knob on MENU), the fixed knob texts and STATUS's texts (Instr's:
- * ss_instr_names, songbox_instr.h). */
-#define SS_W_MENU   5u
-#define SS_W_DASH3  6u
-#define SS_W_END    7u
-#define SS_W_FLOP   8u
-#define SS_W_ERR    9u
-#define SS_W_FULL   10u
-#define SS_W_OFF    11u                 /* 3 values each for PLAY, OCTAVE, LENGTH */
-#define SS_W_NO     20u
-#define SS_W_YES    21u
-#define SS_W_PACK   22u
-#define SS_W_DONE   23u
-#define SS_W_STATUS 24u
-#define SS_W_SIZE   25u                 /* "Size:" */
-#define SS_W_NOFL   26u                 /* "Can't" "save!", then "(no" "floppy)" */
-#define SS_NWORDS   30u
-static const char ss_words[SS_NWORDS * 8u] =
-    "PLAY\0\0\0\0" "OCTAVE\0\0" "LENGTH\0\0" "TRIM\0\0\0\0" "CLEAR\0\0\0"
-    "MENU\0\0\0\0"
-    "---\0\0\0\0\0" "END\0\0\0\0\0" "Flop?\0\0\0" "Err\0\0\0\0\0" "Full\0\0\0\0"
-    "OFF\0\0\0\0\0" "ONCE\0\0\0\0" "LOOP\0\0\0\0"
-    "-1\0\0\0\0\0\0" "0\0\0\0\0\0\0\0" "+1\0\0\0\0\0\0"
-    "BAR\0\0\0\0\0" "HALF\0\0\0\0" "BEAT\0\0\0\0"
-    "NO\0\0\0\0\0\0" "YES\0\0\0\0\0" "Pack\0\0\0\0"
-    "DONE\0\0\0\0" "STATUS\0\0" "Size:\0\0\0"
-    "Can't\0\0\0" "save!\0\0\0" "(no  \0\0\0" "floppy)\0";
-
-static const char ss_chord_names[25 * 4] =
-    "C\0\0\0" "C#\0\0" "D\0\0\0" "D#\0\0" "E\0\0\0" "F\0\0\0"
-    "F#\0\0" "G\0\0\0" "G#\0\0" "A\0\0\0" "A#\0\0" "B\0\0\0"
-    "Rest";
-
-
 /* Byte n of a knob name (<= 7 characters + NUL), written only when it
  * differs. Returns n + 1. */
-ZM_INLINE(ss_nput)
-static inline uint32_t ss_nput(volatile unsigned char *nm, uint32_t n, uint32_t c)
+SS_COLD(ss_nput)
+static uint32_t ss_nput(volatile unsigned char *nm, uint32_t n, uint32_t c)
 {
     if (n < 8u && nm[n] != (unsigned char)c) nm[n] = (unsigned char)c;
     return n + 1u;
@@ -958,7 +1033,7 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     }
 #endif
 
-    if (st->magic != SS_MAGIC) ss_fresh(st, ctx);
+    if (st->magic != SS_MAGIC || st->tail != SS_MAGIC) ss_fresh(st, ctx);
     if (st->n > SP_MAX_BARS || st->cn > SP_MAX_BARS || st->pn > st->n
         || ss_sum(st->bars, st->n) != st->sum || ss_sum(st->cand, st->cn) != st->csum) {
         /* overwritten while lent out: empty song, reload from Floppy */
@@ -988,7 +1063,7 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     st->parts = st->zm.nparts ? st->zm.nparts : SP_MAX_PARTS;   /* without Floppy: measured as 4 */
     st->cap = st->zm.nparts ? SP_KEY_BITS + SP_BUDGET * st->parts : SS_NOFL_CAP;
     /* patch change (a gap between calls, or another patch number): from bar 1 */
-    i = st->zm.fw ? ZM_U32(zm_fws[st->zm.fw - 1u].patch) : st->patch;
+    i = st->zm.ft ? ZM_U32(st->zm.ft->patch) : st->patch;
     if (t0 - st->lastCall > SS_AWAY_CYC || i != st->patch) {
         st->play = 0u;
         st->done = 0u;                  /* Once plays again */
@@ -1059,10 +1134,10 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     pm->cur[1] = i - tq;
     tq = i;
 #endif
-    /* STATUS: one message per bar (~1.5 s when not playing): x - 3 * (x / 3),
+    /* STATUS: the next message every ~1.5 s (TSCL >> 28): x - 3 * (x / 3),
      * x / 3 = x * 171 >> 9 (x < 256) */
     if (st->stat) {
-        uint32_t v = st->play ? st->bar : t0 >> 28;
+        uint32_t v = t0 >> 28;
         st->blink = st->zm.nparts ? 2u : v - 3u * ((v * 171u) >> 9);
     }
     /* redraw when a text shown changes: the countdown digit, STATUS's names
@@ -1148,9 +1223,11 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     pm->cur[2] = TSCL - tq;
 #endif
     if (st->wtn > SS_WT_ROWS) st->wtn = 0u;            /* (overwritten while lent out) */
-    for (i = 0u; i < SS_WT_STEP && st->wtn < SS_WT_ROWS; ++i) {
-        ss_wt_row(SS_WT_OF(st), st->wtn);
-        st->wtn++;
+    if (st->wtn < SS_WT_ROWS) {
+        i = SS_WT_ROWS - st->wtn;
+        if (i > SS_WT_STEP) i = SS_WT_STEP;
+        ss_wt_build(SS_WT_OF(st), st->wtn, i);
+        st->wtn += i;
     }
 #ifdef SS_PROBE
     ss_play(st, ctx);

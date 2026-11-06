@@ -1,0 +1,153 @@
+# ZDL size tips
+
+What made DrumBox, Floppy and SongBox smaller. All numbers were measured
+on our own builds (TI cl6x 8.3.15 and this repository's
+`build/linker.py`). "Works" means the build loaded and played on a B1Xon
+1.30 or G1Xon 1.21; everything else was only built. Sizes are file bytes
+unless marked alloc.
+
+## 1. Know the two limits
+
+| Limit | What counts | Value |
+|---|---|---|
+| Flash | the whole `.ZDL` file | 4,090-byte blocks (8 blocks = 32,720 B) |
+| Load (G1on family) | alloc = `.text` + `.const` + `.fardata` | 29,968 B loaded, 30,216 B froze on selecting the effect |
+
+The gap between the two is ELF bookkeeping: `.rela.dyn`, `.dynsym`,
+`.dynstr`, `.hash` and the headers. In SongBox it was 4,446 B at the
+start. Tricks that cut only the bookkeeping help flash, not alloc. Code
+and data count in both. Moving data between `.const` and `.text` does
+nothing for alloc, because alloc is their sum.
+
+## 2. Measure first
+
+- Read the linker log's `.text layout` lines before changing C. The
+  linker's own parts (knob handlers, their copies, float divide, `_init`)
+  were bigger than any C change more than once. When a DrumBox kit was
+  250 B over the load limit, about 4 KB of linker parts were waste.
+- To see size by source line, map `.audio` / `.text` addresses to lines
+  through the object file's `.debug_line`. Helpers that are inlined show
+  up at every call site.
+- To count relocations by symbol: `ofd6x -v --obj_display=none,relocs
+  x.obj`. In the ZDL, each distinct relocation target address gets its own
+  `.dynsym` entry.
+- cl6x code grows in 32-byte fetch packets and jumps unpredictably: the
+  value of one constant once moved DrumBox's audio code by about 1 KB.
+  Compare against a byte-exact rebuild of the old source, and don't read a
+  32-byte jump as the effect of your change. Change one thing at a time
+  and keep what shrinks the file.
+- Make the feature work first; size work is a separate step.
+
+## 3. Compiler flags
+
+- `--opt_for_space=3` together with `--disable_push_pop`. Without the
+  second flag cl6x calls `__c6xabi_push_rts` / `pop_rts`, which the Zoom
+  runtime doesn't have. DrumBox code went from 24.4 KB to 16 KB at
+  `--opt_for_space=1`. Works.
+- At `--opt_for_space=3` cl6x overlaps loop iterations only through
+  SPLOOP: short chains carried from one iteration to the next, at most 48
+  cycles per iteration, nothing kept longer than one iteration interval.
+  Short, split loops are good for both size and speed.
+- After every build: no `DINT` / `RINT` in the `dis6x` output, only the
+  descriptor undefined in `nm6x`, and `.fardata` as small as expected.
+
+## 4. Code
+
+| Trick | Saving | Status |
+|---|---|---|
+| **Rarely-run code out of line:** `FUNC_CANNOT_INLINE` + `CODE_SECTION(".text")` + `FUNC_INTERRUPT_THRESHOLD 1`, called from the audio function | SongBox −1,264 B; its audio code 21,120 → 9,408 B | works |
+| Knob texts: one `static` getstr body in `.text`, tiny `GetString_*` wrappers that call it (a call inside `.text` needs no relocation) | menu library 3,104 → 704 B; DrumBox 672 → 416 B | works |
+| One generic engine driven by data records instead of code per instrument | SongBox −368 B file, −560 alloc; a new instrument ~120 B of data instead of ~900 B of code | works |
+| Pick a table index in each branch and copy the text once at the end, instead of a copy in every branch | a copy per return got inlined: +632 B and +24 relocations | works |
+| Look up a per-firmware table row once per call and keep the pointer, instead of indexing the table at every use | −352 B code, −16 relocations | works |
+| Formulas instead of compare chains or macros expanded per entry | ~7 B per entry per expansion | works |
+| Branch-free operations (`x \|= (a - b) >> 31`), small maps as nibble lists, offset counters | whole 32-byte packets | works |
+
+Notes:
+- Moving code out of line gains most for small helpers inlined at many
+  sites. A block with a single call site gains little, and some moves grow
+  the file. Keep per-sample loops inline.
+- The linker enters the audio function at the start of `.audio`. Put no
+  callable helpers in `.audio`: inline them, or place them in `.text`.
+- Calls from `.audio` into `.text` are PCR_S21 relocations. Check that
+  every call lands on its function in the disassembled ZDL: an early
+  version of this linker missed by the call's offset in `.audio`.
+
+## 5. Data
+
+| Trick | Saving | Status |
+|---|---|---|
+| Tables as `static const` in `.const` instead of code that stores immediates (the linker adds a `.rela.dyn` entry per address load, as Zoom's effects do) | a table word 1–4 B against ~11 B per immediate store | works |
+| Palettes: each distinct value once, plus one index byte per entry | DrumBox 8 → 6 flash blocks (with the item above) | works |
+| Fixed-width names (5 bytes, padded with NUL) | | works |
+| Sparse lanes: a 16-bit onset mask per lane plus one byte per note, indexed by a popcount (`_dotpu4(_bitc4(m), 0x01010101)`) | SongBox ~40 → ~23 B per rhythm | works |
+| **All tables in one struct** (the generators write initializers; the old table names stay as macros, so the code is unchanged) | SongBox −320 B; −432 B with `rela_const_base` below | works |
+| Wavetables built at run time from harmonic lists, a few rows per call, into the effect's large buffer (`ctx[3]`) | tables cost RAM, not flash | works |
+
+Notes:
+- A palette only pays when values repeat. SongBox's rhythm names and
+  drum settings were all different, so a palette would gain nothing there.
+- Names packed into 6 bits per character cost +224 B in DrumBox (the
+  decoder was bigger than the saving). It saves 1 B per name, so it only
+  pays with many names (break-even around 80).
+- Don't expect a struct or a local pointer to make cl6x load a table's
+  address only once. It reloads the address (MVKL / MVKH) at each use and
+  moves the load into each branch, even from a local pointer. The struct
+  still pays through the linker (below).
+
+## 6. Linker options (`build/linker.py`, all off by default)
+
+| Option | What it does | Saving | Status |
+|---|---|---|---|
+| `drop_unused_divf` | leaves out the float-divide helper when the code doesn't call it | 640 B | works |
+| `compact_linesel_clones` | a copied knob handler is 3 fetch packets of LineSel's handler block, not the whole 480-B block | 3,360 B (DrumBox) | works |
+| `trim_linesel_blob` | keeps only the parts of the handler block that are used | 160 B | works |
+| `init_call_loop` | `_init` calls the copied handlers from one 160-B loop, not a 64-B block each | 288 B (DrumBox) | works |
+| `compact_edit_stubs` | one shared knob handler body plus a 16-B stub per knob (knob id and parameter offset in registers) | Floppy 992 → 416 B; SongBox 736 B | works |
+| (with it) a knob max over 150 | the shared body takes that max's range law for every knob. Every law gives raw = value / 100, and the 200-step law doesn't clamp past 200 (a max-210 Tempo knob reaches 250 BPM) | makes the line above possible for SongBox | works |
+| `drop_ti_abs_symbols` | no `__TI_*` bookkeeping symbols | ~170 B with the next line | works |
+| `dynamic_entries=17` | `.dynamic` without its padding entries | | works |
+| `rela_const_base` | the address-load relocations into `.const` share one `.dynsym` entry, with the offset in each entry's addend. 82 of 265 stock effects we scanned use such addends | 120 B; with one table struct, all 17 table targets share one symbol | works |
+| `drop_attributes` | no `.c6xabi.attributes` section (every stock effect has one) | 123 B | works |
+| no `_init` | for an effect that never reads its knob values from `params[]` | | works |
+
+Each `.dynsym` entry costs 16 B plus 8 B of `.hash` once there are more
+than 17. Each MVKL / MVKH address load costs 8 B of code plus 24 B of
+`.rela.dyn`.
+
+## 7. Screen picture
+
+The 128×64 picture is run-length coded over 8-pixel column bytes, in 8
+bands of 8 rows. A byte equal to its left neighbour costs almost nothing;
+every change costs 1 B. Plain areas, horizontal edges on 8-row
+boundaries, and fewer small details make it smaller. Moving text a few
+pixels changes the size. SongBox's picture takes 840 of 1,024 raw bytes,
+with the busy middle bands at about 1 B per column.
+
+## 8. Tried, didn't help
+
+- ELynx's strip shrinker: our files have no debug sections to strip.
+- Small C cuts while the linker parts are the real cost.
+- Moving data between `.const` and `.text`.
+- A local base pointer for tables (cl6x reloads the address anyway).
+- Copying a header library's source into the effect: `static inline`
+  header code is already compiled into the effect.
+
+## 9. SongBox, step by step
+
+| Step | File (B) | Alloc (B) |
+|---|---|---|
+| Start (0.7 beta), 9 blocks | 33,722 | 29,276 |
+| Linker: `init_call_loop`, `drop_ti_abs_symbols`, `dynamic_entries=17` | 33,230 | 29,012 |
+| Sparse rhythm lanes | 32,862 | 28,644 |
+| Per-firmware row pointer once per call | 32,294 | 28,292 |
+| State end check (a fix, not a saving) | 32,358 | 28,356 |
+| Rarely-run code out of line | 31,094 | 27,140 |
+| One instrument engine | 30,726 | 26,580 |
+| A smaller STATUS text change | 30,662 | 26,516 |
+| All tables in one struct (with the base address passed through `_mvd`, so every load used the same symbol: −152 B, but +160 B of code) | 30,190 | 26,692 |
+| `rela_const_base`, `drop_attributes` | 29,947 | 26,692 |
+| The same without `_mvd` (`rela_const_base` folds the offsets) | 29,835 | 26,532 |
+| `compact_edit_stubs` with the 200-step law | 29,099 | 25,796 |
+
+In total −4,623 B of file (9 → 8 blocks) and −3,480 B of alloc.

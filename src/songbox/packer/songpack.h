@@ -26,6 +26,11 @@
 #define SP_DO_PRAGMA(x) _Pragma(#x)
 #define SP_EXPAND_PRAGMA(x) SP_DO_PRAGMA(x)
 #define SP_INLINE(f) SP_EXPAND_PRAGMA(FUNC_ALWAYS_INLINE(f))
+/* The packer step may be kept out of line (one copy, called): define
+ * SP_COLD(f) before including songpack.h; inlined by default. */
+#ifndef SP_COLD
+#define SP_COLD(f) SP_INLINE(f)
+#endif
 
 #define SP_CAP_BITS   106u
 #define SP_KEY_BITS   4u
@@ -333,7 +338,7 @@ static inline void sp_emit(SpPack *P)
 }
 
 /* One step; returns 1 when done (result in fits / bits / bkey / words). */
-SP_INLINE(sp_step)
+SP_COLD(sp_step)
 static inline uint32_t sp_step(SpPack *P)
 {
     if (P->phase == 0u) {
