@@ -10,7 +10,8 @@ dist/smoke/
 *.obj
 __pycache__/
 *.pyc
-drumbox/preview/
+src/drumbox/preview/
+src/songbox/preview/
 
 # IDE
 .idea/

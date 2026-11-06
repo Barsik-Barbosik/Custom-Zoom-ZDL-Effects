@@ -15,8 +15,10 @@ Floppy keeps only a packed token stream:
       1 SWITCH     next chord: major <-> minor
       2 FLAT       next chord: root - 1 semitone, default major;
                    FLAT + 4 (degree IV) = rest bar (silent, rhythm unchanged)
-                   (FLAT + 7 is spare: it decodes as a chord the packer
-                   writes as vi + SWITCH)
+                   FLAT + 7 (degree vii) = drums bar (bass and keys silent,
+                   the drums play its rhythm; rhythm events before it as
+                   before a chord). Was spare (a chord the packer writes as
+                   vi + SWITCH), so older streams never hold it
       3 NEXT       rhythm 1 -> 2 -> 3 -> 1
       4 PREV       rhythm 3 -> 2 -> 1 -> 3
       5 REP3       last bar 3 more times (chord + rhythm, no events)
@@ -73,6 +75,8 @@ LOOP_MAX = 9                  # count token 0..7 -> 2..9 plays
 Bar = tuple                   # (root, minor, beat)
 REST = (12, 0, -1)            # silent bar, keeps the beat state
 REST_TOK = 4                  # FLAT + degree IV (F in C) = rest (was = E major, spare)
+DRUMS_ROOT = 13               # drums bar = (13, 0, beat): no chord, the drums play
+DRUMS_TOK = 7                 # FLAT + degree vii = drums bar (was spare)
 SET_ESC = 7                   # settings token 7: escape, one more token follows
 SET_N = 9                     # settings codes 0..8
 last_set = 0                  # unpack(): the stream's settings code
@@ -126,6 +130,8 @@ def last_section(bars: list, q: int, r: int, rh: list | None = None):
 def bar_name(b: Bar) -> str:
     if b == REST:
         return "Rest"
+    if b[0] == DRUMS_ROOT:
+        return f"Drums/{b[2] + 1}"
     return NAMES[b[0]] + ("m" if b[1] else "") + f"/{b[2] + 1}"
 
 
@@ -157,6 +163,8 @@ def bar_tokens(key: int, b: Bar, beat_before: int) -> list[int]:
         steps = 0
     for _ in range(steps):
         toks += [EV, E_NEXT]
+    if b[0] == DRUMS_ROOT:                    # rhythm events as before a chord
+        return toks + [EV, E_FLAT, DRUMS_TOK]
     evs, deg = chord_code(key, b[0], b[1])
     for e in evs:
         toks += [EV, e]
@@ -380,6 +388,10 @@ def unpack(v: int, rep_mode: str = "3", loops="copy") -> list:
                 bars.append(REST)
                 flat = sw = 0
                 continue
+            if flat and t == DRUMS_TOK:
+                bars.append((DRUMS_ROOT, 0, beat))
+                flat = sw = 0
+                continue
             root = (key + DEG_OFS[d] - flat) % 12
             minor = (0 if flat else DEG_MIN[d]) ^ sw
             bars.append((root, minor, beat))
@@ -515,7 +527,9 @@ def random_song(rng: random.Random) -> list:
         phrase = []
         for _ in range(rng.randrange(1, 5)):
             r, m = rng.choice(pool)
-            phrase += [(r, m, beat) if rng.random() > 0.1 else REST] * rng.choice((1, 1, 2, 4))
+            x = rng.random()
+            b = REST if x < 0.1 else (DRUMS_ROOT, 0, beat) if x < 0.15 else (r, m, beat)
+            phrase += [b] * rng.choice((1, 1, 2, 4))
         bars += phrase * rng.randrange(1, 5)
     return bars[:MAX_BARS]
 
@@ -546,7 +560,8 @@ def main() -> None:
         if roundtrip(random_song(rng)) is not None:
             fits += 1
         n = rng.randrange(1, 40)              # unstructured: any chord, any rhythm
-        bars = [(rng.randrange(12), rng.randrange(2), rng.randrange(3)) if rng.random() > 0.1 else REST
+        bars = [(rng.randrange(12), rng.randrange(2), rng.randrange(3)) if rng.random() > 0.15
+                else REST if rng.random() < 0.6 else (DRUMS_ROOT, 0, rng.randrange(3))
                 for _ in range(n)]
         roundtrip(bars)
     print(f"round trips ok ({fits} of 300 structured songs fit)")

@@ -47,26 +47,25 @@ FREQ = [440.0 * 2.0 ** ((m - 69) / 12.0) for m in range(128)]   # a C table
 # keys hits (step, len, mode: 0 chord, 1..3 one chord tone (arpeggio)),
 # read from patterns.json by song_patterns.py
 sys.path.insert(0, str(HERE / "patterns"))
-from song_patterns import PATTERNS  # noqa: E402
+from song_patterns import BASS_APPROACH, BASS_OFS, KEY_CHORDS, KEY_OFS, PATTERNS  # noqa: E402
 
 
-def voicing(root: int, minor: int) -> list:
-    """Triad MIDI notes folded into 55..67 (G3..G4), close position."""
-    tones = [root, root + (3 if minor else 4), root + 7]
+def voicing(root: int, minor: int, code: int = 0) -> list:
+    """Keys code's three MIDI notes (KEY_OFS) folded into 55..66 (G3..F#4),
+    sorted."""
     out = []
-    for t in tones:
-        n = 48 + t % 12
-        while n < 55:
+    for o in KEY_OFS[code][minor]:
+        n = 48 + (root + o) % 12
+        if n < 55:
             n += 12
-        while n > 67:
-            n -= 12
         out.append(n)
     return sorted(out)
 
 
-def bass_note(root: int, deg: int) -> int:
-    n = 28 + (root - 4) % 12                       # E1..D#2
-    return n + (0, 7, 12)[deg]
+def bass_note(root: int, minor: int, code: int, next_root: int) -> int:
+    """Bass code's MIDI note (BASS_OFS; the approach note from next_root)."""
+    r = next_root if code == BASS_APPROACH else root
+    return 28 + (r - 4) % 12 + BASS_OFS[code][minor]   # root E1..D#2
 
 
 # ------------------------------------------------------------------ renderer
@@ -76,25 +75,26 @@ def render(name: str) -> list:
     keys = [Voice() for _ in range(3)]
     bass = Voice()
     out = []
-    for bar in SONG:
+    for bi, bar in enumerate(SONG):
         root, minor, rh = bar
         pat = PATTERNS[rh]
-        notes = voicing(root, minor)
+        next_root = SONG[(bi + 1) % len(SONG)][0]
         bev = {s: (ln, d) for s, ln, d in pat["bass"]}
         kev = {s: (ln, m) for s, ln, m in pat["keys"]}
         for step in range(16):
             if step in bev:
                 ln, d = bev[step]
-                bass.trigger(FREQ[bass_note(root, d)], ln * STEP - STEP // 4)
+                bass.trigger(FREQ[bass_note(root, minor, d, next_root)], ln * STEP - STEP // 4)
             if step in kev:
                 ln, m = kev[step]
-                if m == 0:                         # chord: all three voices
+                notes = voicing(root, minor, m)
+                if m in KEY_CHORDS:                # chord: all three voices
                     for i, v in enumerate(keys):
                         v.trigger(FREQ[notes[i]], ln * STEP - STEP // 4)
                 else:                              # arpeggio: one tone, voices in turn
                     for v in keys:
                         v.gate = 0
-                    keys[(step >> 1) % 3].trigger(FREQ[notes[m - 1]], ln * STEP)
+                    keys[(step >> 1) % 3].trigger(FREQ[notes[m - 1 if m < 4 else 0]], ln * STEP)
             for _ in range(STEP):
                 s = ib.render(bass) * ib.LEVEL
                 bass.gate -= 1
@@ -113,51 +113,91 @@ def render(name: str) -> list:
     return out
 
 
-def c_header(path: Path) -> None:
+def note_pool(lanes: list) -> tuple:
+    """(pool, offsets): one byte string holding every lane's note bytes,
+    shared and overlapped (greedy shortest common superstring: drop lanes
+    contained in others, then merge the pair with the longest overlap);
+    offsets[i] = where lanes[i] starts in it."""
+    uniq = []
+    for s in lanes:
+        if s and s not in uniq:
+            uniq.append(s)
+    parts = [s for s in uniq if not any(s != t and s in t for t in uniq)]
+    while len(parts) > 1:
+        best = (-1, 0, 1)
+        for i, a in enumerate(parts):
+            for j, b in enumerate(parts):
+                if i != j:
+                    k = min(len(a), len(b)) - 1
+                    while k > 0 and not a.endswith(b[:k]):
+                        k -= 1
+                    if k > best[0]:
+                        best = (k, i, j)
+        k, i, j = best
+        merged = parts[i] + parts[j][k:]
+        parts = [s for t, s in enumerate(parts) if t not in (i, j)] + [merged]
+    pool = parts[0] if parts else b""
+    return pool, [pool.find(s) if s else 0 for s in lanes]
+
+
+def c_header(path: Path, swings: list | None = None) -> None:
     """songbox_sound.h for songbox.c: patterns, phase increments per note of
     octave 0 (doubled per octave by the DSP).
 
     A pattern's lane (bass, keys) = a 16-bit onset mask (bit = step) in
-    ss_pat[3 * p + lane] and one note byte per set bit (len << 4 | degree
-    or mode, never 0) in ss_pat_notes from ss_pat[3 * p + 2]: the bass
-    notes, then the keys notes. A step's note = notes[ofs + bits of the
+    ss_pat[4 * p + lane] and one note byte per set bit (len << 4 | degree
+    or mode, never 0) in ss_pat_notes from ss_pat[4 * p + 2 + lane] (bits
+    0..13; the keys offset's bits 14-15 = the swing code of the pattern's
+    DrumBox beat, `swings`). Lanes share note bytes: the pool is one
+    overlapped string (note_pool). A step's note = notes[ofs + bits of the
     mask below the step] (SS_BITS = popcount)."""
+    swings = swings or [0] * len(PATTERNS)
+    nrand = sum(not p["norandom"] for p in PATTERNS)
     L = ["/* Generated by build.py from proto.py -- do not edit. */",
          "#ifndef SONGBOX_SOUND_H", "#define SONGBOX_SOUND_H",
          f"#define SS_NPAT {len(PATTERNS)}u",
+         f"#define SS_NRAND {nrand}u                  /* Randm picks one of patterns 0..SS_NRAND - 1 */",
          "#define SS_BITS(m) _dotpu4(_bitc4(m), 0x01010101u)   /* popcount */"]
-    masks, ofs, notes, rows = [], [], [], []
+    masks, lanes, rows = [], [], []
     for pat in PATTERNS:
-        ofs.append(len(notes))
         for key in ("bass", "keys"):
             row = [0] * 16
             for st, ln, d in pat[key]:
                 assert row[st] == 0 and ln << 4 | d, (pat["short"], key, st)
                 row[st] = ln << 4 | d
             masks.append(sum(1 << s for s in range(16) if row[s]))
-            notes += [b for b in row if b]
+            lanes.append(bytes(b for b in row if b))
             rows.append(row)
-    for p in range(len(PATTERNS)):                  # decode check (the C lookup)
-        for lane in range(2):
-            m = masks[2 * p + lane]
-            o = ofs[p] + (bin(masks[2 * p]).count("1") if lane else 0)
-            got = [notes[o + bin(m & ((1 << s) - 1)).count("1")] if m >> s & 1 else 0
-                   for s in range(16)]
-            assert got == rows[2 * p + lane], (PATTERNS[p]["short"], lane)
-    assert len(notes) < 65536
+    notes, ofs = note_pool(lanes)
+    assert len(notes) < 1 << 14 and all(0 <= c < 4 for c in swings)
+    for i in range(len(rows)):                      # decode check (the C lookup)
+        m, o = masks[i], ofs[i]
+        got = [notes[o + bin(m & ((1 << s) - 1)).count("1")] if m >> s & 1 else 0
+               for s in range(16)]
+        assert got == rows[i], (PATTERNS[i // 2]["short"], i & 1)
     # tables as initializers of SsConst members (songbox.c: one struct, one base address)
-    L.append(f"#define SS_NNOTES {len(notes)}u")
-    L += c_init("SS_PAT_INIT", "ss_pat[SS_NPAT * 3u]: bass mask, keys mask, notes ofs",
-                [f"0x{masks[2 * p]:04X}u, 0x{masks[2 * p + 1]:04X}u, {ofs[p]}u,   /* {pat['short']} */"
+    L.append(f"#define SS_NNOTES {max(1, len(notes))}u   /* {sum(map(len, lanes))} note bytes shared */")
+    L += c_init("SS_PAT_INIT", "ss_pat[SS_NPAT * 4u]: bass mask, keys mask, bass ofs, keys ofs | swing << 14",
+                [f"0x{masks[2 * p]:04X}u, 0x{masks[2 * p + 1]:04X}u, {ofs[2 * p]}u, "
+                 f"{ofs[2 * p + 1] | swings[p] << 14}u,   /* {pat['short']} */"
                  for p, pat in enumerate(PATTERNS)])
+    notes = notes or b"\0"
     L += c_init("SS_PAT_NOTES_INIT", "ss_pat_notes[SS_NNOTES]",
                 [f"{', '.join(f'0x{b:02X}u' for b in notes[i:i + 12])},"
                  for i in range(0, len(notes), 12)])
-    names = "".join(p["short"].ljust(5, "_") for p in PATTERNS)
+    names = "Randm" + "".join(p["short"].ljust(5, "_") for p in PATTERNS)
     L.append("#define SS_PAT_NAMES_INIT \"" + names.replace("_", "\\0") +
-             "\"   /* ss_pat_names[SS_NPAT * 5u + 1u] */")
+             "\"   /* ss_pat_names[(SS_NPAT + 1u) * 5u + 1u]: Randm, the patterns */")
     L.append("#define SS_INC_INIT { " + ", ".join(f"{FREQ[n] / SR:.9g}f" for n in range(12)) +
              " }   /* ss_inc[12] */")
+    L.append("#define SS_BASS_OFS_INIT { " + ", ".join(f"{o}" for pair in BASS_OFS for o in pair)
+             + " }   /* ss_bass_ofs[code * 2 + minor]: semitones above the root */")
+    L.append(f"#define SS_BASS_APPROACH {BASS_APPROACH}u   /* bass code: from the next bar's root */")
+    L.append("#define SS_KEY_OFS_INIT { " + ", ".join(f"{o}u" for pair in KEY_OFS for tri in pair for o in tri)
+             + " }   /* ss_key_ofs[code * 6 + minor * 3 + i] */")
+    L.append(f"#define SS_KEY_CHORDS 0x{sum(1 << c for c in KEY_CHORDS):X}u   /* keys codes: all three voices */")
+    L.append(f"#define SS_NBASS {len(BASS_OFS)}u")
+    L.append(f"#define SS_NKEY {len(KEY_OFS)}u")
     L.append(f"#define SS_STEP_PER_BPM {4.0 / (60.0 * SR):.9g}f   /* 16ths per sample per BPM */")
     L += ["#endif", ""]
     path.write_bytes("\r\n".join(L).encode("ascii"))

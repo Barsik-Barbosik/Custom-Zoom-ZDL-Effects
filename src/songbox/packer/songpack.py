@@ -6,8 +6,9 @@ hot paths, back pointers instead of token lists, and the work split into
 steps (one prep row or one DP row per step) so the DSP can run it across
 audio calls.
 
-Bar = one byte: chord (root * 2 + minor, 0..23; 24 = rest) | rhythm << 5
-(a rest is always 24: it plays in the rhythm state it falls in).
+Bar = one byte: chord (root * 2 + minor, 0..23; 24 = rest; 26 = drums) |
+rhythm << 5 (a rest is always 24: it plays in the rhythm state it falls in;
+a drums bar has its rhythm like a chord bar, stream FLAT + 7).
 
 Packer moves from bar position p (DP over positions, per key):
   BAR    bars[p] as tokens: NEXT / PREV, FLAT, SWITCH, degree     3..21 bits
@@ -50,10 +51,13 @@ COPY_MAX_N = 64
 COPY_MAX_C = 8
 INF = 0xFFFF
 B_REST = 24
+B_DRUMS = 26                  # drums bar: no chord, the drums play its rhythm (25 = END in SongBox)
 
 EV = 0
 E_END, E_SWITCH, E_FLAT, E_NEXT, E_PREV, E_REP3, E_COPY, E_SECT = range(8)
 REST_TOK = 4
+DRUMS_TOK = 7                 # FLAT + 7 = drums bar
+DRUMS_CODE = 7 | 1 << 3       # REL_CODE form of a drums bar: FLAT, token 7, no SWITCH
 SET_ESC = 7                   # settings token 7: escape, one more token follows
 SET_N = 9                     # settings codes 0..8
 
@@ -121,7 +125,7 @@ def bar_bits(key: int, b: int, beat: int) -> int:
     bits = 3
     if (b >> 5) != beat:
         bits += BITS_EV
-    code = REL_CODE[mod12((ch >> 1) - key)]
+    code = DRUMS_CODE if ch == B_DRUMS else REL_CODE[mod12((ch >> 1) - key)]
     if code & 8:
         bits += BITS_EV
     if (ch & 1) != (code >> 4):
@@ -353,7 +357,7 @@ class Packer:
                         self.put(EV), self.put(E_NEXT)
                     elif d == 2:
                         self.put(EV), self.put(E_PREV)
-                    code = REL_CODE[mod12((ch >> 1) - key)]
+                    code = DRUMS_CODE if ch == B_DRUMS else REL_CODE[mod12((ch >> 1) - key)]
                     if code & 8:
                         self.put(EV), self.put(E_FLAT)
                     if (ch & 1) != (code >> 4):
@@ -482,6 +486,8 @@ def unpack_end(words: list, parts: int = 1) -> tuple:
         if t != EV:
             if flat and t == REST_TOK:
                 append(B_REST)
+            elif flat and t == DRUMS_TOK:
+                append(B_DRUMS | beat << 5)
             else:
                 d = t - 1
                 root = mod12(key + DEG_OFS[d] - flat)
@@ -560,7 +566,20 @@ def unpack_end(words: list, parts: int = 1) -> tuple:
 def to_byte(b: tuple) -> int:
     if b == ref.REST:
         return B_REST
+    if b[0] == ref.DRUMS_ROOT:
+        return B_DRUMS | b[2] << 5
     return (b[0] << 1 | b[1]) | b[2] << 5
+
+
+def random_bar(rng: random.Random, beat: int = -1) -> tuple:
+    """Any chord, any rhythm (or `beat`); ~10 % rests, ~5 % drums bars."""
+    beat = rng.randrange(3) if beat < 0 else beat
+    x = rng.random()
+    if x < 0.1:
+        return ref.REST
+    if x < 0.15:
+        return (ref.DRUMS_ROOT, 0, beat)
+    return (rng.randrange(12), rng.randrange(2), beat)
 
 
 def to_words(v: int) -> list:
@@ -635,7 +654,7 @@ def main() -> None:
     stats = dict(songs=0, cheaper=0, saved=0, fit_new=0, ops_max=0, row_max=0, steps_max=0,
                  short=0)
 
-    lines = ["# songpack test vectors: bars (hex bytes: chord | rhythm << 5, 24 = rest)",
+    lines = ["# songpack test vectors: bars (hex bytes: chord | rhythm << 5, 24 = rest, 26 = drums)",
              "# pack: P <bits or FULL> <key> <floppy value, 106 bits, hex> <bars>",
              "# pack, k Floppies: Pk <bits or FULL> <key> <stream value: key + 34 k tokens, hex> <bars>",
              "# unpack: U <floppy value hex> <bars>   (any value, junk included)",
@@ -652,8 +671,7 @@ def main() -> None:
     for i in range(60 if quick else 300):
         songs.append(ref.random_song(rng))
         n = rng.randrange(1, 40)
-        songs.append([(rng.randrange(12), rng.randrange(2), rng.randrange(3))
-                      if rng.random() > 0.1 else ref.REST for _ in range(n)])
+        songs.append([random_bar(rng) for _ in range(n)])
     for s in songs:
         check(s, pk, stats)
     for i, s in enumerate(songs[:100] + list(named_songs().values())):   # other settings codes
@@ -673,8 +691,7 @@ def main() -> None:
     for i in range(20 if quick else 100):
         a = ref.random_song(rng)
         long_songs.append((a + ref.random_song(rng) + a)[:MAX_BARS])
-        long_songs.append([(rng.randrange(12), rng.randrange(2), rng.randrange(3))
-                           if rng.random() > 0.1 else ref.REST for _ in range(rng.randrange(20, 129))])
+        long_songs.append([random_bar(rng) for _ in range(rng.randrange(20, 129))])
     fit = [0] * (MAX_PARTS + 1)
     for s in long_songs + list(named_songs().values()):
         for k in range(2, MAX_PARTS + 1):

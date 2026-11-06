@@ -4,7 +4,8 @@
  * reference). Any change goes into both files; songpack_vectors.txt and the
  * SongBox self-test check them against each other.
  *
- * Bar = one byte: chord (root * 2 + minor, 0..23; SP_REST = 24) | rhythm << 5.
+ * Bar = one byte: chord (root * 2 + minor, 0..23; SP_REST = 24; SP_DRUMS =
+ * 26: no chord, the drums play its rhythm, stream FLAT + 7) | rhythm << 5.
  * Stream: key (4 bits), then 3-bit tokens, LSB first, in 4 words (106 bits).
  * More Floppies (parts 1..SP_MAX_PARTS): the stream goes on, 34 tokens per
  * part; part q is words[4 q .. 4 q + 3], its first 4 bits the key (part 1)
@@ -42,6 +43,9 @@
 #define SP_COPY_MAX_N 64u
 #define SP_INF        0xFFFFu
 #define SP_REST       24u
+#define SP_DRUMS      26u               /* 25: SongBox's END (never packed) */
+/* a bar byte's chord part has a rhythm: a chord or a drums bar */
+#define SP_HAS_RHY(c) ((c) < SP_REST || (c) == SP_DRUMS)
 
 #define SP_EV      0u
 #define SP_E_END   0u
@@ -53,6 +57,8 @@
 #define SP_E_COPY  6u
 #define SP_E_SECT  7u
 #define SP_REST_TOK 4u
+#define SP_DRUMS_TOK 7u                 /* FLAT + 7 = drums bar */
+#define SP_DRUMS_CODE 15u               /* sp_rel_code form of a drums bar: FLAT, token 7 */
 #define SP_SET_ESC  7u                  /* settings token 7: escape, one more token follows */
 #define SP_SET_N    9u                  /* settings codes 0..8 */
 
@@ -128,7 +134,7 @@ static inline uint32_t sp_bar_bits(uint32_t key, uint32_t b, uint32_t beat)
     if (ch == SP_REST) return SP_BITS_REST;
     bits = 3u;
     if ((b >> 5) != beat) bits += SP_BITS_EV;
-    code = sp_rel_code[sp_mod12((int)(ch >> 1) - (int)key)];
+    code = ch == SP_DRUMS ? SP_DRUMS_CODE : sp_rel_code[sp_mod12((int)(ch >> 1) - (int)key)];
     if (code & 8u) bits += SP_BITS_EV;
     if ((ch & 1u) != (code >> 4)) bits += SP_BITS_EV;
     return bits;
@@ -311,7 +317,7 @@ static inline void sp_emit(SpPack *P)
                 if (d < 0) d += 3;
                 if (d == 1) { sp_put(P, SP_EV); sp_put(P, SP_E_NEXT); }
                 else if (d == 2) { sp_put(P, SP_EV); sp_put(P, SP_E_PREV); }
-                code = sp_rel_code[sp_mod12((int)(ch >> 1) - (int)P->bkey)];
+                code = ch == SP_DRUMS ? SP_DRUMS_CODE : sp_rel_code[sp_mod12((int)(ch >> 1) - (int)P->bkey)];
                 if (code & 8u) { sp_put(P, SP_EV); sp_put(P, SP_E_FLAT); }
                 if ((ch & 1u) != (code >> 4)) { sp_put(P, SP_EV); sp_put(P, SP_E_SWITCH); }
                 sp_put(P, code & 7u);
@@ -415,6 +421,8 @@ static inline uint32_t sp_unpack(const uint32_t *w, uint8_t *out, uint8_t *rh, u
         if (t != SP_EV) {
             if (flat && t == SP_REST_TOK) {
                 n = sp_append(out, rh, n, SP_REST);
+            } else if (flat && t == SP_DRUMS_TOK) {
+                n = sp_append(out, rh, n, SP_DRUMS | beat << 5);
             } else {
                 d = t - 1u;
                 root = sp_mod12((int)(key + sp_deg_ofs[d]) - (int)flat);
