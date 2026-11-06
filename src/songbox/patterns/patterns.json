@@ -1,0 +1,504 @@
+{
+ "format": "songbox-patterns",
+ "version": 1,
+ "defaults": {
+  "Rhy1": "Rock",
+  "Rhy2": "Funk",
+  "Rhy3": "Balld"
+ },
+ "patterns": [
+  {
+   "screen": "Rock",
+   "name": "Rock",
+   "bass": {
+    "notes": "R.R.R.R.R.R.R.R.",
+    "len": "2.2.2.2.2.2.2.2."
+   },
+   "keys": {
+    "notes": "C.......C.......",
+    "len": "7.......7......."
+   },
+   "drums": {
+    "beat": "Rock",
+    "mid": "Sp1",
+    "end": "Sn1"
+   }
+  },
+  {
+   "screen": "Rock4",
+   "name": "Rock 4",
+   "bass": {
+    "notes": "R......R..R...O.",
+    "len": "6......3..4...2."
+   },
+   "keys": {
+    "notes": "C...C...C...C...",
+    "len": "3...3...3...3..."
+   },
+   "drums": {
+    "beat": "Rock4",
+    "mid": "Kp1",
+    "end": "Tm1"
+   }
+  },
+  {
+   "screen": "Drive",
+   "name": "Driving 8ths",
+   "bass": {
+    "notes": "R.R.R.R.R.R.R.R.",
+    "len": "1.1.1.1.1.1.1.1."
+   },
+   "keys": {
+    "notes": "C.....C.........",
+    "len": "5.....9........."
+   },
+   "drums": {
+    "beat": "Drive",
+    "mid": "Kp2",
+    "end": "KS1"
+   }
+  },
+  {
+   "screen": "4Flr",
+   "name": "Four-Floor Rock",
+   "bass": {
+    "notes": "R...R...R...R...",
+    "len": "3...3...3...3..."
+   },
+   "keys": {
+    "notes": "..C...C...C...C.",
+    "len": "..2...2...2...2."
+   },
+   "drums": {
+    "beat": "4Flr",
+    "mid": "Sp2",
+    "end": "Fl1"
+   }
+  },
+  {
+   "screen": "HTRk",
+   "name": "Half-Time Rock",
+   "bass": {
+    "notes": "R.....R...5.....",
+    "len": "6.....4...6....."
+   },
+   "keys": {
+    "notes": "C.......C.......",
+    "len": "8.......8......."
+   },
+   "drums": {
+    "beat": "HTRk",
+    "mid": "Tmh",
+    "end": "HL1"
+   }
+  },
+  {
+   "screen": "Punk",
+   "name": "Punk",
+   "bass": {
+    "notes": "R.R.R.R.R.R.R.R.",
+    "len": "2.2.2.2.2.2.2.2."
+   },
+   "keys": {
+    "notes": "C.C.C.C.C.C.C.C.",
+    "len": "2.2.2.2.2.2.2.2."
+   },
+   "drums": {
+    "beat": "Punk",
+    "mid": "Kp2",
+    "end": "Sn2"
+   }
+  },
+  {
+   "screen": "Balld",
+   "name": "Ballad",
+   "bass": {
+    "notes": "R.......5.5.....",
+    "len": "8.......2.6....."
+   },
+   "keys": {
+    "notes": "1.2.3.2.1.2.3.2.",
+    "len": "3.3.3.3.3.3.3.3."
+   },
+   "drums": {
+    "beat": "Balld",
+    "mid": "Snh",
+    "end": "Tm1"
+   }
+  },
+  {
+   "screen": "PwrBd",
+   "name": "Power Ballad",
+   "bass": {
+    "notes": "R.......RR......",
+    "len": "8.......17......"
+   },
+   "keys": {
+    "notes": "C...............",
+    "len": "F..............."
+   },
+   "drums": {
+    "beat": "PwrBd",
+    "mid": "Tmh",
+    "end": "Tm2"
+   }
+  },
+  {
+   "screen": "Pop2",
+   "name": "Pop 2",
+   "bass": {
+    "notes": "R..R....R.5.....",
+    "len": "3..5....2.6....."
+   },
+   "keys": {
+    "notes": "C.....C...C.....",
+    "len": "6.....4...6....."
+   },
+   "drums": {
+    "beat": "Pop2",
+    "mid": "Lp1",
+    "end": "Fl1"
+   }
+  },
+  {
+   "screen": "PopRk",
+   "name": "Pop Rock",
+   "bass": {
+    "notes": "R.....R.R.R...5.",
+    "len": "6.....2.2.4...2."
+   },
+   "keys": {
+    "notes": "C.C.C.C.C.C.C.C.",
+    "len": "2.2.2.2.2.2.2.2."
+   },
+   "drums": {
+    "beat": "PopRk",
+    "mid": "OH1",
+    "end": "Rl1"
+   }
+  },
+  {
+   "screen": "DncPp",
+   "name": "Dance Pop",
+   "bass": {
+    "notes": "R.O.R.O.R.O.R.O.",
+    "len": "1.2.1.2.1.2.1.2."
+   },
+   "keys": {
+    "notes": "C..C..C...C..C..",
+    "len": "3..3..4...3..3.."
+   },
+   "drums": {
+    "beat": "DncPp",
+    "mid": "OHp",
+    "end": "Sn2"
+   }
+  },
+  {
+   "screen": "Motwn",
+   "name": "Motown",
+   "bass": {
+    "notes": "R...5...O...5...",
+    "len": "3...3...3...3..."
+   },
+   "keys": {
+    "notes": "....C.......C...",
+    "len": "....2.......2..."
+   },
+   "drums": {
+    "beat": "Motwn",
+    "mid": "Snh",
+    "end": "Tr1"
+   }
+  },
+  {
+   "screen": "Cntry",
+   "name": "Country",
+   "bass": {
+    "notes": "R.......5.......",
+    "len": "3.......3......."
+   },
+   "keys": {
+    "notes": "....C.......C...",
+    "len": "....2.......2..."
+   },
+   "drums": {
+    "beat": "Cntry",
+    "mid": "Sp1",
+    "end": "S81"
+   }
+  },
+  {
+   "screen": "Ska",
+   "name": "Ska",
+   "bass": {
+    "notes": "R...5...O...5...",
+    "len": "3...3...3...3..."
+   },
+   "keys": {
+    "notes": "..C...C...C...C.",
+    "len": "..1...1...1...1."
+   },
+   "drums": {
+    "beat": "Ska",
+    "mid": "Sp2",
+    "end": "S81"
+   }
+  },
+  {
+   "screen": "Galop",
+   "name": "Gallop",
+   "bass": {
+    "notes": "R.RRR.RRR.RRR.RR",
+    "len": "2.111.111.111.11"
+   },
+   "keys": {
+    "notes": "C.......C.......",
+    "len": "4.......4......."
+   },
+   "drums": {
+    "beat": "Galop",
+    "mid": "KKh",
+    "end": "KK1"
+   }
+  },
+  {
+   "screen": "Metal",
+   "name": "Metal",
+   "bass": {
+    "notes": "RRRRRRRRRRRRRRRR",
+    "len": "1111111111111111"
+   },
+   "keys": {
+    "notes": "C.......C.......",
+    "len": "8.......8......."
+   },
+   "drums": {
+    "beat": "Metal",
+    "mid": "BBh",
+    "end": "KT1"
+   }
+  },
+  {
+   "screen": "Funk",
+   "name": "Funk",
+   "bass": {
+    "notes": "R.O....R..5...O.",
+    "len": "2.1....2..2...1."
+   },
+   "keys": {
+    "notes": "...C..C..C...C..",
+    "len": "...1..1..1...1.."
+   },
+   "drums": {
+    "beat": "Funk",
+    "mid": "Ch1",
+    "end": "Gh1"
+   }
+  },
+  {
+   "screen": "Funk2",
+   "name": "Funk 2",
+   "bass": {
+    "notes": "R..O..R...5..R..",
+    "len": "2..1..2...2..2.."
+   },
+   "keys": {
+    "notes": "....C.......C...",
+    "len": "....1.......1..."
+   },
+   "drums": {
+    "beat": "Funk2",
+    "mid": "Push",
+    "end": "Ln1"
+   }
+  },
+  {
+   "screen": "Afro",
+   "name": "Afrobeat",
+   "bass": {
+    "notes": "R..R..O...5...R.",
+    "len": "2..3..2...3...2."
+   },
+   "keys": {
+    "notes": "..C..C....C..C..",
+    "len": "..1..1....1..1.."
+   },
+   "drums": {
+    "beat": "Afro",
+    "mid": "Tp2",
+    "end": "Mx1"
+   }
+  },
+  {
+   "screen": "Disco",
+   "name": "Disco",
+   "bass": {
+    "notes": "R.O.R.O.R.O.R.O.",
+    "len": "1.1.1.1.1.1.1.1."
+   },
+   "keys": {
+    "notes": "..C...C...C...C.",
+    "len": "..1...1...1...1."
+   },
+   "drums": {
+    "beat": "Disco",
+    "mid": "OH2",
+    "end": "Sn1"
+   }
+  },
+  {
+   "screen": "DeepH",
+   "name": "Deep House",
+   "bass": {
+    "notes": "R.....R...5.R...",
+    "len": "3.....2...2.3..."
+   },
+   "keys": {
+    "notes": "...C......C.....",
+    "len": "...2......2....."
+   },
+   "drums": {
+    "beat": "DeepH",
+    "mid": "Dh1",
+    "end": "Dk2"
+   }
+  },
+  {
+   "screen": "Techn",
+   "name": "Techno",
+   "bass": {
+    "notes": "..R...R...R...R.",
+    "len": "..1...1...1...1."
+   },
+   "keys": {
+    "notes": "C..C..C...C..C..",
+    "len": "1..1..1...1..1.."
+   },
+   "drums": {
+    "beat": "Techn",
+    "mid": "Hat1",
+    "end": "Build"
+   }
+  },
+  {
+   "screen": "Break",
+   "name": "Breakbeat",
+   "bass": {
+    "notes": "R.5.......RO....",
+    "len": "2.2.......14...."
+   },
+   "keys": {
+    "notes": "C.......C.......",
+    "len": "6.......6......."
+   },
+   "drums": {
+    "beat": "Break",
+    "mid": "Stab",
+    "end": "AmCh"
+   }
+  },
+  {
+   "screen": "BBap",
+   "name": "Boom Bap",
+   "bass": {
+    "notes": "R......R.5......",
+    "len": "6......2.5......"
+   },
+   "keys": {
+    "notes": "1...2...3...2...",
+    "len": "4...4...4...4..."
+   },
+   "drums": {
+    "beat": "BBap",
+    "mid": "Hit1",
+    "end": "Bn1"
+   }
+  },
+  {
+   "screen": "Half",
+   "name": "Half Time",
+   "bass": {
+    "notes": "R......R..O.....",
+    "len": "6......3..6....."
+   },
+   "keys": {
+    "notes": "C...............",
+    "len": "F..............."
+   },
+   "drums": {
+    "beat": "Half",
+    "mid": "Tp2",
+    "end": "Tt1"
+   }
+  },
+  {
+   "screen": "DnB",
+   "name": "Drum and Bass",
+   "bass": {
+    "notes": "R.........5.....",
+    "len": "A.........6....."
+   },
+   "keys": {
+    "notes": "....C.......C...",
+    "len": "....3.......3..."
+   },
+   "drums": {
+    "beat": "DnB",
+    "mid": "Sp3",
+    "end": "AmenB"
+   }
+  },
+  {
+   "screen": "Rgtn",
+   "name": "Reggaeton",
+   "bass": {
+    "notes": "R..R....R..R....",
+    "len": "3..5....3..5...."
+   },
+   "keys": {
+    "notes": "...C..C....C..C.",
+    "len": "...2..2....2..2."
+   },
+   "drums": {
+    "beat": "Rgtn",
+    "mid": "Tp2",
+    "end": "TS1"
+   }
+  },
+  {
+   "screen": "Bossa",
+   "name": "Bossa Nova",
+   "bass": {
+    "notes": "R..5....R..5....",
+    "len": "3..5....3..5...."
+   },
+   "keys": {
+    "notes": "C..C..C...C..C..",
+    "len": "2..2..2...2..2.."
+   },
+   "drums": {
+    "beat": "Bossa",
+    "mid": "SLp",
+    "end": "Rd2"
+   }
+  },
+  {
+   "screen": "1Drop",
+   "name": "One Drop",
+   "bass": {
+    "notes": "..R.5.....O.5...",
+    "len": "..2.4.....2.4..."
+   },
+   "keys": {
+    "notes": "....C.......C...",
+    "len": "....1.......1..."
+   },
+   "drums": {
+    "beat": "1Drop",
+    "mid": "Lp1",
+    "end": "ST1"
+   }
+  }
+ ]
+}

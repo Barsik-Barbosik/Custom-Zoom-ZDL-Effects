@@ -381,22 +381,6 @@ static const float db_metal_inc[6] = {
     522.7f * DB_INV_SR, 540.0f * DB_INV_SR, 800.0f * DB_INV_SR,
 };
 
-/* Advance the metal phases hm[0..5] and return the mean of the squares at
- * mult x their phase (mult 1 or 2: an octave up). */
-DB_ALWAYS_INLINE(db_metal_sq)
-static inline float db_metal_sq(float *hm, float mult)
-{
-    float acc = 0.0f;
-    int j;
-#pragma UNROLL(1)
-    for (j = 0; j < 6; j++) {
-        float h = db_wrap(hm[j] + db_metal_inc[j]);
-        hm[j] = h;
-        acc += db_sq(db_wrap(h * mult));
-    }
-    return acc * 0.16666667f;
-}
-
 /* The synth drums' code (drums/<algo>.c) and DB_SYN_HIT / DB_SYN_RENDER. */
 #include "drumbox_synth.h"
 
@@ -468,7 +452,7 @@ static inline void db_follow(unsigned int *ctx, float *params)
     row = (volatile const uint32_t *)(uintptr_t)(t[6] + 44u * slot + 8u);
     for (k = 0u; k < 9u; k++) {
         v = row[k];
-        if (v <= 200u)
+        if (v <= DRUMBOX_TEMPO_UI_MAX)
             params[5u + k] = (float)(int32_t)v * 0.01f;
     }
 }
@@ -1033,7 +1017,8 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     float beatBN   = db_param_list(params[DRUMBOX_BEATB_SLOT], DRUMBOX_BEATB_DEFAULT_NORM);
     float fillBN   = db_param_list(params[DRUMBOX_FILLB_SLOT], DRUMBOX_FILLB_DEFAULT_NORM);
     float lenBN    = db_param(params[DRUMBOX_LENB_SLOT],       DRUMBOX_LENB_DEFAULT_NORM);
-    /* Tempo raw = knob / 100 up to 2.0 (max 200, handler law 2.0f / 201). */
+    /* Tempo raw = knob / 100 up to 2.1 (max 210, handler law 2.0f / 201
+     * unclamped). */
     float tempoR  = params[DRUMBOX_TEMPO_SLOT];
     if (tempoR != tempoR || tempoR < 0.0f) tempoR = DRUMBOX_TEMPO_DEFAULT_NORM;
     tempoR = db_clamp(tempoR, 0.0f, DRUMBOX_TEMPO_UI_MAX * 0.01f);
@@ -1362,15 +1347,14 @@ static int db_song(char *s)
 #define DB_SONG_TEXT(s) do { } while (0)
 #endif
 
-/* Tempo: v 0..200 -> "40".."240" (BPM = 40 + v, same as the DSP; the
- * constant division folds at compile time). */
+/* Tempo: v 0..210 -> "40".."250" (BPM = 40 + v, same as the DSP). */
 int GetString_DbTempo(unsigned int v, char *s)
 {
     unsigned int bpm, h = 0u, t = 0u;
     int n = 0;
     DB_SONG_TEXT(s);
     if (v > DRUMBOX_TEMPO_UI_MAX) v = DRUMBOX_TEMPO_UI_MAX;
-    bpm = 40u + v * (200u / DRUMBOX_TEMPO_UI_MAX);
+    bpm = 40u + v;
     /* Digits by compare-and-subtract, no loops: TI pipelines loops with
      * DINT/RINT, which has no place in a UI callback. */
     if (bpm >= 200u) { bpm -= 200u; h = 2u; }

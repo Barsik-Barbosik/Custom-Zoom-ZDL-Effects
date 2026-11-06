@@ -31,10 +31,28 @@ means byte-identical output to repeat98's):
     the pointer) and the bitmap (frames x w x ceil(h/8) bytes, column bytes,
     uncompressed) goes into .const right after effectTypeImageInfo. None =
     the stock built-in knob {20, 15, 11, 0, 2, 0}.
+  * LinkerConfig.knob_style = (width, height, frames, style): one of the
+    firmware's own knob graphics instead of style 2, with no bitmap in the
+    file: knob info {w, h, frames, 0, style, 0}. Stock values: 2 and 5
+    rotary 20x15x11, 3 / 4 16x11x11, 6 / 7 / 8 20x15x11, 9 9x17x11, 10 the
+    GEQ slider 11x29x25 (KNOB_STYLES).
+  * LinkerConfig.knob_block_styles: one built-in style per knob_positions
+    entry (each its own 24-byte knob info, as stock CloneCho); then
+    knob_positions may hold up to 9 entries, all drawn on the picture (stock
+    GEQ draws 6 or 7), and the image info's knob count is their number
+    unless image_info_knob_count says otherwise. These styles, like
+    knob_bitmap, show only on the effect's main picture (B1Xon 1.30); the
+    knob pages never read the knob info.
+  * LinkerConfig.knob_page_style: ZDL header byte 0x3E. Stock: 0 almost
+    everywhere, 1 on the four GEQs (knob pages 1..8 draw the slider on the
+    B1Xon 1.30, knob 9 the default knob; smooth over 0..255),
+    2 on LineSel and its clones (looks like 0 on the B1Xon 1.30).
   * Knob max 200: a LineSel-cloned edit handler for a param with max 200
     gets the range constants of stock APanDLY's outLv_edit (0..200):
     state[21](2.0f, 0, 201, 0, v) instead of LineSel's (1.5f, 0, 151, 0, v),
-    which stops at 150. Raw stays v / 100.
+    which stops at 150. Raw stays v / 100. Max 210 gets the same pair
+    (2.1f doesn't fit the compact MVK; the law is linear and not clamped
+    on the B1Xon 1.30, so v 201..210 give raw 2.01..2.10).
   * Load-time relocation of the .obj's absolute addresses: each .obj
     ABS_L16/H16 (MVKL/MVKH of a .const table, e.g. a `static const` array)
     also gets a .rela.dyn entry, as in every stock ZDL. Patched at link time
@@ -324,6 +342,12 @@ class LinkerConfig:
     # Own knob graphic: (width, height, frames, data). See the module header.
     knob_bitmap: Optional[tuple[int, int, int, bytes]] = None
 
+    # Firmware knob graphic (width, height, frames, style) for every knob, or
+    # one per knob_positions entry. See the module header and KNOB_STYLES.
+    knob_style: Optional[tuple[int, int, int, int]] = None
+    knob_block_styles: Optional[list[tuple[int, int, int, int]]] = None
+    knob_page_style: int = 0              # ZDL header byte 0x3E (1 = GEQ, 2 = LineSel)
+
     # Diagnostic only: stock 3-knob effects have two .text relocations to a
     # coefficient table before the Dll descriptor/imageInfo relocations. Emit
     # equivalent relocs in dead .text padding to test old firmware parsers that
@@ -456,6 +480,16 @@ class LinkerConfig:
             )
         image_count = self.image_info_knob_count
         n_visible = min(3, image_count if image_count is not None else len(self.params))
+        if sum(x is not None for x in (self.knob_bitmap, self.knob_style, self.knob_block_styles)) > 1:
+            raise ValueError("knob_bitmap, knob_style and knob_block_styles exclude each other")
+        if self.knob_block_styles is not None:
+            n_visible = len(self.knob_block_styles)
+            if not 1 <= n_visible <= min(9, len(self.params)):
+                raise ValueError(f"knob_block_styles has {n_visible} entries; need 1..min(9, n_params)")
+            if self.knob_positions is None:
+                raise ValueError("knob_block_styles needs knob_positions")
+            if self.image_info_knob_count is None:
+                self.image_info_knob_count = n_visible
         defaults_by_count = {
             0: [],
             1: [(2, 54, 36)],
@@ -762,6 +796,7 @@ def _build_image_info(
     total_knobs: int,
     knob_count_override: Optional[int] = None,
     header_words_override: Optional[tuple[int, int]] = None,
+    block_knob_vas: Optional[list[int]] = None,
 ) -> tuple[bytes, list[tuple[int, int]]]:
     info = bytearray()
     relocs: list[tuple[int, int]] = []
@@ -806,13 +841,14 @@ def _build_image_info(
     while len(blocks) < 3 and effective_knobs == 3:
         blocks.append((0, 0, 0))
 
-    for kid, kx, ky in blocks:
+    for bi, (kid, kx, ky) in enumerate(blocks):
         info.extend(struct.pack('<I', kid))
         info.extend(struct.pack('<I', kx))
         info.extend(struct.pack('<I', ky))
         if kid > 0:
-            relocs.append((len(info), knob_info_va))
-            info.extend(struct.pack('<I', knob_info_va))
+            kva = block_knob_vas[bi] if block_knob_vas else knob_info_va
+            relocs.append((len(info), kva))
+            info.extend(struct.pack('<I', kva))
         else:
             info.extend(struct.pack('<I', 0))
 
@@ -827,6 +863,21 @@ def _build_image_info(
 # all 128 stock MS-70CDR ZDLs; v1 tried field4=5 once and the unit froze
 # at FX-select time. Don't change.
 _KNOB_INFO = struct.pack('<6I', 20, 15, 11, 0, 2, 0)
+
+# The firmware's own knob graphics seen in stock ZDLs (knob info word 4 with
+# a null bitmap pointer): style -> (width, height, frames, style). Only these
+# sizes are known; the knob info carries them, the firmware owns the pixels.
+KNOB_STYLES: dict[int, tuple[int, int, int, int]] = {
+    2: (20, 15, 11, 2),     # rotary, 79 stock effects (this linker's default)
+    3: (16, 11, 11, 3),     # AnalogDly
+    4: (16, 11, 11, 4),     # BitCrush
+    5: (20, 15, 11, 5),     # rotary, 113 stock effects
+    6: (20, 15, 11, 6),     # Arena, PitchDly
+    7: (20, 15, 11, 7),     # AutoWah, Resons, SweetDrv, MarkB
+    8: (20, 15, 11, 8),     # Z-Neos
+    9: (9, 17, 11, 9),      # Lead
+    10: (11, 29, 25, 10),   # GEQ slider (GEQ, B_GEQ, ST_B_GEQ, ST_G_GEQ)
+}
 
 
 _COMPACT_MVK_S1_A4 = {
@@ -859,10 +910,14 @@ _COMPACT_MVK_L2_B4 = {
 # APanDLY outLv 2.0f/201; all give raw = v / 100). LineSel's 151 caps the
 # knob at 150, so a bigger max needs its own pair. Compact encodings (asm6x):
 # max -> (MVK.S1 max+1,A6 at +0x12, MVK.S1 k,A4 at +0x16, SHL.S1 A4,s,A4 at
-# +0x24), top = k << s.
+# +0x24), top = k << s. k and max+1 are 8-bit (ucst8), so top/max = 0.01
+# only for powers of two; max 210 reuses the 200 pair and relies on the
+# law not clamping v at max (linear; DrumBox / SongBox 250 BPM work on
+# the B1Xon 1.30).
 _LINESEL_RANGE_MAX = 150
 _COMPACT_RANGE_LAW = {
     200: (0x2F52, 0x0612, 0xF602),   # 201,A6; 128,A4; SHL 23 -> 2.0f
+    210: (0x2F52, 0x0612, 0xF602),   # the same: raw = v / 100 past 200
 }
 
 
@@ -1623,6 +1678,14 @@ def link(cfg: LinkerConfig) -> None:
         if len(kdata) != need:
             raise ValueError(f"knob_bitmap has {len(kdata)} bytes, need {need}")
         knob_info = struct.pack('<6I', kw, kh, kframes, 0, 255, 0)
+    elif cfg.knob_style is not None:
+        kdata = b''
+        knob_info = struct.pack('<6I', *cfg.knob_style[:3], 0, cfg.knob_style[3], 0)
+    elif cfg.knob_block_styles is not None:
+        kdata = b''
+        block_styles = [tuple(st) for st in cfg.knob_block_styles]
+        distinct = list(dict.fromkeys(block_styles))
+        knob_info = b''.join(struct.pack('<6I', *st[:3], 0, st[3], 0) for st in distinct)
     else:
         kdata = b''
         knob_info = _KNOB_INFO
@@ -1638,6 +1701,10 @@ def link(cfg: LinkerConfig) -> None:
     FARDATA_VA   = CONST_VA + CONST_SIZE
     KNOB_INFO_VA = FARDATA_VA
     OUR_FARDATA_VA = FARDATA_VA + len(knob_info)
+    KNOB_INFO_VA_EST = KNOB_INFO_VA
+    block_knob_vas = None
+    if cfg.knob_block_styles is not None:
+        block_knob_vas = [KNOB_INFO_VA + 24 * distinct.index(st) for st in block_styles]
 
     info_bytes, info_relocs = _build_image_info(
         pic_va=PIC_VA,
@@ -1646,6 +1713,7 @@ def link(cfg: LinkerConfig) -> None:
         total_knobs=len(cfg.params),
         knob_count_override=cfg.image_info_knob_count,
         header_words_override=cfg.image_info_header_words,
+        block_knob_vas=block_knob_vas,
     )
     const_data.extend(info_bytes)
 
@@ -1679,6 +1747,8 @@ def link(cfg: LinkerConfig) -> None:
     FARDATA_VA   = CONST_VA + CONST_SIZE
     KNOB_INFO_VA = FARDATA_VA
     OUR_FARDATA_VA = FARDATA_VA + len(knob_info)
+    if KNOB_INFO_VA != KNOB_INFO_VA_EST:
+        raise RuntimeError(f"knob info moved: 0x{KNOB_INFO_VA_EST:08X} -> 0x{KNOB_INFO_VA:08X}")
 
     for sec_idx, off in obj_const_offsets.items():
         section_va[sec_idx] = CONST_VA + off
@@ -1927,6 +1997,8 @@ def link(cfg: LinkerConfig) -> None:
     if KBMP_VA:
         _add_sym(f'_infoEffectTypeKnob_{cfg.effect_name}', KNOB_INFO_VA, len(knob_info), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
         _add_sym(f'picEffectTypeKnob_{cfg.effect_name}', KBMP_VA, len(kdata), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+    elif knob_info != _KNOB_INFO:
+        _add_sym(f'_infoEffectTypeKnob_{cfg.effect_name}', KNOB_INFO_VA, len(knob_info), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
     else:
         _add_sym('_infoEffectTypeKnob_A_2', KNOB_INFO_VA, len(_KNOB_INFO), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
     _add_sym(f'picEffectType_{cfg.effect_name}', PIC_VA, pic_end, STT_OBJECT, STB_LOCAL, STV_HIDDEN)
@@ -2060,6 +2132,7 @@ def link(cfg: LinkerConfig) -> None:
     zdl_hdr[28:60] = b'ZOOM EFFECT DLL SYSTEM VER 1.00\x00'
     zdl_hdr[60] = cfg.gid
     zdl_hdr[61] = cfg.flags_byte
+    zdl_hdr[62] = cfg.knob_page_style
     struct.pack_into('<H', zdl_hdr, 64, cfg.fxid & 0xFFFF)
     zdl_hdr[67] = cfg.gid                                       # gid duplicate
     zdl_hdr[68:72] = cfg.fxid_version[:4].ljust(4, b'\x00')

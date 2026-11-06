@@ -21,15 +21,18 @@ started and stopped with the footswitch.
   bars each, optionally with a fill in the middle too, or Skip.
 - **22 kits:** sampled acoustic kits (drums resynthesized from WAV samples),
   synth, electronic and lo-fi kits, and mixes of them.
-- **Tempo 40–240 BPM.** The screen shows beat, fill, length and kit names
+- **Tempo 40–250 BPM.** The screen shows beat, fill, length and kit names
   and the BPM.
 - **Footswitch on:** the song starts on section A, beat 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the drums.
+- **Follows [SongBox](../songbox/README.md)** in the same patch: SongBox
+  then sets the beats, fills and tempo for each bar and starts and stops
+  the drums with its song.
 
 ## Install
 
 `DrumBox.ZDL` (from the [Releases](../../../../releases) page or
-`../../dist/`) needs 8 free flash blocks (32,634 B). Install it as described
+`../../dist/`) needs 8 free flash blocks (32,698 B). Install it as described
 in the [main README](../../README.md#install). It is in the **SFX** category
 (gid 7, fxid 520 = 0x208). Pedals it was tested on: see the
 [main README](../../README.md#pedals).
@@ -55,7 +58,7 @@ in the [main README](../../README.md#install). It is in the **SFX** category
 | 2 | BeatB | as BeatA | Section B (chorus) beat |
 | 2 | FillB | as FillA | Fill on section B's last bar |
 | 2 | LenB | as LenA | Section B length |
-| 3 | Tempo | 40–240 | Tempo in BPM, 1 BPM steps |
+| 3 | Tempo | 40–250 | Tempo in BPM, 1 BPM steps |
 | 3 | Volume | 0–100 | Drum level |
 | 3 | Kit | 22 kits, Ac1 to LoBox ([Kits](#kits)) | Drum kit |
 

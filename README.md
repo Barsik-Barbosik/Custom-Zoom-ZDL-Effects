@@ -5,6 +5,8 @@ Custom effects (ZDL) for Zoom pedals of the MultiStomp / G1on / B1on family.
 | Effect | Screen | Category | What it is | Demo | Download |
 |---|---|---|---|---|---|
 | [DrumBox](src/drumbox/README.md) | <a href="src/drumbox/README.md"><img src="src/drumbox/screen.png" width="192" height="128" alt="DrumBox on the pedal's screen"></a> | SFX | Drum machine: 150 beats, 150 fills, 22 kits, songs of two sections | [Video](https://www.youtube.com/watch?v=9CBZu1qY9KA "DrumBox: a custom drum machine effect for Zoom pedals that load ZDL effects") | [Releases](../../releases) |
+| [SongBox](src/songbox/README.md) (0.7 beta) | <a href="src/songbox/README.md"><img src="src/songbox/screen.png" width="192" height="128" alt="SongBox on the pedal's screen"></a> | SFX | Chord song sequencer: songs of up to 128 bars written on the pedal, electric piano and organ bass + chords, drives DrumBox. Needs Floppy | — | [Releases](../../releases) |
+| [Floppy](src/floppy/README.md) | <a href="src/floppy/README.md"><img src="src/floppy/screen.png" width="192" height="128" alt="Floppy on the pedal's screen"></a> | SFX | Silent storage effect: saves SongBox's song in the patch | — | [Releases](../../releases) |
 
 More effects will follow.
 
@@ -12,15 +14,15 @@ More effects will follow.
 
 These pedals use the ZDL effect format (`.ZDL` files):
 
-| Pedal | Firmware | DrumBox |
-|---|----------|---|
-| Zoom G1Xon | 1.21     | **Works** (all features tested) |
-| Zoom G1on | —        | Untested |
-| Zoom B1on | —        | Untested |
-| Zoom B1Xon | 1.30     | **Works** (all features tested) |
-| Zoom MS-70CDR | 2.10     | Untested; the toolchain's main target (other custom ZDLs run on it) |
-| Zoom MS-50G | —        | Untested |
-| Zoom MS-60B | —        | Untested |
+| Pedal | Firmware | DrumBox | SongBox + Floppy |
+|---|----------|---|---|
+| Zoom G1Xon | 1.21     | **Works** (all features tested) | Untested (same OS as the B1Xon) |
+| Zoom G1on | —        | Untested | Untested |
+| Zoom B1on | —        | Untested | Untested |
+| Zoom B1Xon | 1.30     | **Works** (all features tested) | **Works** (one Floppy; several copies untested) |
+| Zoom MS-70CDR | 2.10     | Untested; the toolchain's main target (other custom ZDLs run on it) | Untested |
+| Zoom MS-50G | 3.10     | Untested | Untested |
+| Zoom MS-60B | 2.10     | Untested | Untested |
 
 Not supported: the newer pedals that use `.ZD2` effects instead of ZDL
 (MS-50G+, MS-60B+, MS-70CDR+, G1Four / G1XFour, B1Four / B1XFour,
@@ -37,8 +39,8 @@ pedal, firmware and what happened.
 
 ## Install
 
-Download an effect's `.ZDL` from the [Releases](../../releases) page (or
-use `dist/`). Each effect's README gives its category and how many free
+Download an effect's `.ZDL` from the [Releases](../../releases) page
+(DrumBox is also in `dist/`). Each effect's README gives its category and how many free
 flash blocks it needs.
 
 Install it like any other effect with
@@ -66,7 +68,10 @@ Each effect has its own `build.py`; see its README for the commands.
 | Path | What |
 |---|---|
 | `src/drumbox/` | DrumBox: DSP (`drumbox.c`), beats and fills (`patterns/patterns.json`), kits (`kits.py`), drums (`drums/`), build and preview scripts |
-| `build/` | The linker that turns the TI object file into a ZDL, based on repeat98's, with additions (see its header) |
+| `src/songbox/` | SongBox: DSP (`songbox.c`), patterns (`patterns/patterns.json`), song packer (`packer/`), instruments (`instruments/`, `sets.py`) |
+| `src/floppy/` | Floppy: the storage effect that saves zmenu effects' data in the patch |
+| `src/common/zmenu/` | zmenu: C library for knob menus and data saved through Floppy (`zmenu.h`), layout generator (`zmenu_gen.py`) |
+| `build/` | The linker that turns the TI object file into a ZDL, based on repeat98's, with additions (see its header); shared build helpers (`zdl_build.py`) |
 | `tools/` | Experimental G1Xon USB file transfer, used during development (not for general use yet) |
 | `docs/HARDWARE-NOTES.md` | What was learned on the hardware: load limit, `_init`, knob ranges, DSP load, ... |
 | `docs/CROSS-PEDAL-ZDL-SUMMARY.md` | What one ZDL needs to run on both the MS pedals and the G1on family |

@@ -2,10 +2,29 @@
 
 ## Unreleased
 
+New effects (in `src/`, built separately from DrumBox):
+
+- **SongBox 0.7 (beta):** chord song sequencer. Songs of up to 128 bars
+  (chord + one of 3 rhythms each, 29 patterns) written on the pedal,
+  played by electric piano, jazz or rock organ (bass + chords), with MENU
+  settings (play once / loop, chord octave, chord every bar / half / beat).
+  Drives DrumBox in the same patch. Works on the B1Xon 1.30; MS pedals
+  untested.
+- **Floppy:** silent storage effect that saves SongBox's song in the patch
+  (106 bits per copy, up to 4 copies).
+- **zmenu** (`src/common/zmenu/`): C library for knob menus and data saved
+  through Floppy, used by SongBox.
+- `build/zdl_build.py`: shared build helpers for SongBox and Floppy.
+
+DrumBox:
+
+- Moved to `src/drumbox/`.
+- Follow mode also knows the MS-50G 3.10 and MS-60B 2.10 (untested).
+- Tempo now goes up to 250 BPM (was 240).
 - Count-in is always 2 bars, and only when the song starts while the kit is
   still rendering. A Kit change no longer stops the song: the beat goes on
   and the new drums come in as they are ready.
-- Beats and fills are kept in `drumbox/patterns.json` (data for a future
+- Beats and fills are kept in `src/drumbox/patterns/patterns.json` (data for a future
   editor) instead of Python code; the built effect is unchanged by this.
 - Smaller knob setup code at load (-288 B), still 8 flash blocks.
 

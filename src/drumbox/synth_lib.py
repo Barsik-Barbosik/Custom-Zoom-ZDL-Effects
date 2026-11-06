@@ -1,7 +1,7 @@
 """Shared helpers for the synth drums (drums/*.py) and preview.py.
 
 Python mirrors of the inline helpers in drumbox.c (db_sin, db_wrap, db_frac,
-db_sq, db_lerp, db_soft_clip, db_noise, db_metal_sq); keep them in sync.
+db_sq, db_lerp, db_soft_clip, db_noise); keep them in sync.
 """
 
 from __future__ import annotations
@@ -58,17 +58,6 @@ def noise(v):
 
 
 METAL_INC = [hz * INV_SR for hz in METAL_HZ]    # db_metal_inc
-
-
-def metal_sq(hm, mult):
-    """db_metal_sq: advance the six metal phases (list of 6 floats) and
-    return the mean of the squares at mult x their phase."""
-    acc = 0.0
-    for j in range(6):
-        h = wrap(hm[j] + METAL_INC[j])
-        hm[j] = h
-        acc += sq(wrap(h * mult))
-    return acc * 0.16666667
 
 
 class State:

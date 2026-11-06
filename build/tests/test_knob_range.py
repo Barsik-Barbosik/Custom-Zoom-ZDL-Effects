@@ -24,6 +24,10 @@ class KnobRange(unittest.TestCase):
         diff = [i for i in range(len(BLOB)) if out[i] != BLOB[i]]
         self.assertTrue(all(0x70 <= i < 0x86 or 0xA4 <= i < 0xA6 for i in diff), diff)
 
+    def test_max_210_reuses_max_200_law(self):
+        self.assertEqual(linker._patch_linesel_knob_clone(BLOB, 5, 32, 210),
+                         linker._patch_linesel_knob_clone(BLOB, 5, 32, 200))
+
     def test_unknown_max_rejected(self):
         with self.assertRaises(ValueError):
             linker._patch_linesel_knob_clone(BLOB, 5, 32, 250)
