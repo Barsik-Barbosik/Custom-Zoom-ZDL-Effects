@@ -95,6 +95,9 @@ means byte-identical output to repeat98's):
     stock ZDLs use such addends), one dynsym per table less. Works (SongBox, B1Xon 1.30).
   * LinkerConfig.drop_attributes: no .c6xabi.attributes section (every
     stock effect has one; 12 sections instead of 13). Works (SongBox, B1Xon 1.30).
+  * LinkerConfig.anon_edit_syms: the knob edit handlers' dynsym entries
+    without names (as the getstr targets already are); stock effects name
+    them <audio>_<knob>_edit. Saves their .dynstr bytes. UNTESTED.
   * LinkerConfig.init_call_loop (with materialize_init + compact clones):
     the _init calls the cloned knob handlers (a run at a fixed stride) from
     one 160-B loop block (_INIT_LOOP, source build/init_call_loop.asm)
@@ -458,6 +461,8 @@ class LinkerConfig:
     # Leave out .c6xabi.attributes (62 B + its section header and name).
     # Every stock effect has one. Works without (SongBox, B1Xon 1.30).
     drop_attributes: bool = False
+    # Knob edit handler dynsyms without names (stock: <audio>_<knob>_edit).
+    anon_edit_syms: bool = False
     # DSP cost at the name entry's +0x28 (firmware budget per patch).
     dsp_cost: float = 20.0
 
@@ -2056,7 +2061,8 @@ def link(cfg: LinkerConfig) -> None:
     _add_sym(f'picEffectType_{cfg.effect_name}', PIC_VA, pic_end, STT_OBJECT, STB_LOCAL, STV_HIDDEN)
     for i in reversed(range(len(knob_edit_vas))):
         p_name = cfg.params[i].name.replace(' ', '')
-        _add_sym(f"{cfg.audio_func_name}_{p_name}_edit", knob_edit_vas[i], 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
+        _add_sym('' if cfg.anon_edit_syms else f"{cfg.audio_func_name}_{p_name}_edit",
+                 knob_edit_vas[i], 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
     _add_sym(cfg.audio_func_name, TEXT_VA + AUDIO_OFF, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
     _add_sym(f"{cfg.audio_func_name}_init", init_va, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
     _add_sym(f"{cfg.audio_func_name}_onf", onf_va, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)

@@ -92,15 +92,18 @@
  * cursor = selected effect byte, map = slot map (mstride B per page, 4 B
  * per cursor position, 0 = cursor is the slot). rec / tab: patch record rows
  * and state[31] table rows, 44 B per slot (col 0 On/Off, 1 type, 2..10 knobs
- * 1..9). A slot holds Floppy when (rec word +4 & idmask) == idval. patch:
+ * 1..9). A slot holds Floppy when its rec word +4 == ZM_FLOPPY_ID (the
+ * same on every known OS: the ZDL header's u32 at 0x40). patch:
  * the current patch number word (not used by zmenu; for effects that track
  * patch changes). */
 typedef struct {
     uint32_t sig[10][2];
     uint32_t event;
-    uint32_t zero[3], nonzero, page, cursor, map, mstride;
-    uint32_t rec, tab, slots, idmask, idval, patch;
+    uint32_t zero[3], nonzero, page, cursor, map;
+    uint32_t rec, tab, patch;
+    uint8_t slots, mstride;
 } ZmFw;
+#define ZM_FLOPPY_ID ((7u << 24) | ZM_FLOPPY_FXID)  /* Floppy's slot record word +4 */
 
 static const ZmFw zm_fws[ZM_NFW] = {
     /* MS-70CDR 2.10 (zvis.h's entry; rows from the state[31] lookup at
@@ -112,8 +115,8 @@ static const ZmFw zm_fws[ZM_NFW] = {
         { 0xC00BB16Cu, 0x0200A46Du }, { 0xC00DD818u, 0x077BA42Au }, { 0xC00DD81Cu, 0x0760076Au },
         { 0xC00BADA8u, 0x033CFFA9u } },
       0xC00EF9D8u,
-      { 0xC00EF888u, 0xC00EF9A8u, 0xC009D398u }, 0xC00EF894u, 0xC009D8F8u, 0xC009C064u, 0xC00EE748u, 24u,
-      0xC009BF58u, 0xC009C1A0u, 6u, 0xFFFFFFFFu, (7u << 24) | ZM_FLOPPY_FXID, 0xC00EF88Cu },
+      { 0xC00EF888u, 0xC00EF9A8u, 0xC009D398u }, 0xC00EF894u, 0xC009D8F8u, 0xC009C064u, 0xC00EE748u,
+      0xC009BF58u, 0xC009C1A0u, 0xC00EF88Cu, 6u, 24u },
     /* G1on family (G1on / G1Xon 1.21, B1on / B1Xon 1.30, one OS image).
      * HW (B1Xon 1.30): rows, jumps, Floppy storage (MenuPrb stages 2-14). */
     { { { 0xC00B05C0u, 0x27773577u }, { 0xC00B05C4u, 0x85778677u }, { 0xC00B05C8u, 0xB64631F7u },
@@ -121,8 +124,8 @@ static const ZmFw zm_fws[ZM_NFW] = {
         { 0xC009B280u, 0x10089013u }, { 0xC008B318u, 0x02C65A28u }, { 0xC008B320u, 0x02104CA0u },
         { 0u, 0u } },
       0xC00DEBCCu,
-      { 0u, 0u, 0u }, 0u, 0u, 0xC0078CB4u, 0u, 0u,
-      0x1181B160u, 0x1181B370u, 5u, 0xFFFFFFFFu, (7u << 24) | ZM_FLOPPY_FXID, 0xC00DEADCu },
+      { 0u, 0u, 0u }, 0u, 0u, 0xC0078CB4u, 0u,
+      0x1181B160u, 0x1181B370u, 0xC00DEADCu, 5u, 0u },
     /* MS-50G 3.10 and MS-60B 2.10: the MS-70CDR entry's addresses found again
      * in their OS (static, by matching the code that uses each one; B14 =
      * 0xC00EFCC0 / 0xC00DFCF0). The MS-50G keeps the MS-70CDR's rows, cursor,
@@ -133,15 +136,15 @@ static const ZmFw zm_fws[ZM_NFW] = {
         { 0xC00AB788u, 0x0200A96Cu }, { 0xC00DDCD8u, 0x077E602Au }, { 0xC00DDCDCu, 0x0760076Au },
         { 0xC00BA650u, 0x033CFFA9u } },
       0xC00EFF64u,
-      { 0xC00EFE08u, 0xC00EFF2Cu, 0xC009D398u }, 0xC00EFE14u, 0xC009D8F8u, 0xC009C064u, 0xC00EECB0u, 24u,
-      0xC009BF58u, 0xC009C1A0u, 6u, 0xFFFFFFFFu, (7u << 24) | ZM_FLOPPY_FXID, 0xC00EFE0Cu },
+      { 0xC00EFE08u, 0xC00EFF2Cu, 0xC009D398u }, 0xC00EFE14u, 0xC009D8F8u, 0xC009C064u, 0xC00EECB0u,
+      0xC009BF58u, 0xC009C1A0u, 0xC00EFE0Cu, 6u, 24u },
     { { { 0xC00BC500u, 0x27773577u }, { 0xC00BC504u, 0x85778677u }, { 0xC00BC508u, 0xB64631F7u },
         { 0xC00BC50Cu, 0x02EA982Bu }, { 0xC00BC510u, 0x01EA9628u }, { 0xC009B5E4u, 0x1041E413u },
         { 0xC009B5E8u, 0x0200A66Cu }, { 0xC00CDEB8u, 0x077E782Au }, { 0xC00CDEBCu, 0x076006EAu },
         { 0xC00AA664u, 0x033CFFA9u } },
       0xC00DFF88u,
-      { 0xC00DFE38u, 0xC00DFF54u, 0xC008D230u }, 0xC00DFE44u, 0xC008D644u, 0xC008C754u, 0xC00DEE58u, 16u,
-      0xC008C6A0u, 0xC008C838u, 4u, 0xFFFFFFFFu, (7u << 24) | ZM_FLOPPY_FXID, 0xC00DFE3Cu },
+      { 0xC00DFE38u, 0xC00DFF54u, 0xC008D230u }, 0xC00DFE44u, 0xC008D644u, 0xC008C754u, 0xC00DEE58u,
+      0xC008C6A0u, 0xC008C838u, 0xC00DFE3Cu, 4u, 16u },
 };
 
 #if !ZM_IS_STREAM
@@ -378,7 +381,7 @@ static inline void zm_poll(ZmState *z, unsigned int *ctx)
     z->fslot = ZM_NOSLOT;
     if (rows)
         for (s = 0u; s < t->slots; ++s)
-            if ((ZM_U32(t->rec + 44u * s + 4u) & t->idmask) == t->idval) { z->fslot = s; break; }
+            if (ZM_U32(t->rec + 44u * s + 4u) == ZM_FLOPPY_ID) { z->fslot = s; break; }
     if (z->fslot != ZM_NOSLOT) {
         dirty = 0u;
         for (i = 0u; i < 9u; ++i) {
@@ -536,7 +539,7 @@ ZM_INLINE(zm_s_mark)
 static inline uint32_t zm_s_mark(const ZmFw *t, uint32_t s)
 {
     uint32_t m;
-    if ((ZM_U32(t->rec + 44u * s + 4u) & t->idmask) != t->idval) return ZM_S_PARTS;
+    if (ZM_U32(t->rec + 44u * s + 4u) != ZM_FLOPPY_ID) return ZM_S_PARTS;
     m = ZM_U32(t->tab + 44u * s + 8u) & 15u;
     return m > ZM_S_MARK && m - ZM_S_MARK < ZM_S_PARTS ? m - ZM_S_MARK : 0u;
 }

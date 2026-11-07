@@ -5,20 +5,23 @@
 New effects (in `src/`, built separately from DrumBox):
 
 - **SongBox 0.7 (beta):** chord song sequencer. Songs of up to 128 bars
-  (chord + one of 3 rhythms each, 29 patterns) written on the pedal,
+  (chord + one of 3 rhythms each, 149 patterns: nearly one per DrumBox style
+  beat plus variations and arpeggios) written on the pedal,
   played by electric piano, jazz or rock organ (bass + chords), with MENU
   settings (play once / loop, chord octave, chord every bar / half / beat).
   Drives DrumBox in the same patch. Works on the B1Xon 1.30; MS pedals
-  untested. 8 flash blocks (29,099 B): all instruments run on one engine
+  untested. 8 flash blocks (32,635 B): all instruments run on one engine
   (an instrument is data), rarely-run code is called instead of inlined,
-  rhythms are stored sparse, all tables sit in one struct.
+  rhythms are stored sparse, all tables sit in one struct, texts in one
+  string pool.
 - `build/linker.py`: new options `rela_const_base` (the `.const`
   relocations share one dynamic symbol, offsets as addends, as Zoom's own
-  effects do) and `drop_attributes`; `compact_edit_stubs` now also takes a
+  effects do) `drop_attributes` and `anon_edit_syms` (knob handler symbols without
+  names); `compact_edit_stubs` now also takes a
   knob over 150 (the shared handler gets the 200-step law); calls from the
   audio function into `.text` are fixed.
 - **Floppy:** silent storage effect that saves SongBox's song in the patch
-  (106 bits per copy, up to 4 copies).
+  (106 bits per copy, up to 4 copies). 1 flash block (3,691 B).
 - **zmenu** (`src/common/zmenu/`): C library for knob menus and data saved
   through Floppy, used by SongBox.
 - `build/zdl_build.py`: shared build helpers for SongBox and Floppy.

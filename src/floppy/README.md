@@ -25,7 +25,7 @@ comes back wrong there.
 
 ## Install
 
-`FLOPPY.ZDL` (4,038 B) needs 1 free flash block. It is in the **SFX**
+`FLOPPY.ZDL` (3,691 B) needs 1 free flash block. It is in the **SFX**
 category (gid 7, fxid 522). Install it as described in the
 [main README](../../README.md#install) and add it to the patch next to the
 effect that uses it.
@@ -50,4 +50,4 @@ python -B build.py --out PATH              # FLOPPY.ZDL to PATH (1 flash block)
 python -B build.py --knob-text --out PATH  # knob pages show the stored numbers (2 blocks)
 ```
 
-The linker log should show 1 flash block (4,038 B) for the normal build.
+The linker log should show 1 flash block (3,691 B) for the normal build.

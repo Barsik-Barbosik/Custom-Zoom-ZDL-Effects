@@ -260,6 +260,7 @@ def main() -> None:
         dynamic_entries=17,             # as Floppy
         rela_const_base=True,           # .const MVKL/MVKH relocations: one dynsym + addends
         drop_attributes=True,           # no .c6xabi.attributes section
+        anon_edit_syms=True,            # knob handler dynsyms without names
         # 9 knob handlers = 16-byte stubs into one shared body (as Floppy);
         # Tempo's max 210 gives the body the 200 law for every knob
         **{**link_common(), "synth_edit_start_index": 0, "compact_edit_stubs": True},

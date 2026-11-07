@@ -47,12 +47,14 @@ FREQ = [440.0 * 2.0 ** ((m - 69) / 12.0) for m in range(128)]   # a C table
 # keys hits (step, len, mode: 0 chord, 1..3 one chord tone (arpeggio)),
 # read from patterns.json by song_patterns.py
 sys.path.insert(0, str(HERE / "patterns"))
-from song_patterns import BASS_APPROACH, BASS_OFS, KEY_CHORDS, KEY_OFS, PATTERNS  # noqa: E402
+from song_patterns import BASS_APPROACH, BASS_OFS, KEY_CHORDS, KEY_OFS, KEY_ROOTED, KEY_SINGLE, PATTERNS  # noqa: E402
 
 
 def voicing(root: int, minor: int, code: int = 0) -> list:
     """Keys code's three MIDI notes (KEY_OFS) folded into 55..66 (G3..F#4),
-    sorted."""
+    sorted; codes from KEY_ROOTED: above the root at 48 + root, not folded."""
+    if code >= KEY_ROOTED:
+        return [48 + root + o for o in KEY_OFS[code][minor]]
     out = []
     for o in KEY_OFS[code][minor]:
         n = 48 + (root + o) % 12
@@ -185,9 +187,20 @@ def c_header(path: Path, swings: list | None = None) -> None:
     L += c_init("SS_PAT_NOTES_INIT", "ss_pat_notes[SS_NNOTES]",
                 [f"{', '.join(f'0x{b:02X}u' for b in notes[i:i + 12])},"
                  for i in range(0, len(notes), 12)])
-    names = "Randm" + "".join(p["short"].ljust(5, "_") for p in PATTERNS)
-    L.append("#define SS_PAT_NAMES_INIT \"" + names.replace("_", "\\0") +
-             "\"   /* ss_pat_names[(SS_NPAT + 1u) * 5u + 1u]: Randm, the patterns */")
+    # names: 5 characters x 6 bits in one word (0 end, 1..10 digits, 11..36
+    # A..Z, 37..62 a..z; decoded by songbox.c ss_text)
+    def name_word(s):
+        w = 0
+        for i, ch in enumerate(s):
+            assert ch.isascii() and ch.isalnum() and len(s) <= 5, s
+            c = (1 + ord(ch) - 48 if ch.isdigit() else
+                 11 + ord(ch) - 65 if ch.isupper() else 37 + ord(ch) - 97)
+            w |= c << 6 * i
+        return w
+    names = ["Randm"] + [p["short"] for p in PATTERNS]
+    L += c_init("SS_PAT_NAMES_INIT", "ss_pat_names[SS_NPAT + 1u]: Randm, the patterns, 6 bits a character",
+                [", ".join(f"0x{name_word(s):08X}u" for s in names[i:i + 6]) + ","
+                 for i in range(0, len(names), 6)])
     L.append("#define SS_INC_INIT { " + ", ".join(f"{FREQ[n] / SR:.9g}f" for n in range(12)) +
              " }   /* ss_inc[12] */")
     L.append("#define SS_BASS_OFS_INIT { " + ", ".join(f"{o}" for pair in BASS_OFS for o in pair)
@@ -198,6 +211,8 @@ def c_header(path: Path, swings: list | None = None) -> None:
     L.append(f"#define SS_KEY_CHORDS 0x{sum(1 << c for c in KEY_CHORDS):X}u   /* keys codes: all three voices */")
     L.append(f"#define SS_NBASS {len(BASS_OFS)}u")
     L.append(f"#define SS_NKEY {len(KEY_OFS)}u")
+    L.append(f"#define SS_KEY_SINGLE {KEY_SINGLE}u   /* key-checked keys codes from here: single tones */")
+    L.append(f"#define SS_KEY_ROOTED {KEY_ROOTED}u   /* keys codes from here: above the root (48 + root), unfolded */")
     L.append(f"#define SS_STEP_PER_BPM {4.0 / (60.0 * SR):.9g}f   /* 16ths per sample per BPM */")
     L += ["#endif", ""]
     path.write_bytes("\r\n".join(L).encode("ascii"))

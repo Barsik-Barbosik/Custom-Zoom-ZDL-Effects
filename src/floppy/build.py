@@ -61,10 +61,12 @@ def build_floppy(out_zdl: Path, maxes: tuple[int, ...] | None = None, defines: l
         # 1 flash block (4,090 B): Floppy never reads params[] (zmenu reads
         # its patch columns), so no _init; its 9 knob handlers are 16-byte
         # stubs into one shared body; no TI bookkeeping symbols, .dynamic
-        # without its DT_NULL padding.
+        # without its DT_NULL padding; as SongBox: no .c6xabi.attributes,
+        # knob handler dynsyms without names.
         **{**link_common(), "materialize_init": False, "init_param_setup": False,
            "synth_edit_start_index": 0, "compact_edit_stubs": True,
-           "drop_ti_abs_symbols": True, "dynamic_entries": 17},
+           "drop_ti_abs_symbols": True, "dynamic_entries": 17,
+           "drop_attributes": True, "anon_edit_syms": True},
     ))
     obj.unlink(missing_ok=True)
 

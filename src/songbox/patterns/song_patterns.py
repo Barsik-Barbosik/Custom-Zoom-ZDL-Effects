@@ -19,14 +19,18 @@ take the minor 3rd and b7:
         Dorian), b b7, 7 major 7th (b7 on minor), 2 second (9th),
         A approach: a half step below the next song bar's root (below its
         own root when the next bar has no chord)
-  keys  C triad; 1 / 2 / 3 the low / mid / high voice of the triad
-        (arpeggio); D shell R-3-b7; M shell R-3-7 (maj7, m7 on minor);
-        S sus4 R-4-5; T sus2 R-2-5; N rootless 3-b7-9; b / 7 / 9 single
-        tone b7 / 7 / 9th (arpeggio)
+  keys  C triad in the G3..F#4 window (the inversion that fits, so chords
+        move little); 1 / 2 / 3 the low / mid / high voice of it
+        (arpeggio); S sus4 R-4-5; T sus2 R-2-5; 9 single tone 9th
+        (arpeggio). Counted up from the root at C3..B3 (not folded, always
+        chord tones): chords P root position R-3-5, I 1st inversion 3-5-R,
+        J 2nd inversion 5-R-3, W wide R-5-10; single tones (arpeggio)
+        R root, 5 fifth, O octave, E 3rd above the octave (10th), e.g.
+        R.5.O.5.E.5.O.5.
 A note outside both the chord and the song's key (the packer's key as a
 major scale, + the leading tone when the first chord is the key's vi, as
-Am in C) is replaced: bass 6 / b / 7 / 2 by the root, keys D..N by the
-triad, keys b / 7 / 9 by the triad's low voice (songbox.c ss_key_mask).
+Am in C) is replaced: bass 6 / b / 7 / 2 by the root, keys S / T by the
+triad, keys 9 by the triad's low voice (songbox.c ss_key_mask).
   drums   DrumBox screen names: {"beat", "mid" (middle fill, no crash),
           "end" (end fill), optional "bar2" (fill played on every second
           drum bar of a run: a 2-bar beat as beat + fill, no crash)}
@@ -47,26 +51,32 @@ from pathlib import Path
 PATTERNS_JSON = Path(__file__).resolve().parent / "patterns.json"
 FORMAT = "songbox-patterns"
 STEPS = 16
-NOTES = {"bass": "R5O36b72A", "keys": "C123DMSTNb79"}   # char -> code = index (0..)
+NOTES = {"bass": "R5O36b72A", "keys": "C123ST9PIJWR5OE"}   # char -> code = index (0..)
 # Semitones above the root per code, [major, minor] (bass code 8 = approach:
 # -1 from the NEXT bar's root); keys: three tones per code [major 3, minor 3]
-# (folded into one octave by the player, then sorted).
+# (codes below KEY_ROOTED folded into one octave by the player, then sorted;
+# from KEY_ROOTED on above the root at 48 + root, C3..B3, not folded).
 BASS_OFS = [(0, 0), (7, 7), (12, 12), (4, 3), (9, 9), (10, 10), (11, 10), (2, 2), (-1, -1)]
 BASS_APPROACH = 8
 KEY_OFS = [((0, 4, 7), (0, 3, 7))] * 4 + [
-    ((0, 4, 10), (0, 3, 10)),               # D
-    ((0, 4, 11), (0, 3, 10)),               # M
     ((0, 5, 7), (0, 5, 7)),                 # S
     ((0, 2, 7), (0, 2, 7)),                 # T
-    ((4, 10, 2), (3, 10, 2)),               # N (9th folded)
-    ((10, 10, 10), (10, 10, 10)),           # b
-    ((11, 11, 11), (10, 10, 10)),           # 7
     ((2, 2, 2), (2, 2, 2)),                 # 9
+    ((0, 4, 7), (0, 3, 7)),                 # P  root position  (rooted from here)
+    ((4, 7, 12), (3, 7, 12)),               # I  1st inversion
+    ((7, 12, 16), (7, 12, 15)),             # J  2nd inversion
+    ((0, 7, 16), (0, 7, 15)),               # W  wide R-5-10
+    ((0, 0, 0), (0, 0, 0)),                 # R
+    ((7, 7, 7), (7, 7, 7)),                 # 5
+    ((12, 12, 12), (12, 12, 12)),           # O
+    ((16, 16, 16), (15, 15, 15)),           # E
 ]
-KEY_CHORDS = {0, 4, 5, 6, 7, 8}             # all three voices; the others one voice in turn
+KEY_CHORDS = {0, 4, 5, 7, 8, 9, 10}         # all three voices; the others one voice in turn
+KEY_SINGLE = 6                              # key-checked codes S, T, 9: single tones from here
+KEY_ROOTED = 7                              # keys codes from here: above the root, unfolded (all chord tones)
 assert len(BASS_OFS) == len(NOTES["bass"]) and len(KEY_OFS) == len(NOTES["keys"])
 KNOBS = ("Rhy1", "Rhy2", "Rhy3")
-MAX_PATTERNS = 149                              # + Randm = 150 knob values
+MAX_PATTERNS = 149                              # + Randm = 150 knob values (genre beats + variations)
 
 
 class PatternError(ValueError):

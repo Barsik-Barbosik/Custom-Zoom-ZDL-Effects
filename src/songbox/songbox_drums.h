@@ -7,6 +7,9 @@
     4u, 3u, 34u, 0u,    /* Rock2: Rock2, Sp2, Rl2, - */ \
     5u, 5u, 20u, 0u,    /* Rock3: Rock3, Kp1, S82, - */ \
     6u, 5u, 62u, 0u,    /* Rock4: Rock4, Kp1, Tm1, - */ \
+    3u, 2u, 16u, 0u,    /* RkArp: Rock, Sp1, Sn1, - */ \
+    33u, 2u, 62u, 0u,    /* Arp8: SoftR, Sp1, Tm1, - */ \
+    31u, 8u, 17u, 0u,    /* Arp16: DncPp, OHp, Sn2, - */ \
     7u, 15u, 17u, 0u,    /* Rk16: Rk16, Snh, Sn2, - */ \
     8u, 9u, 43u, 0u,    /* Rk16b: Rk16b, OH1, KK1, - */ \
     9u, 7u, 55u, 0u,    /* SyncR: SyncR, Kp3, Ln1, - */ \
@@ -18,6 +21,7 @@
     15u, 14u, 63u, 0u,    /* RdFlr: RdFlr, SLp, Tm2, - */ \
     16u, 8u, 24u, 0u,    /* OHRk: OHRk, OHp, Fl1, - */ \
     17u, 15u, 62u, 0u,    /* Balld: Balld, Snh, Tm1, - */ \
+    17u, 15u, 63u, 0u,    /* Bald2: Balld, Snh, Tm2, - */ \
     18u, 15u, 71u, 0u,    /* SlowR: SlowR, Snh, TC2, - */ \
     19u, 61u, 93u, 0u,    /* RdBal: RdBal, Tmh, Mx2, - */ \
     20u, 61u, 63u, 0u,    /* PwrBd: PwrBd, Tmh, Tm2, - */ \
@@ -29,29 +33,125 @@
     26u, 15u, 90u, 0u,    /* PBald: PBald, Snh, TS2, - */ \
     27u, 4u, 44u, 0u,    /* Pop16: Pop16, Sp3, KK2, - */ \
     28u, 8u, 28u, 0u,    /* PSw16: PSw16, OHp, Gh2, - */ \
-    29u, 39u, 56u, 0u,    /* PopGr: PopGr, Ch1, Ln2, - */ \
     30u, 2u, 20u, 0u,    /* PShuf: PShuf, Sp1, S82, - */ \
     31u, 8u, 17u, 0u,    /* DncPp: DncPp, OHp, Sn2, - */ \
     32u, 15u, 30u, 0u,    /* Motwn: Motwn, Snh, Tr1, - */ \
+    33u, 2u, 62u, 5u,    /* SoftR: SoftR, Sp1, Tm1, Kp1 */ \
+    34u, 5u, 19u, 0u,    /* FolkR: FolkR, Kp1, S81, - */ \
+    35u, 12u, 85u, 0u,    /* FStmp: FStmp, Lp1, ST1, - */ \
+    36u, 6u, 108u, 0u,    /* ClRk: ClRk, Kp2, RkFil, - */ \
+    37u, 9u, 63u, 0u,    /* 80sRk: 80sRk, OH1, Tm2, - */ \
+    38u, 12u, 109u, 0u,    /* South: South, Lp1, RkFl2, - */ \
+    39u, 9u, 17u, 8u,    /* Indie: Indie, OH1, Sn2, OHp */ \
+    40u, 7u, 25u, 0u,    /* AltRk: AltRk, Kp3, Fl2, - */ \
+    41u, 6u, 39u, 0u,    /* Garag: Garag, Kp2, Ch1, - */ \
+    42u, 13u, 89u, 0u,    /* Glam: Glam, Tp2, TS1, - */ \
+    43u, 14u, 110u, 0u,    /* Stomp: Stomp, SLp, TomFl, - */ \
     44u, 61u, 68u, 0u,    /* HTRk: HTRk, Tmh, HL1, - */ \
+    45u, 5u, 68u, 0u,    /* HTShf: HTShf, Kp1, HL1, - */ \
+    46u, 3u, 20u, 0u,    /* FastR: FastR, Sp2, S82, - */ \
+    47u, 7u, 30u, 0u,    /* Prog: Prog, Kp3, Tr1, - */ \
     48u, 6u, 17u, 0u,    /* Punk: Punk, Kp2, Sn2, - */ \
+    49u, 6u, 43u, 0u,    /* DBeat: DBeat, Kp2, KK1, - */ \
+    50u, 6u, 16u, 0u,    /* PopPk: PopPk, Kp2, Sn1, - */ \
+    51u, 5u, 17u, 0u,    /* HCore: HCore, Kp1, Sn2, - */ \
+    52u, 15u, 20u, 0u,    /* PostP: PostP, Snh, S82, - */ \
+    53u, 9u, 16u, 0u,    /* NWave: NWave, OH1, Sn1, - */ \
+    54u, 7u, 24u, 0u,    /* Grung: Grung, Kp3, Fl1, - */ \
+    55u, 5u, 30u, 0u,    /* Shufl: Shufl, Kp1, Tr1, - */ \
+    56u, 9u, 19u, 0u,    /* Boogi: Boogi, OH1, S81, - */ \
+    57u, 2u, 20u, 0u,    /* Rkbly: Rkbly, Sp1, S82, - */ \
+    58u, 13u, 73u, 12u,    /* Surf: Surf, Tp2, Tt1, Lp1 */ \
+    59u, 12u, 79u, 0u,    /* BoDid: BoDid, Lp1, LK1, - */ \
+    60u, 61u, 63u, 0u,    /* TomGr: TomGr, Tmh, Tm2, - */ \
+    61u, 12u, 89u, 0u,    /* FlTom: FlTom, Lp1, TS1, - */ \
+    62u, 8u, 69u, 0u,    /* FlHat: FlHat, OHp, HL2, - */ \
+    63u, 2u, 22u, 0u,    /* Train: Train, Sp1, SC2, - */ \
+    64u, 15u, 30u, 0u,    /* TrSwg: TrSwg, Snh, Tr1, - */ \
+    65u, 9u, 33u, 0u,    /* Motor: Motor, OH1, Rl1, - */ \
     66u, 48u, 58u, 0u,    /* Metal: Metal, BBh, KT1, - */ \
+    67u, 6u, 44u, 0u,    /* Thrsh: Thrsh, Kp2, KK2, - */ \
+    68u, 5u, 49u, 0u,    /* Blast: Blast, Kp1, BB1, - */ \
     69u, 42u, 43u, 0u,    /* Galop: Galop, KKh, KK1, - */ \
+    70u, 42u, 58u, 0u,    /* Djent: Djent, KKh, KT1, - */ \
+    71u, 48u, 59u, 0u,    /* HTMtl: HTMtl, BBh, KT2, - */ \
+    72u, 42u, 50u, 0u,    /* Brkdn: Brkdn, KKh, BB2, - */ \
     73u, 39u, 27u, 0u,    /* Funk: Funk, Ch1, Gh1, - */ \
+    74u, 39u, 27u, 0u,    /* SwFnk: SwFnk, Ch1, Gh1, - */ \
     75u, 139u, 55u, 0u,    /* Funk2: Funk2, Push, Ln1, - */ \
+    73u, 39u, 28u, 0u,    /* Funk3: Funk, Ch1, Gh2, - */ \
+    76u, 39u, 114u, 0u,    /* FDrum: FDrum, Ch1, FDFil, - */ \
+    77u, 7u, 28u, 0u,    /* Strut: Strut, Kp3, Gh2, - */ \
+    78u, 13u, 55u, 5u,    /* GoGo: GoGo, Tp2, Ln1, Kp1 */ \
+    79u, 15u, 30u, 0u,    /* NOLA: NOLA, Snh, Tr1, - */ \
+    80u, 15u, 28u, 0u,    /* Purdy: Purdy, Snh, Gh2, - */ \
+    81u, 7u, 56u, 0u,    /* LinFk: LinFk, Kp3, Ln2, - */ \
     82u, 10u, 16u, 0u,    /* Disco: Disco, OH2, Sn1, - */ \
+    82u, 9u, 17u, 0u,    /* Disc2: Disco, OH1, Sn2, - */ \
     83u, 129u, 127u, 0u,    /* DeepH: DeepH, Dh1, Dk2, - */ \
+    84u, 123u, 130u, 0u,    /* SwHse: SwHse, Hat1, Dh2, - */ \
+    85u, 115u, 127u, 0u,    /* Minml: Minml, Hit1, Dk2, - */ \
     86u, 123u, 111u, 0u,    /* Techn: Techn, Hat1, Build, - */ \
     87u, 120u, 113u, 0u,    /* Break: Break, Stab, AmCh, - */ \
+    88u, 120u, 113u, 112u,    /* Amen: Amen, Stab, AmCh, AmenB */ \
+    89u, 115u, 145u, 0u,    /* Think: Think, Hit1, Brk1, - */ \
+    90u, 13u, 110u, 0u,    /* Apach: Apach, Tp2, TomFl, - */ \
+    91u, 8u, 106u, 0u,    /* Impch: Impch, OHp, SnF, - */ \
+    92u, 144u, 107u, 0u,    /* Levee: Levee, Brkh, MixF, - */ \
+    93u, 39u, 114u, 0u,    /* CSwet: CSwet, Ch1, FDFil, - */ \
+    94u, 15u, 28u, 0u,    /* RollB: RollB, Snh, Gh2, - */ \
+    95u, 120u, 56u, 0u,    /* BrkB2: BrkB2, Stab, Ln2, - */ \
+    96u, 8u, 52u, 0u,    /* HHBrk: HHBrk, OHp, Bn1, - */ \
+    97u, 2u, 113u, 0u,    /* BrkRd: BrkRd, Sp1, AmCh, - */ \
+    98u, 123u, 124u, 0u,    /* NuSkl: NuSkl, Hat1, Hat2, - */ \
+    99u, 115u, 146u, 0u,    /* HTBrk: HTBrk, Hit1, Brk2, - */ \
+    100u, 8u, 118u, 0u,    /* BigB1: BigB1, OHp, Sy2, - */ \
+    101u, 120u, 111u, 0u,    /* BigB2: BigB2, Stab, Build, - */ \
+    102u, 8u, 121u, 0u,    /* BBShf: BBShf, OHp, KD1, - */ \
+    103u, 13u, 62u, 0u,    /* BBTom: BBTom, Tp2, Tm1, - */ \
     104u, 4u, 112u, 0u,    /* DnB: DnB, Sp3, AmenB, - */ \
+    105u, 4u, 113u, 112u,    /* Jungl: Jungl, Sp3, AmCh, AmenB */ \
+    106u, 115u, 130u, 0u,    /* Dubst: Dubst, Hit1, Dh2, - */ \
+    107u, 123u, 116u, 0u,    /* 2Step: 2Step, Hat1, Hit2, - */ \
     109u, 115u, 52u, 0u,    /* BBap: BBap, Hit1, Bn1, - */ \
+    110u, 116u, 53u, 0u,    /* BBap2: BBap2, Hit2, Bn2, - */ \
+    111u, 8u, 52u, 0u,    /* BBpSw: BBpSw, OHp, Bn1, - */ \
+    112u, 115u, 127u, 0u,    /* LoFi: LoFi, Hit1, Dk2, - */ \
+    113u, 129u, 130u, 0u,    /* LoFiS: LoFiS, Dh1, Dh2, - */ \
     114u, 13u, 73u, 0u,    /* Half: Half, Tp2, Tt1, - */ \
+    115u, 123u, 124u, 0u,    /* Drill: Drill, Hat1, Hat2, - */ \
+    116u, 124u, 127u, 0u,    /* Trap: Trap, Hat2, Dk2, - */ \
+    117u, 139u, 44u, 0u,    /* NJack: NJack, Push, KK2, - */ \
+    118u, 15u, 62u, 0u,    /* NeoSl: NeoSl, Snh, Tm1, - */ \
+    119u, 137u, 127u, 0u,    /* Dilla: Dilla, Dt2, Dk2, - */ \
+    120u, 13u, 95u, 0u,    /* Songo: Songo, Tp2, Al1, - */ \
+    121u, 15u, 71u, 0u,    /* Bolro: Bolro, Snh, TC2, - */ \
+    122u, 2u, 73u, 0u,    /* Cumbi: Cumbi, Sp1, Tt1, - */ \
     123u, 13u, 89u, 0u,    /* Rgtn: Rgtn, Tp2, TS1, - */ \
+    124u, 7u, 79u, 0u,    /* Baiao: Baiao, Kp3, LK1, - */ \
+    125u, 141u, 106u, 0u,    /* Tango: Tango, Stp1, SnF, - */ \
+    126u, 12u, 74u, 0u,    /* Calyp: Calyp, Lp1, Tt2, - */ \
+    127u, 13u, 93u, 0u,    /* Samba: Samba, Tp2, Mx2, - */ \
     128u, 14u, 132u, 0u,    /* Bossa: Bossa, SLp, Rd2, - */ \
+    128u, 132u, 133u, 0u,    /* Bssa2: Bossa, Rd2, Rd4, - */ \
     129u, 12u, 85u, 0u,    /* 1Drop: 1Drop, Lp1, ST1, - */ \
+    130u, 12u, 86u, 0u,    /* Rckrs: Rckrs, Lp1, ST2, - */ \
+    131u, 2u, 85u, 0u,    /* Stepr: Stepr, Sp1, ST1, - */ \
     132u, 3u, 19u, 0u,    /* Ska: Ska, Sp2, S81, - */ \
+    133u, 15u, 63u, 0u,    /* Dub: Dub, Snh, Tm2, - */ \
+    134u, 15u, 30u, 0u,    /* Swing: Swing, Snh, Tr1, - */ \
+    135u, 15u, 31u, 0u,    /* Bebop: Bebop, Snh, Tr2, - */ \
+    136u, 132u, 30u, 0u,    /* Jazz4: Jazz4, Rd2, Tr1, - */ \
+    137u, 5u, 16u, 0u,    /* Texas: Texas, Kp1, Sn1, - */ \
+    138u, 15u, 30u, 0u,    /* Blues: Blues, Snh, Tr1, - */ \
+    138u, 5u, 16u, 0u,    /* Blue2: Blues, Kp1, Sn1, - */ \
+    138u, 15u, 30u, 0u,    /* ArpSw: Blues, Snh, Tr1, - */ \
     139u, 2u, 19u, 0u,    /* Cntry: Cntry, Sp1, S81, - */ \
+    140u, 2u, 20u, 0u,    /* CnShf: CnShf, Sp1, S82, - */ \
+    141u, 15u, 22u, 0u,    /* March: March, Snh, SC2, - */ \
     142u, 13u, 92u, 0u,    /* Afro: Afro, Tp2, Mx1, - */ \
+    143u, 13u, 62u, 0u,    /* Bhang: Bhang, Tp2, Tm1, - */ \
+    144u, 13u, 92u, 0u,    /* Maqsm: Maqsm, Tp2, Mx1, - */ \
 }
 #define SS_SWING_INIT { 0.000000f, 0.170000f, 0.260000f, 0.333333f }   /* ss_swing_amt[4], DrumBox's DB_SWING_AMT */
 #define SS_SWING_MASK(c) ((c) == 3 ? 2u : 1u)   /* DrumBox's DB_SWING_MASK */

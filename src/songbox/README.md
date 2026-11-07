@@ -10,7 +10,7 @@ DrumBox in the same patch, so the drums follow the song.
 - **Chords:** the 24 major and minor chords (sharp names), Drums (only the
   drums play the bar's rhythm), Rest (silent bar) and END (marks the
   song's end).
-- **3 rhythms per song** ("Rhy1" to "Rhy3"), each set to one of 49 patterns
+- **3 rhythms per song** ("Rhy1" to "Rhy3"), each set to one of 149 patterns
   (bass line + chord rhythm + the DrumBox beat and fills that go with it)
   or to Randm (a random pattern for each run of bars with that rhythm,
   picked again every time the song comes to it). Bass and chords swing with the pattern's
@@ -38,7 +38,7 @@ layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SONGBOX.ZDL` (29,099 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
+`SONGBOX.ZDL` (32,635 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
 It is in the **SFX** category (gid 7, fxid 521). Install both as described
 in the [main README](../../README.md#install), then put SongBox, Floppy
 and (optionally) DrumBox into one patch.
@@ -50,7 +50,7 @@ and (optionally) DrumBox into one patch.
 | 1 | Bar | MENU, 1–128, STATUS | Bar to edit; MENU and STATUS see below |
 | 1 | Chord | END, C–B, Cm–Bm, Drums, Rest | The bar's chord |
 | 1 | Rhythm | Rhy1, Rhy2, Rhy3 | The bar's rhythm |
-| 2 | Rhy1 | Randm, 49 patterns ([Patterns](#patterns)) | Pattern played by rhythm 1 |
+| 2 | Rhy1 | Randm, 149 patterns ([Patterns](#patterns)) | Pattern played by rhythm 1 |
 | 2 | Rhy2 | as Rhy1 | Pattern played by rhythm 2 |
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
 | 3 | Tempo | 40–250 | Tempo in BPM |
@@ -101,12 +101,16 @@ show the playing chord and, after an arrow, the next one ("STATUS" "Am"
 
 ## Patterns
 
-Each pattern is named after the DrumBox beat it plays. Defaults: Rhy1 Rock,
-Rhy2 Funk, Rhy3 Balld. Randm (knob value 0) picks any pattern but the
-building blocks. Notes are relative to each bar's chord: besides the
+Each pattern is named after the DrumBox beat it plays (one for nearly
+every DrumBox style beat); a few variations play an existing beat with their own bass
+and chords (RkArp, Bald2, Funk3, Disc2, Bssa2, Blue2, and the arpeggios
+Arp8, Arp16, ArpSw). Defaults:
+Rhy1 Rock, Rhy2 Funk, Rhy3 Balld. Randm (knob value 0) picks any pattern. Notes are relative to each bar's chord: besides the
 triad, the bass can play the 3rd, 6th, 2nd and an approach note into the
 next chord, the keys sus4 / sus2 and the 9th, each only where it fits the
-song's key (letters in `patterns/song_patterns.py`). Swing comes from the
+song's key; the keys also play chords in root position, 1st or 2nd
+inversion or wide (root, 5th, 10th), and arpeggios of root, fifth, octave
+and 10th over 1.3 octaves (letters in `patterns/song_patterns.py`). Swing comes from the
 DrumBox beat: `sw16` = light 16th swing, `tri8` = 8th-note shuffle; bass
 and chords swing with it.
 
@@ -117,51 +121,151 @@ and chords swing with it.
 | 2 | Rock2 | Rock 2 |  |
 | 3 | Rock3 | Rock 3 |  |
 | 4 | Rock4 | Rock 4 |  |
-| 5 | Rk16 | Rock 16ths |  |
-| 6 | Rk16b | Rock 16ths 2 |  |
-| 7 | SyncR | Syncopated Rock |  |
-| 8 | 4Flr | Four-Floor Rock |  |
-| 9 | Drive | Driving 8ths |  |
-| 10 | HRock | Hard Rock |  |
-| 11 | HRk2 | Hard Rock 2 |  |
-| 12 | RRock | Ride Rock |  |
-| 13 | RdFlr | Ride Floor |  |
-| 14 | OHRk | Open-Hat Rock |  |
-| 15 | Balld | Ballad |  |
-| 16 | SlowR | Slow Rock |  |
-| 17 | RdBal | Ride Ballad |  |
-| 18 | PwrBd | Power Ballad |  |
-| 19 | Pop2 | Pop 2 |  |
-| 20 | Pop3 | Pop 3 |  |
-| 21 | PopRk | Pop Rock |  |
-| 22 | PopR2 | Pop Rock 2 |  |
-| 23 | PwrPp | Power Pop |  |
-| 24 | PBald | Pop Ballad |  |
-| 25 | Pop16 | Pop 16ths |  |
-| 26 | PSw16 | Pop 16ths Swing | sw16 |
-| 27 | PopGr | Pop Groove 16 |  |
-| 28 | PShuf | Pop Shuffle | tri8 |
-| 29 | DncPp | Dance Pop |  |
-| 30 | Motwn | Motown |  |
-| 31 | HTRk | Half-Time Rock |  |
-| 32 | Punk | Punk |  |
-| 33 | Metal | Metal |  |
-| 34 | Galop | Gallop |  |
-| 35 | Funk | Funk |  |
-| 36 | Funk2 | Funk 2 |  |
-| 37 | Disco | Disco |  |
-| 38 | DeepH | Deep House |  |
-| 39 | Techn | Techno |  |
-| 40 | Break | Breakbeat |  |
-| 41 | DnB | Drum and Bass |  |
-| 42 | BBap | Boom Bap |  |
-| 43 | Half | Half Time |  |
-| 44 | Rgtn | Reggaeton |  |
-| 45 | Bossa | Bossa Nova |  |
-| 46 | 1Drop | One Drop |  |
-| 47 | Ska | Ska |  |
-| 48 | Cntry | Country |  |
-| 49 | Afro | Afrobeat |  |
+| 5 | RkArp | Rock Arpeggio |  |
+| 6 | Arp8 | Arpeggio 8ths |  |
+| 7 | Arp16 | Arpeggio 16ths |  |
+| 8 | Rk16 | Rock 16ths |  |
+| 9 | Rk16b | Rock 16ths 2 |  |
+| 10 | SyncR | Syncopated Rock |  |
+| 11 | 4Flr | Four-Floor Rock |  |
+| 12 | Drive | Driving 8ths |  |
+| 13 | HRock | Hard Rock |  |
+| 14 | HRk2 | Hard Rock 2 |  |
+| 15 | RRock | Ride Rock |  |
+| 16 | RdFlr | Ride Floor |  |
+| 17 | OHRk | Open-Hat Rock |  |
+| 18 | Balld | Ballad |  |
+| 19 | Bald2 | Ballad 2 |  |
+| 20 | SlowR | Slow Rock |  |
+| 21 | RdBal | Ride Ballad |  |
+| 22 | PwrBd | Power Ballad |  |
+| 23 | Pop2 | Pop 2 |  |
+| 24 | Pop3 | Pop 3 |  |
+| 25 | PopRk | Pop Rock |  |
+| 26 | PopR2 | Pop Rock 2 |  |
+| 27 | PwrPp | Power Pop |  |
+| 28 | PBald | Pop Ballad |  |
+| 29 | Pop16 | Pop 16ths |  |
+| 30 | PSw16 | Pop 16ths Swing | sw16 |
+| 31 | PShuf | Pop Shuffle | tri8 |
+| 32 | DncPp | Dance Pop |  |
+| 33 | Motwn | Motown |  |
+| 34 | SoftR | Soft Rock |  |
+| 35 | FolkR | Folk Rock |  |
+| 36 | FStmp | Folk Stomp |  |
+| 37 | ClRk | Classic Rock |  |
+| 38 | 80sRk | 80s Rock |  |
+| 39 | South | Southern Rock |  |
+| 40 | Indie | Indie Rock |  |
+| 41 | AltRk | Alt Rock |  |
+| 42 | Garag | Garage Rock |  |
+| 43 | Glam | Glam Stomp |  |
+| 44 | Stomp | Stadium Stomp |  |
+| 45 | HTRk | Half-Time Rock |  |
+| 46 | HTShf | Half-Time Shuffle | tri8 |
+| 47 | FastR | Fast Rock |  |
+| 48 | Prog | Prog Rock |  |
+| 49 | Punk | Punk |  |
+| 50 | DBeat | D-Beat |  |
+| 51 | PopPk | Pop Punk |  |
+| 52 | HCore | Hardcore |  |
+| 53 | PostP | Post-Punk |  |
+| 54 | NWave | New Wave |  |
+| 55 | Grung | Grunge |  |
+| 56 | Shufl | Shuffle | tri8 |
+| 57 | Boogi | Boogie | tri8 |
+| 58 | Rkbly | Rockabilly | tri8 |
+| 59 | Surf | Surf Toms |  |
+| 60 | BoDid | Bo Diddley |  |
+| 61 | TomGr | Tom Groove |  |
+| 62 | FlTom | Floor Tom Rock |  |
+| 63 | FlHat | Floor Tom + Hats |  |
+| 64 | Train | Train Beat |  |
+| 65 | TrSwg | Train Swing | sw16 |
+| 66 | Motor | Motorik |  |
+| 67 | Metal | Metal |  |
+| 68 | Thrsh | Thrash |  |
+| 69 | Blast | Blast Beat |  |
+| 70 | Galop | Gallop |  |
+| 71 | Djent | Djent |  |
+| 72 | HTMtl | Half-Time Metal |  |
+| 73 | Brkdn | Breakdown |  |
+| 74 | Funk | Funk |  |
+| 75 | SwFnk | Swung Funk | sw16 |
+| 76 | Funk2 | Funk 2 |  |
+| 77 | Funk3 | Funk 3 |  |
+| 78 | FDrum | Funky Drummer |  |
+| 79 | Strut | Strut |  |
+| 80 | GoGo | Go-Go |  |
+| 81 | NOLA | New Orleans |  |
+| 82 | Purdy | Purdie Shuffle | tri8 |
+| 83 | LinFk | Linear Funk |  |
+| 84 | Disco | Disco |  |
+| 85 | Disc2 | Disco 2 |  |
+| 86 | DeepH | Deep House |  |
+| 87 | SwHse | Swing House | sw16 |
+| 88 | Minml | Minimal |  |
+| 89 | Techn | Techno |  |
+| 90 | Break | Breakbeat |  |
+| 91 | Amen | Amen |  |
+| 92 | Think | Think Break |  |
+| 93 | Apach | Apache |  |
+| 94 | Impch | Impeach |  |
+| 95 | Levee | Levee Break |  |
+| 96 | CSwet | Cold Sweat |  |
+| 97 | RollB | Rolling Break |  |
+| 98 | BrkB2 | Breakbeat 2 |  |
+| 99 | HHBrk | Hip-Hop Break |  |
+| 100 | BrkRd | Breakbeat Ride |  |
+| 101 | NuSkl | Nu Skool Breaks |  |
+| 102 | HTBrk | Half-Time Break |  |
+| 103 | BigB1 | Big Beat |  |
+| 104 | BigB2 | Big Beat 2 |  |
+| 105 | BBShf | Big Beat Shuffle | sw16h |
+| 106 | BBTom | Big Beat Toms |  |
+| 107 | DnB | Drum and Bass |  |
+| 108 | Jungl | Jungle |  |
+| 109 | Dubst | Dubstep |  |
+| 110 | 2Step | 2-Step Garage |  |
+| 111 | BBap | Boom Bap |  |
+| 112 | BBap2 | Boom Bap 2 |  |
+| 113 | BBpSw | Boom Bap Swing | sw16 |
+| 114 | LoFi | Lo-Fi |  |
+| 115 | LoFiS | Lo-Fi Swing | sw16 |
+| 116 | Half | Half Time |  |
+| 117 | Drill | Drill |  |
+| 118 | Trap | Trap |  |
+| 119 | NJack | New Jack Swing |  |
+| 120 | NeoSl | Neo Soul |  |
+| 121 | Dilla | Dilla | sw16h |
+| 122 | Songo | Songo |  |
+| 123 | Bolro | Bolero |  |
+| 124 | Cumbi | Cumbia |  |
+| 125 | Rgtn | Reggaeton |  |
+| 126 | Baiao | Baiao |  |
+| 127 | Tango | Tango |  |
+| 128 | Calyp | Calypso |  |
+| 129 | Samba | Samba |  |
+| 130 | Bossa | Bossa Nova |  |
+| 131 | Bssa2 | Bossa Nova 2 |  |
+| 132 | 1Drop | One Drop |  |
+| 133 | Rckrs | Rockers |  |
+| 134 | Stepr | Steppers |  |
+| 135 | Ska | Ska |  |
+| 136 | Dub | Dub |  |
+| 137 | Swing | Swing | tri8 |
+| 138 | Bebop | Bebop | tri8 |
+| 139 | Jazz4 | Jazz 4 | tri8 |
+| 140 | Texas | Texas Shuffle | tri8 |
+| 141 | Blues | Blues | tri8 |
+| 142 | Blue2 | Blues 2 | tri8 |
+| 143 | ArpSw | Arpeggio Swing | tri8 |
+| 144 | Cntry | Country |  |
+| 145 | CnShf | Country Shuffle | tri8 |
+| 146 | March | March |  |
+| 147 | Afro | Afrobeat |  |
+| 148 | Bhang | Bhangra |  |
+| 149 | Maqsm | Maqsum |  |
 
 ## How it works
 
@@ -189,7 +293,7 @@ and chords swing with it.
 | `inst_lib.py` | Helpers shared by the instrument models (sine, decay coefficients, voice) |
 | `sets.py` | Instrument sets (one keys + one bass instrument each) and the Instr knob values → `songbox_instr.h` |
 | `proto.py` | Patterns and note increments → `songbox_sound.h`; renders WAV prototypes of each set |
-| `patterns/patterns.json` | The 49 patterns: bass, chords and DrumBox beat / fills (format in `song_patterns.py`) |
+| `patterns/patterns.json` | The 149 patterns: bass, chords and DrumBox beat / fills (format in `song_patterns.py`) |
 | `patterns/song_patterns.py` | Reads and checks `patterns.json` |
 | `packer/songseq.py` | Reference model of the song stream format (packer + unpacker) |
 | `packer/songpack.py` | The same, written the way the C does it (fixed arrays, integers, steps) |

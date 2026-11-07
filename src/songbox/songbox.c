@@ -104,7 +104,7 @@
 ZM_EXPAND_PRAGMA(CODE_SECTION(SS_AUDIO_FUNC, ".audio"))
 ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 
-#define SS_MAGIC     0x53535459u        /* bump on a state layout change */
+#define SS_MAGIC     0x5353545Au        /* bump on a state layout change */
 /* Patch change (a gap between audio calls, as DrumBox's DB_AWAY_CYC): the
  * song starts again at bar 1 after SS_AWAY_HOLD calls of silence, which also
  * gives DrumBox time for its cache check (else beat 1 would be dropped). */
@@ -157,21 +157,30 @@ typedef struct {
 #define SS_PM_ONCE  1u
 #define SS_PM_LOOP  2u
 
-/* Page 1 knob names, 8 bytes each: Bar, Chord, Rhythm, then on MENU the
- * names of knobs 1, 2, 3 per option, one word per knob (the OS centres each
- * name over its knob, so words split across knobs don't join). STATUS
- * builds its names at run time. */
-#define SS_KNOB_NAMES_INIT   /* ss_knob_names[(3u + 3u * SS_NOPT) * 8u] */ \
-    "Bar\0\0\0\0\0"    "Chord\0\0\0"   "Rhythm\0\0" \
-    "Select\0\0"       "play\0\0\0\0"  "mode:\0\0\0"         /* PLAY */ \
-    "Shift\0\0\0"      "chords\0\0"    "by:\0\0\0\0\0"       /* OCTAVE */ \
-    "Change\0\0"       "chord\0\0\0"   "every:\0\0"          /* LENGTH */ \
-    "Trim\0\0\0\0"     "after\0\0\0"   "END?\0\0\0\0"         /* TRIM */ \
-    "Clear\0\0\0"      "the\0\0\0\0\0" "song?\0\0"           /* CLEAR */
+/* All texts in one pool of NUL-terminated strings (ss_strs, string i =
+ * ss_str(k, i)), <= 7 characters each:
+ * - SS_S_KNOB: page 1 knob names Bar, Chord, Rhythm, then on MENU the
+ *   names of knobs 1, 2, 3 per option, one word per knob (the OS centres
+ *   each name over its knob, so words split across knobs don't join).
+ *   STATUS builds its names at run time.
+ * - SS_S_WORD: knob texts: MENU options 0..SS_NOPT - 1 (Chord knob on
+ *   MENU), the fixed knob texts and STATUS's texts.
+ * - SS_S_CHORD: chord names by ss_chord's index: roots 0..11, Rest 12,
+ *   Drums 13.
+ * - SS_S_INSTR: Instr's (songbox_instr.h). */
+#define SS_S_KNOB   0u
+#define SS_S_WORD   18u
+#define SS_S_CHORD  48u
+#define SS_S_INSTR  62u
+#define SS_KNOB_NAMES_INIT \
+    "Bar\0"    "Chord\0"  "Rhythm\0" \
+    "Select\0" "play\0"   "mode:\0"         /* PLAY */ \
+    "Shift\0"  "chords\0" "by:\0"           /* OCTAVE */ \
+    "Change\0" "chord\0"  "every:\0"        /* LENGTH */ \
+    "Trim\0"   "after\0"  "END?\0"          /* TRIM */ \
+    "Clear\0"  "the\0"    "song?\0"         /* CLEAR */
 
-/* Knob texts, 8 bytes each (<= 7 characters): MENU options 0..SS_NOPT - 1
- * (Chord knob on MENU), the fixed knob texts and STATUS's texts (Instr's:
- * ss_instr_names, songbox_instr.h). */
+/* Knob texts (SS_S_WORD + SS_W_*) */
 #define SS_W_MENU   5u
 #define SS_W_DASH3  6u
 #define SS_W_END    7u
@@ -187,23 +196,21 @@ typedef struct {
 #define SS_W_SIZE   25u                 /* "Size:" */
 #define SS_W_NOFL   26u                 /* "Can't" "save!", then "(no" "floppy)" */
 #define SS_NWORDS   30u
-#define SS_WORDS_INIT   /* ss_words[SS_NWORDS * 8u] */ \
-    "PLAY\0\0\0\0" "OCTAVE\0\0" "LENGTH\0\0" "TRIM\0\0\0\0" "CLEAR\0\0\0" \
-    "MENU\0\0\0\0" \
-    "---\0\0\0\0\0" "END\0\0\0\0\0" "Flop?\0\0\0" "Err\0\0\0\0\0" "Full\0\0\0\0" \
-    "OFF\0\0\0\0\0" "ONCE\0\0\0\0" "LOOP\0\0\0\0" \
-    "-1\0\0\0\0\0\0" "0\0\0\0\0\0\0\0" "+1\0\0\0\0\0\0" \
-    "BAR\0\0\0\0\0" "HALF\0\0\0\0" "BEAT\0\0\0\0" \
-    "NO\0\0\0\0\0\0" "YES\0\0\0\0\0" "Pack\0\0\0\0" \
-    "DONE\0\0\0\0" "STATUS\0\0" "Size:\0\0\0" \
-    "Can't\0\0\0" "save!\0\0\0" "(no  \0\0\0" "floppy)\0"
-
-/* 4-byte slots by ss_chord's index: roots 0..11, Rest 12 (its 5th byte the
- * empty slot 13), Drums 14 (5 characters) */
-#define SS_CHORD_NAMES_INIT   /* ss_chord_names[16u * 4u] */ \
-    "C\0\0\0" "C#\0\0" "D\0\0\0" "D#\0\0" "E\0\0\0" "F\0\0\0" \
-    "F#\0\0" "G\0\0\0" "G#\0\0" "A\0\0\0" "A#\0\0" "B\0\0\0" \
-    "Rest" "\0\0\0\0" "Drums\0\0"
+#define SS_WORDS_INIT \
+    "PLAY\0" "OCTAVE\0" "LENGTH\0" "TRIM\0" "CLEAR\0" \
+    "MENU\0" \
+    "---\0" "END\0" "Flop?\0" "Err\0" "Full\0" \
+    "OFF\0" "ONCE\0" "LOOP\0" \
+    "-1\0" "0\0" "+1\0" \
+    "BAR\0" "HALF\0" "BEAT\0" \
+    "NO\0" "YES\0" "Pack\0" \
+    "DONE\0" "STATUS\0" "Size:\0" \
+    "Can't\0" "save!\0" "(no  \0" "floppy)\0"
+#define SS_CHORD_NAMES_INIT \
+    "C\0" "C#\0" "D\0" "D#\0" "E\0" "F\0" \
+    "F#\0" "G\0" "G#\0" "A\0" "A#\0" "B\0" \
+    "Rest\0" "Drums\0"
+#define SS_STRS_INIT SS_KNOB_NAMES_INIT SS_WORDS_INIT SS_CHORD_NAMES_INIT SS_INSTR_NAMES_INIT
 
 /* All of SongBox's tables in one struct, so the linker's rela_const_base
  * gives every MVKL / MVKH of them one dynamic symbol (+ the member offset
@@ -212,6 +219,7 @@ typedef struct {
 typedef struct {
     SsInst inst_tab[SS_NINST];
     uint32_t wt_terms[SS_WT_NTERMS];
+    uint32_t pat_names[SS_NPAT + 1u];
     float inc[12];
     float lvl_keys[SS_NSETS], lvl_bass[SS_NSETS];
     float swing[4];
@@ -223,41 +231,38 @@ typedef struct {
     uint8_t wt_end[SS_WT_NEND];
     uint8_t instr[SS_NINSTR];
     uint8_t set_keys[SS_NSETS], set_bass[SS_NSETS];
-    char pat_names[(SS_NPAT + 1u) * 5u + 1u];
-    char instr_names[SS_NINSTR * 8u];
-    char knob_names[(3u + 3u * SS_NOPT) * 8u];
-    char words[SS_NWORDS * 8u];
-    char chord_names[16u * 4u];
+    char strs[sizeof(SS_STRS_INIT)];
 } SsConst;
 static const SsConst ss_c = {
-    SS_INST_TAB_INIT, SS_WT_TERMS_INIT, SS_INC_INIT, SS_LVL_KEYS_INIT, SS_LVL_BASS_INIT,
+    SS_INST_TAB_INIT, SS_WT_TERMS_INIT, SS_PAT_NAMES_INIT, SS_INC_INIT, SS_LVL_KEYS_INIT, SS_LVL_BASS_INIT,
     SS_SWING_INIT, SS_BASS_OFS_INIT, SS_KEY_OFS_INIT, SS_PAT_INIT, SS_PAT_NOTES_INIT, SS_DB_STYLE_INIT, SS_WT_END_INIT, SS_INSTR_INIT,
-    SS_SET_KEYS_INIT, SS_SET_BASS_INIT, SS_PAT_NAMES_INIT, SS_INSTR_NAMES_INIT,
-    SS_KNOB_NAMES_INIT, SS_WORDS_INIT, SS_CHORD_NAMES_INIT
+    SS_SET_KEYS_INIT, SS_SET_BASS_INIT, SS_STRS_INIT
 };
-#define ss_inst_tab    (ss_c.inst_tab)
-#define ss_wt_terms    (ss_c.wt_terms)
-#define ss_inc         (ss_c.inc)
-#define ss_lvl_keys    (ss_c.lvl_keys)
-#define ss_lvl_bass    (ss_c.lvl_bass)
-#define ss_swing_amt   (ss_c.swing)
-#define ss_bass_ofs    (ss_c.bass_ofs)
-#define ss_key_ofs     (ss_c.key_ofs)
-#define ss_pat         (ss_c.pat)
-#define ss_pat_notes   (ss_c.pat_notes)
-#define ss_db_style    (ss_c.db_style)
-#define ss_wt_end      (ss_c.wt_end)
-#define ss_instr       (ss_c.instr)
-#define ss_set_keys    (ss_c.set_keys)
-#define ss_set_bass    (ss_c.set_bass)
-#define ss_pat_names   (ss_c.pat_names)
-#define ss_instr_names (ss_c.instr_names)
-#define ss_knob_names  (ss_c.knob_names)
-#define ss_words       (ss_c.words)
-#define ss_chord_names (ss_c.chord_names)
+/* SS_K: the tables' base. In the player code st->k (set each call): a load
+ * from the state instead of an MVKL / MVKH pair with two .rela.dyn entries
+ * per use; &ss_c where no state is at hand (the engine). */
+#define SS_K (&ss_c)
+#define ss_inst_tab    (SS_K->inst_tab)
+#define ss_wt_terms    (SS_K->wt_terms)
+#define ss_inc         (SS_K->inc)
+#define ss_lvl_keys    (SS_K->lvl_keys)
+#define ss_lvl_bass    (SS_K->lvl_bass)
+#define ss_swing_amt   (SS_K->swing)
+#define ss_bass_ofs    (SS_K->bass_ofs)
+#define ss_key_ofs     (SS_K->key_ofs)
+#define ss_pat         (SS_K->pat)
+#define ss_pat_notes   (SS_K->pat_notes)
+#define ss_db_style    (SS_K->db_style)
+#define ss_wt_end      (SS_K->wt_end)
+#define ss_instr       (SS_K->instr)
+#define ss_set_keys    (SS_K->set_keys)
+#define ss_set_bass    (SS_K->set_bass)
+#define ss_pat_names   (SS_K->pat_names)
 
 #include "instruments/inst_lib.h"
 #include "instruments/engine.c"         /* the instrument engine: ss_wt_build, ss_run */
+#undef SS_K
+#define SS_K (st->k)
 
 #define SS_PK_IDLE 0u
 #define SS_PK_EDIT 1u                   /* write Floppy when it fits */
@@ -272,6 +277,7 @@ static const SsConst ss_c = {
 typedef struct {
     ZmStream zm;
     uint32_t magic;
+    const SsConst *k;                   /* &ss_c (SS_K), set every call */
     uint32_t last[9];                   /* knob values as last seen */
     uint32_t sel, stat;                 /* Bar knob: 0 MENU, 1..128 bars, then STATUS; sel is STATUS */
     uint32_t opt;                       /* MENU option (Chord knob on MENU) */
@@ -705,11 +711,11 @@ static void ss_edit(SsState *st, unsigned int *ctx)
  * instead of whole samples per step); the instruments in instruments/. */
 
 SS_COLD(ss_trigger)
-static void ss_trigger(SsVoice *v, uint32_t note, float gate)
+static void ss_trigger(const SsConst *k, SsVoice *v, uint32_t note, float gate)
 {
     float inc = 1.0f;
     while (note >= 12u) { note -= 12u; inc *= 2.0f; }
-    v->inc = ss_inc[note] * inc;
+    v->inc = k->inc[note] * inc;
     v->gate = gate;
     v->trig = 1u;
 }
@@ -781,9 +787,10 @@ static inline uint32_t ss_in_key(uint32_t m, uint32_t p)
 #define SS_NEAR(c) do { if ((c) != st->alast) { b = (c) > pat ? (c) - pat : pat - (c); \
     if (b < minor) { minor = b; t = (c); } } } while (0)
 
-/* Keys tone n (MIDI) of offset o above root: folded into 55..66 (G3..F#4). */
-#define SS_KEY_TONE(n, o) do { (n) = root + (o); if ((n) >= 12u) (n) -= 12u; \
-    (n) += 48u; if ((n) < 55u) (n) += 12u; } while (0)
+/* Keys tone n (MIDI) of offset o above root: folded into 55..66 (G3..F#4)
+ * with fh 12, fl 55; unfolded (48 + root + o) with fh 99, fl 0. */
+#define SS_KEY_TONE(n, o) do { (n) = root + (o); if ((n) >= fh) (n) -= 12u; \
+    (n) += 48u; if ((n) < fl) (n) += 12u; } while (0)
 
 /* Events of st->bar / st->step: bass and keys from the bar's pattern (step
  * = the 16th of the drum bar, so a short song bar plays part of it). Note
@@ -793,6 +800,7 @@ SS_COLD(ss_events)
 static inline void ss_events(SsState *st, const float *params)
 {
     uint32_t b = st->bar < st->pn ? st->bars[st->bar] : SP_REST, root, minor, pat, code, i, t, n0, n1, n2, x, km;
+    uint32_t fh = 12u, fl = 55u;        /* SS_KEY_TONE's fold */
     float len;
     if ((b & 31u) >= SP_REST) {         /* rest, drums bar (or past the end): bass and keys released */
         if ((st->step & (15u >> st->ms[SS_OPT_LEN])) == 0u) {
@@ -829,15 +837,16 @@ static inline void ss_events(SsState *st, const float *params)
         t += 8u;                        /* 28 + (root - 4) mod 12: E1..D#2, + the code's interval */
         if (t >= 12u) t -= 12u;
         t = (uint32_t)((int32_t)(t + 28u) + ss_bass_ofs[(code & 15u) * 2u + minor]);
-        ss_trigger(&st->vk[SS_VB], t, (float)(code >> 4) - 0.25f);
+        ss_trigger(st->k, &st->vk[SS_VB], t, (float)(code >> 4) - 0.25f);
     }
     code = pat;                         /* keys note */
     if (!code) return;
     /* a tone neither in the triad nor in the song's key (sus4 on IV, sus2
      * on iii or a minor song's V, ...): the triad; a single tone: pat =
-     * the replaced tone, played as the triad tone nearest to it (below) */
+     * the replaced tone, played as the triad tone nearest to it (below);
+     * the rooted codes are chord tones */
     pat = 0u;
-    if ((code & 15u) >= 4u) {
+    if ((code & 15u) - 4u < SS_KEY_ROOTED - 4u) {
         x = (code & 15u) * 6u + minor * 3u;
         n1 = 0u;
         #pragma UNROLL(1)
@@ -845,10 +854,13 @@ static inline void ss_events(SsState *st, const float *params)
             t = ss_key_ofs[x + i];
             if (t != 0u && t != 7u && t != 4u - minor && !ss_in_key(km, root + t)) n1 = 1u;
         }
-        if (n1 && (code & 15u) >= 9u) SS_KEY_TONE(pat, ss_key_ofs[x]);
-        if (n1) code = (code & ~15u) | ((code & 15u) >= 9u ? 1u : 0u);
+        if (n1 && (code & 15u) >= SS_KEY_SINGLE) SS_KEY_TONE(pat, ss_key_ofs[x]);
+        if (n1) code = (code & ~15u) | ((code & 15u) >= SS_KEY_SINGLE ? 1u : 0u);
     }
-    /* the code's three tones folded into 55..66 (G3..F#4), sorted, then OCTAVE */
+    /* the code's three tones folded into 55..66 (G3..F#4), sorted, then
+     * OCTAVE; the rooted codes unfolded above the root at C3..B3 (their
+     * offsets ascend, so the sort keeps them) */
+    if ((code & 15u) >= SS_KEY_ROOTED) { fh = 99u; fl = 0u; }
     x = (code & 15u) * 6u + minor * 3u;
     SS_KEY_TONE(n0, ss_key_ofs[x]);
     SS_KEY_TONE(n1, ss_key_ofs[x + 1u]);
@@ -860,9 +872,9 @@ static inline void ss_events(SsState *st, const float *params)
     n0 += x; n1 += x; n2 += x;
     len = (float)(code >> 4);
     if ((SS_KEY_CHORDS >> (code & 15u)) & 1u) {     /* chord: all three voices */
-        ss_trigger(&st->vk[0], n0, len - 0.25f);
-        ss_trigger(&st->vk[1], n1, len - 0.25f);
-        ss_trigger(&st->vk[2], n2, len - 0.25f);
+        ss_trigger(st->k, &st->vk[0], n0, len - 0.25f);
+        ss_trigger(st->k, &st->vk[1], n1, len - 0.25f);
+        ss_trigger(st->k, &st->vk[2], n2, len - 0.25f);
     } else {                            /* arpeggio: one tone (1 / 2 / 3 the triad's low / mid /
                                          * high; single-tone codes: all three equal), voices in turn */
         for (i = 0u; i < 3u; ++i) st->vk[i].gate = 0.0f;
@@ -875,7 +887,7 @@ static inline void ss_events(SsState *st, const float *params)
             SS_NEAR(n1);
             SS_NEAR(n2);
         }
-        ss_trigger(&st->vk[st->arp], t, len);
+        ss_trigger(st->k, &st->vk[st->arp], t, len);
         st->alast = t;
         st->arp = st->arp < 2u ? st->arp + 1u : 0u;
     }
@@ -907,7 +919,7 @@ static inline uint32_t ss_second(const SsState *st)
     uint32_t s, m, r = 0u;
     if (t && st->zm.slot < t->slots)
         for (s = 0u; s <= st->zm.slot; ++s) {
-            m = (ZM_U32(t->rec + 44u * s + 4u) & t->idmask) == (SS_ID & t->idmask);
+            m = ZM_U32(t->rec + 44u * s + 4u) == SS_ID;
             if (m != (s == st->zm.slot)) r = 1u;
         }
     return r;
@@ -922,7 +934,7 @@ static inline void ss_drums(SsState *st, const float *params)
     /* the record id test as for Floppy: (gid << 24) | fxid on every known OS */
     if (t)
         for (s = 0u; s < t->slots; ++s)
-            if ((ZM_U32(t->rec + 44u * s + 4u) & t->idmask) == (SS_DB_ID & t->idmask)) { ds = s; break; }
+            if (ZM_U32(t->rec + 44u * s + 4u) == SS_DB_ID) { ds = s; break; }
     st->dslot = ds;                     /* one store: the knob text reads it */
     if (ds == ZM_NOSLOT) {
         st->ddrv = 0u;
@@ -1136,6 +1148,16 @@ static uint32_t ss_nput(volatile unsigned char *nm, uint32_t n, uint32_t c)
     return n + 1u;
 }
 
+/* String i of the text pool (SS_S_*). */
+SS_COLD(ss_str)
+static const char *ss_str(const SsConst *k, uint32_t i)
+{
+    const char *p = k->strs;
+    while (i)
+        if (*p++ == 0) --i;
+    return p;
+}
+
 
 void SS_AUDIO_FUNC(unsigned int *ctx)
 {
@@ -1176,6 +1198,7 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
 #endif
 
     if (st->magic != SS_MAGIC || st->tail != SS_MAGIC) ss_fresh(st, ctx);
+    st->k = &ss_c;
     if (st->n > SP_MAX_BARS || st->cn > SP_MAX_BARS || st->pn > st->n
         || ss_sum(st->bars, st->n) != st->sum || ss_sum(st->cand, st->cn) != st->csum) {
         /* overwritten while lent out: empty song, reload from Floppy */
@@ -1311,16 +1334,16 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
         volatile unsigned char *nm = (volatile unsigned char *)&ZM_DESC[12u * (2u + SS_K_BAR + k)];
         st->nk = k + 1u;
         st->npend--;
-        if (!st->stat) {
-            const char *q = &ss_knob_names[((st->sel != 0u ? 0u : 3u + 3u * st->opt) + k) * 8u];
-            for (i = 0u; i < 8u; ++i)
-                if (nm[i] != (unsigned char)q[i]) nm[i] = (unsigned char)q[i];
-        } else {        /* "Size:" "55/106" ("Pack" while packing), playing bar "B: 12"; without
+        {               /* the name from the pool, the rest of the 8 bytes NUL */
+                        /* STATUS: "Size:" "55/106" ("Pack" while packing), playing bar "B: 12"; without
                          * Floppy the first two in turn "Size:" "55/0", "Can't" "save!", "(no" "floppy)" */
             uint32_t v, v2, num, n, h, d, f;
             const char *p;
             {
                 n = 0u; num = 0u; v2 = 0u; p = 0;
+                if (!st->stat)
+                    p = ss_str(st->k, SS_S_KNOB + (st->sel != 0u ? 0u : 3u + 3u * st->opt) + k);
+                else
 #ifdef SS_PROBE
                 if (1) {                    /* load probe: "A" / "V" / "N" + peak % "/" mean % (the rest: dead) */
                     uint32_t m = k == 1u ? 3u : k;  /* meters 0, 3 (voices), 2 */
@@ -1333,11 +1356,11 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
                     n = ss_nput(nm, n, 'B'); n = ss_nput(nm, n, ':'); n = ss_nput(nm, n, ' ');
                     num = 1u; v = st->bar + 1u;
                 } else if (st->blink < 2u) {
-                    p = &ss_words[(SS_W_NOFL + 2u * st->blink + k) * 8u];
+                    p = ss_str(st->k, SS_S_WORD + SS_W_NOFL + 2u * st->blink + k);
                 } else if (k == 0u) {
-                    p = &ss_words[SS_W_SIZE * 8u];
+                    p = ss_str(st->k, SS_S_WORD + SS_W_SIZE);
                 } else if (st->packing) {
-                    p = &ss_words[SS_W_PACK * 8u];
+                    p = ss_str(st->k, SS_S_WORD + SS_W_PACK);
                 } else {                    /* used / capacity bits (0 without Floppy) */
                     num = 2u;
                     v = st->used < st->cap ? st->used : st->cap;
@@ -1368,7 +1391,7 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     if (st->wtn < SS_WT_ROWS) {
         i = SS_WT_ROWS - st->wtn;
         if (i > SS_WT_STEP) i = SS_WT_STEP;
-        ss_wt_build(SS_WT_OF(st), st->wtn, i);
+        ss_wt_build(st->k, SS_WT_OF(st), st->wtn, i);
         st->wtn += i;
     }
 #ifdef SS_PROBE
@@ -1396,9 +1419,9 @@ static inline int ss_cpy(char *s, const char *p, int m)
 
 /* Bar code (0..23 root * 2 + minor, 24 Rest, 26 Drums) at s[n..]. */
 ZM_INLINE(ss_chord)
-static inline int ss_chord(char *s, int n, uint32_t v)
+static inline int ss_chord(const SsConst *k, char *s, int n, uint32_t v)
 {
-    const char *p = &ss_chord_names[(v < 24u ? v >> 1 : v - 12u) * 4u];
+    const char *p = ss_str(k, SS_S_CHORD + (v >> 1));    /* Rest 12, Drums 13 */
     int i;
     for (i = 0; i < 5 && p[i]; ++i) s[n++] = p[i];
     if (v < 24u && (v & 1u)) s[n++] = 'm';
@@ -1414,14 +1437,18 @@ ZM_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(ss_text))
 static int ss_text(uint32_t k, uint32_t v, char *s)
 {
     const volatile SsState *st = ss_g;
-    uint32_t sel = 0u, stat = 0u, idx, h = 0u, t = 0u, w = SS_NWORDS;  /* ss_words entry */
+    uint32_t sel = 0u, stat = 0u, idx, h = 0u, t = 0u, w = SS_NWORDS;  /* SS_W_* entry */
     int n = 0;
     if (st) { sel = st->sel; stat = st->stat; }
     idx = sel - 1u;
-    if (k - SS_K_RHY1 < 3u) {           /* Rhy1..3: "Randm", pattern names */
-        return ss_cpy(s, &ss_pat_names[(v < SS_NPAT ? v : SS_NPAT) * 5u], 5);
+    if (k - SS_K_RHY1 < 3u) {           /* Rhy1..3: "Randm", pattern names (6 bits a character) */
+        h = ss_pat_names[v < SS_NPAT ? v : SS_NPAT];
+        for (; n < 5 && (t = h & 63u) != 0u; ++n, h >>= 6)
+            s[n] = (char)(t + (t < 11u ? '0' - 1u : t < 37u ? 'A' - 11u : 'a' - 37u));
+        s[n] = 0;
+        return n;
     } else if (k == SS_K_INSTR) {       /* EPiano, EP Bs, EP Ch, ..., Mute */
-        return ss_cpy(s, &ss_instr_names[(v < SS_NINSTR ? v : SS_NINSTR - 1u) * 8u], 7);
+        return ss_cpy(s, ss_str(st->k, SS_S_INSTR + (v < SS_NINSTR ? v : SS_NINSTR - 1u)), 7);
     } else if (k == SS_K_TEMPO) {       /* BPM */
         v = 40u + (v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v);
     } else if (!st || k == SS_K_VOLUME) {
@@ -1441,7 +1468,7 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
                 s[0] = 0x1C; s[1] = ' '; n = 2;
                 if (h < 24u) s[n++] = ' ';
             }
-            return ss_chord(s, n, h);
+            return ss_chord(st->k, s, n, h);
         }
     } else if (k == SS_K_CHORD) {
         if (sel == 0u)                  /* MENU options */
@@ -1449,7 +1476,7 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
         else if (st->full)              /* refused: "Full", "Err", "Flop?" (a Floppy missing) */
             w = st->err == 2u ? SS_W_FLOP : st->err ? SS_W_ERR : SS_W_FULL;
         else if (v == SS_CH_END) w = SS_W_END;
-        else return ss_chord(s, 0, v == SS_CH_DRUMS ? SP_DRUMS : v >= SS_CH_REST ? SP_REST : v - 1u);
+        else return ss_chord(st->k, s, 0, v == SS_CH_DRUMS ? SP_DRUMS : v >= SS_CH_REST ? SP_REST : v - 1u);
     } else if (k == SS_K_RHYTHM) {
         if (sel == 0u) {
             h = st->opt;
@@ -1465,7 +1492,7 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
         }
     }
     if (w < SS_NWORDS) {                /* the one word copy */
-        n = ss_cpy(s, &ss_words[w * 8u], 7);
+        n = ss_cpy(s, ss_str(st->k, SS_S_WORD + w), 7);
         if (w == SS_W_YES && st->clr) {
             s[3] = ' '; s[4] = (char)('0' + ss_clr_digit(st->clr)); s[5] = 0;
             n = 5;

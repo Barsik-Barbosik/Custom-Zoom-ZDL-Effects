@@ -156,9 +156,9 @@ def c_header(path: Path) -> None:
           "/* ss_instr[SS_NINSTR]: per Instr value set << 2 | SS_IN_NOBASS | SS_IN_NOCHORDS */",
           "#define SS_INSTR_INIT { "
           + ", ".join(f"{st << 2 | m}u" for _t, st, m in INSTR) + " }",
-          "/* ss_instr_names[SS_NINSTR * 8u] */",
+          "/* Instr names, NUL-terminated (the end of songbox.c's text pool) */",
           "#define SS_INSTR_NAMES_INIT "
-          + " ".join('"' + t + "\\0" * (8 - len(t)) + '"' for t, _s, _m in INSTR),
+          + " ".join('"' + t + "\\0" + '"' for t, _s, _m in INSTR[:-1]) + f' "{INSTR[-1][0]}"',
           "/* per set: keys and bass instrument (ss_inst_tab index) and their levels:",
           " * ss_set_keys / ss_set_bass[SS_NSETS], ss_lvl_keys / ss_lvl_bass[SS_NSETS] */",
           "#define SS_SET_KEYS_INIT { "

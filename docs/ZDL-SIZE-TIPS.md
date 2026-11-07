@@ -62,6 +62,7 @@ nothing for alloc, because alloc is their sum.
 | Look up a per-firmware table row once per call and keep the pointer, instead of indexing the table at every use | −352 B code, −16 relocations | works |
 | Formulas instead of compare chains or macros expanded per entry | ~7 B per entry per expansion | works |
 | Branch-free operations (`x \|= (a - b) >> 31`), small maps as nibble lists, offset counters | whole 32-byte packets | works |
+| A new case through the existing code with its constants in variables, instead of a separate block after it (SongBox's unfolded chord voicings: the note routine's fold limits 12 / 55 become 99 / 0) | the separate block cost +128 B of code, the variables nothing | works |
 
 Notes:
 - Moving code out of line gains most for small helpers inlined at many
@@ -81,8 +82,13 @@ Notes:
 | Palettes: each distinct value once, plus one index byte per entry | DrumBox 8 → 6 flash blocks (with the item above) | works |
 | Fixed-width names (5 bytes, padded with NUL) | | works |
 | Sparse lanes: a 16-bit onset mask per lane plus one byte per note, indexed by a popcount (`_dotpu4(_bitc4(m), 0x01010101)`) | SongBox ~40 → ~23 B per rhythm | works |
+| Share note bytes: an offset per lane and all lanes' notes as one overlapped string (the generator merges equal and overlapping runs) | SongBox's 29 rhythms 425 → 361 B (notes 251 → 129 B); copied lines cost nothing | works |
 | **All tables in one struct** (the generators write initializers; the old table names stay as macros, so the code is unchanged) | SongBox −320 B; −432 B with `rela_const_base` below | works |
 | Wavetables built at run time from harmonic lists, a few rows per call, into the effect's large buffer (`ctx[3]`) | tables cost RAM, not flash | works |
+| The table struct's address kept in the effect's state (set once per call; code reads it from there): one load from memory instead of an MVKL / MVKH pair with two `.rela.dyn` entries per use. Helpers without the state get it as an argument | SongBox −320 B file (17 → 1 address loads), +64 B of code | works |
+| Names as 5 × 6 bits in one word (0 end, digits, A–Z, a–z), decoded by the one text routine | SongBox −72 B of table for 70 names, +32 B of code | works |
+| Per-OS address rows without the fields that are the same on every OS (the id test as a constant), small counts as bytes | zmenu rows 560 → 512 B, −128 B of code | works |
+| All texts (knob names, knob texts, chord and instrument names) as one pool of NUL-terminated strings instead of fixed 8-byte slots; one shared out-of-line routine skips to string *i* | SongBox texts 526 → 360 B, −232 B file in all (the 8-byte compare loop went too) | works |
 
 Notes:
 - A palette only pays when values repeat. SongBox's rhythm names and
@@ -90,6 +96,9 @@ Notes:
 - Names packed into 6 bits per character cost +224 B in DrumBox (the
   decoder was bigger than the saving). It saves 1 B per name, so it only
   pays with many names (break-even around 80).
+- Packing text into 7 bits per character would save only 1/8 of the
+  table; the decoder eats most of it. Dropping the padding of fixed-width
+  slots saved far more (SongBox: 7-bit −66 B of table, pool −166 B).
 - Don't expect a struct or a local pointer to make cl6x load a table's
   address only once. It reloads the address (MVKL / MVKH) at each use and
   moves the load into each branch, even from a local pointer. The struct
@@ -109,6 +118,7 @@ Notes:
 | `dynamic_entries=17` | `.dynamic` without its padding entries | | works |
 | `rela_const_base` | the address-load relocations into `.const` share one `.dynsym` entry, with the offset in each entry's addend. 82 of 265 stock effects we scanned use such addends | 120 B; with one table struct, all 17 table targets share one symbol | works |
 | `drop_attributes` | no `.c6xabi.attributes` section (every stock effect has one) | 123 B | works |
+| `anon_edit_syms` | the knob handlers' `.dynsym` entries without names, as the knob-text callbacks' already are (Zoom's effects name them `<audio>_<knob>_edit`) | SongBox 231 B of `.dynstr` | works |
 | no `_init` | for an effect that never reads its knob values from `params[]` | | works |
 
 Each `.dynsym` entry costs 16 B plus 8 B of `.hash` once there are more

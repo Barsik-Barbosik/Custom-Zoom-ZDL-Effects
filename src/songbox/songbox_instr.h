@@ -38,8 +38,8 @@
 #define SS_IN_NOBASS 2u
 /* ss_instr[SS_NINSTR]: per Instr value set << 2 | SS_IN_NOBASS | SS_IN_NOCHORDS */
 #define SS_INSTR_INIT { 0u, 1u, 2u, 4u, 5u, 6u, 8u, 9u, 10u, 3u }
-/* ss_instr_names[SS_NINSTR * 8u] */
-#define SS_INSTR_NAMES_INIT "EPiano\0\0" "EP Bs\0\0\0" "EP Ch\0\0\0" "JzzOrg\0\0" "Jaz Bs\0\0" "Jaz Ch\0\0" "RckOrg\0\0" "Rck Bs\0\0" "Rck Ch\0\0" "Mute\0\0\0\0"
+/* Instr names, NUL-terminated (the end of songbox.c's text pool) */
+#define SS_INSTR_NAMES_INIT "EPiano\0" "EP Bs\0" "EP Ch\0" "JzzOrg\0" "Jaz Bs\0" "Jaz Ch\0" "RckOrg\0" "Rck Bs\0" "Rck Ch\0" "Mute"
 /* per set: keys and bass instrument (ss_inst_tab index) and their levels:
  * ss_set_keys / ss_set_bass[SS_NSETS], ss_lvl_keys / ss_lvl_bass[SS_NSETS] */
 #define SS_SET_KEYS_INIT { 0u, 1u, 2u }

@@ -26,9 +26,10 @@ static inline float ss_wt_term(uint32_t i, uint32_t w)
     return (float)((int)w >> 16) * ss_sin1((float)(int)ph * (1.0f / (float)SS_WT_N));
 }
 
-/* rows i .. i + n - 1 of every table (t: the tables one after the other) */
+/* rows i .. i + n - 1 of every table (t: the tables one after the other;
+ * c: SongBox's tables) */
 SS_COLD(ss_wt_build)
-static void ss_wt_build(uint32_t *t, uint32_t i, uint32_t n)
+static void ss_wt_build(const SsConst *c, uint32_t *t, uint32_t i, uint32_t n)
 {
     uint32_t k, e;
     float a, b;
@@ -37,9 +38,9 @@ static void ss_wt_build(uint32_t *t, uint32_t i, uint32_t n)
         #pragma UNROLL(1)
         for (k = 0u; k < SS_NINST; ++k) {
             a = 0.0f;
-            for (; e < ss_wt_end[2u * k]; ++e) a += ss_wt_term(i, ss_wt_terms[e]);
+            for (; e < c->wt_end[2u * k]; ++e) a += ss_wt_term(i, c->wt_terms[e]);
             b = 0.0f;
-            for (; e < ss_wt_end[2u * k + 1u]; ++e) b += ss_wt_term(i, ss_wt_terms[e]);
+            for (; e < c->wt_end[2u * k + 1u]; ++e) b += ss_wt_term(i, c->wt_terms[e]);
             ((volatile uint32_t *)t)[k * SS_WT_ROWS + i] =
                 (((uint32_t)(int)(a + 32768.5f) - 32768u) & 0xFFFFu)
                 | (uint32_t)(int)(b + (SS_WT_OFS + 0.5f)) << 16;
