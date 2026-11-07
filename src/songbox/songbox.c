@@ -6,8 +6,8 @@
  * pattern each rhythm plays, one of patterns/patterns.json, or Randm: a
  * pattern picked per run of bars with that rhythm, again on every pass),
  * page 3 Tempo
- * (40..250 BPM), Volume (50 = x1), Instr (per instrument set bass +
- * chords, bass only, chords only, then Mute; drums follow in every mode).
+ * (40..250 BPM), Volume (50 = x1), Instr (sets.py INSTR_LIST: Mute, the
+ * bass alone, chords with or without bass; drums follow in every mode).
  *
  * Sound: bass + keys (an instrument set, sets.py + instruments/) play the saved song while the
  * footswitch is on (MENU PLAY: once or in a loop), added to the guitar.
@@ -165,7 +165,7 @@ typedef struct {
  *   STATUS builds its names at run time.
  * - SS_S_WORD: knob texts: MENU options 0..SS_NOPT - 1 (Chord knob on
  *   MENU), the fixed knob texts and STATUS's texts.
- * - SS_S_CHORD: chord names by ss_chord's index: roots 0..11, Rest 12,
+ * - SS_S_CHORD: chord names by bar code >> 1: roots 0..11, Rest 12,
  *   Drums 13.
  * - SS_S_INSTR: Instr's (songbox_instr.h). */
 #define SS_S_KNOB   0u
@@ -227,7 +227,8 @@ typedef struct {
     uint8_t key_ofs[SS_NKEY * 6u];
     uint16_t pat[SS_NPAT * 4u];
     uint8_t pat_notes[SS_NNOTES];
-    uint8_t db_style[SS_NPAT * 4u];
+    uint8_t db_style[SS_NPAT * 3u];
+    uint8_t bar2[SS_NBAR2];
     uint8_t wt_end[SS_WT_NEND];
     uint8_t instr[SS_NINSTR];
     uint8_t set_keys[SS_NSETS], set_bass[SS_NSETS];
@@ -235,7 +236,7 @@ typedef struct {
 } SsConst;
 static const SsConst ss_c = {
     SS_INST_TAB_INIT, SS_WT_TERMS_INIT, SS_PAT_NAMES_INIT, SS_INC_INIT, SS_LVL_KEYS_INIT, SS_LVL_BASS_INIT,
-    SS_SWING_INIT, SS_BASS_OFS_INIT, SS_KEY_OFS_INIT, SS_PAT_INIT, SS_PAT_NOTES_INIT, SS_DB_STYLE_INIT, SS_WT_END_INIT, SS_INSTR_INIT,
+    SS_SWING_INIT, SS_BASS_OFS_INIT, SS_KEY_OFS_INIT, SS_PAT_INIT, SS_PAT_NOTES_INIT, SS_DB_STYLE_INIT, SS_BAR2_INIT, SS_WT_END_INIT, SS_INSTR_INIT,
     SS_SET_KEYS_INIT, SS_SET_BASS_INIT, SS_STRS_INIT
 };
 /* SS_K: the tables' base. In the player code st->k (set each call): a load
@@ -253,6 +254,7 @@ static const SsConst ss_c = {
 #define ss_pat         (SS_K->pat)
 #define ss_pat_notes   (SS_K->pat_notes)
 #define ss_db_style    (SS_K->db_style)
+#define ss_bar2        (SS_K->bar2)
 #define ss_wt_end      (SS_K->wt_end)
 #define ss_instr       (SS_K->instr)
 #define ss_set_keys    (SS_K->set_keys)
@@ -818,7 +820,7 @@ static inline void ss_events(SsState *st, const float *params)
     #pragma UNROLL(1)
     for (n0 = 0u; n0 < 2u; ++n0) {      /* code = bass note, then keys note */
         t = ss_pat[pat + n0];
-        x = ss_pat[pat + 2u + n0] & 0x3FFFu;
+        x = ss_pat[pat + 2u + n0] & 0x0FFFu;   /* (bits 12-15 bar2, 14-15 swing) */
         n1 = code;
         code = (t >> i) & 1u ? ss_pat_notes[x + SS_BITS(t & ((1u << i) - 1u))] : 0u;
     }
@@ -996,20 +998,20 @@ static inline void ss_drums(SsState *st, const float *params)
         if (q < e) {
             b = st->bars[q];
             rh = b >> 5;
-            sty = ss_style(st, params, q, w) * 4u;
-            beat = ss_db_style[sty];
+            sty = ss_style(st, params, q, w);
+            beat = ss_db_style[sty * 3u];
             s = e < st->pn ? e : 0u;
             nb = st->bars[s];
             /* the run ends: last bar, a rest, another rhythm, another style
              * (a Randm run at the song's wrap) */
             if (st->dv + 1u >= st->pn || (e >= st->pn && st->ms[SS_OPT_PLAY] != SS_PM_LOOP)
-                || (nb & 31u) == SP_REST || (nb >> 5) != rh || ss_style(st, params, s, w + (e >= st->pn)) * 4u != sty) {
-                fill = ss_db_style[sty + 2u];           /* end fill */
+                || (nb & 31u) == SP_REST || (nb >> 5) != rh || ss_style(st, params, s, w + (e >= st->pn)) != sty) {
+                fill = ss_db_style[sty * 3u + 2u];           /* end fill */
                 q = e;                                  /* the next drum bar starts a run */
             } else if ((st->dpos & 7u) == 3u) {         /* middle fill: drum bar 4 of every 8 of the run */
-                fill = ss_db_style[sty + 1u];
+                fill = ss_db_style[sty * 3u + 1u];
             } else if (st->dpos & 1u) {                 /* every second drum bar: the bar2 fill (0 none) */
-                fill = ss_db_style[sty + 3u];
+                fill = ss_bar2[ss_pat[sty * 4u + 2u] >> 12];
             }
         }
         if (q >= e) st->dpos = ~0u;     /* after an end fill or a rest */
@@ -1416,28 +1418,16 @@ static inline int ss_cpy(char *s, const char *p, int m)
     return i;
 }
 
-
-/* Bar code (0..23 root * 2 + minor, 24 Rest, 26 Drums) at s[n..]. */
-ZM_INLINE(ss_chord)
-static inline int ss_chord(const SsConst *k, char *s, int n, uint32_t v)
-{
-    const char *p = ss_str(k, SS_S_CHORD + (v >> 1));    /* Rest 12, Drums 13 */
-    int i;
-    for (i = 0; i < 5 && p[i]; ++i) s[n++] = p[i];
-    if (v < 24u && (v & 1u)) s[n++] = 'm';
-    s[n] = 0;
-    return n;
-}
-
 /* Knob k (0-based), raw value v. One shared copy in .text (called by the
- * GetString_Ss* wrappers, PC-relative, no relocation). Numbers go through
- * the one digit routine at the end: s[0..n) prefix, then v (0..299). */
+ * GetString_Ss* wrappers, PC-relative, no relocation). A text = s[0..n)
+ * prefix + text pool string w (+ "m" for a minor chord), copied once at the
+ * end; numbers go through the one digit routine: s[0..n), then v (0..299). */
 ZM_EXPAND_PRAGMA(CODE_SECTION(ss_text, ".text"))
 ZM_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(ss_text))
 static int ss_text(uint32_t k, uint32_t v, char *s)
 {
     const volatile SsState *st = ss_g;
-    uint32_t sel = 0u, stat = 0u, idx, h = 0u, t = 0u, w = SS_NWORDS;  /* SS_W_* entry */
+    uint32_t sel = 0u, stat = 0u, idx, h = 0u, t = 0u, w = ~0u;  /* w: text pool string (~0: a number) */
     int n = 0;
     if (st) { sel = st->sel; stat = st->stat; }
     idx = sel - 1u;
@@ -1447,19 +1437,19 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
             s[n] = (char)(t + (t < 11u ? '0' - 1u : t < 37u ? 'A' - 11u : 'a' - 37u));
         s[n] = 0;
         return n;
-    } else if (k == SS_K_INSTR) {       /* EPiano, EP Bs, EP Ch, ..., Mute */
-        return ss_cpy(s, ss_str(st->k, SS_S_INSTR + (v < SS_NINSTR ? v : SS_NINSTR - 1u)), 7);
+    } else if (k == SS_K_INSTR) {       /* Organ1, Org1+B, Org1Ch, ..., Mute (sets.py) */
+        w = SS_S_INSTR + (v < SS_NINSTR ? v : SS_NINSTR - 1u);
     } else if (k == SS_K_TEMPO) {       /* BPM */
         v = 40u + (v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v);
     } else if (!st || k == SS_K_VOLUME) {
         /* plain number */
     } else if (k == SS_K_BAR) {
-        if (v == 0u) w = SS_W_MENU;
-        else if (v > ss_limit(st->n, st->used, st->cap, st->cn)) w = SS_W_STATUS;
+        if (v == 0u) w = SS_S_WORD + SS_W_MENU;
+        else if (v > ss_limit(st->n, st->used, st->cap, st->cn)) w = SS_S_WORD + SS_W_STATUS;
     } else if (stat) {      /* STATUS: playing chord "Am", arrow + the next chord ("---": no song) */
         idx = st->bar;
         if (idx >= st->pn) {
-            w = SS_W_DASH3;
+            w = SS_S_WORD + SS_W_DASH3;
         } else {
             if (k == SS_K_RHYTHM) idx = idx + 1u < st->pn ? idx + 1u : 0u;    /* next bar (wraps) */
             h = st->bars[idx] & 31u;    /* 0..23 root * 2 + minor, "Rest", "Drums" */
@@ -1468,32 +1458,41 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
                 s[0] = 0x1C; s[1] = ' '; n = 2;
                 if (h < 24u) s[n++] = ' ';
             }
-            return ss_chord(st->k, s, n, h);
+            w = SS_S_CHORD;
         }
     } else if (k == SS_K_CHORD) {
         if (sel == 0u)                  /* MENU options */
-            w = v < SS_NOPT ? v : SS_NOPT - 1u;
+            w = SS_S_WORD + (v < SS_NOPT ? v : SS_NOPT - 1u);
         else if (st->full)              /* refused: "Full", "Err", "Flop?" (a Floppy missing) */
-            w = st->err == 2u ? SS_W_FLOP : st->err ? SS_W_ERR : SS_W_FULL;
-        else if (v == SS_CH_END) w = SS_W_END;
-        else return ss_chord(st->k, s, 0, v == SS_CH_DRUMS ? SP_DRUMS : v >= SS_CH_REST ? SP_REST : v - 1u);
+            w = SS_S_WORD + (st->err == 2u ? SS_W_FLOP : st->err ? SS_W_ERR : SS_W_FULL);
+        else if (v == SS_CH_END) w = SS_S_WORD + SS_W_END;
+        else {
+            h = v == SS_CH_DRUMS ? SP_DRUMS : v >= SS_CH_REST ? SP_REST : v - 1u;
+            w = SS_S_CHORD;
+        }
     } else if (k == SS_K_RHYTHM) {
         if (sel == 0u) {
             h = st->opt;
             if (h < SS_OPT_TRIM)        /* OFF / ONCE / LOOP, -1 / 0 / +1, BAR / HALF / BEAT */
-                w = SS_W_OFF + 3u * h + (v > 2u ? 2u : v);
+                w = SS_S_WORD + SS_W_OFF + 3u * h + (v > 2u ? 2u : v);
             else                        /* TRIM, CLEAR: NO / YES / YES 5 .. YES 1, DONE */
-                w = v ? SS_W_YES : st->cdone ? SS_W_DONE : SS_W_NO;
+                w = SS_S_WORD + (v ? SS_W_YES : st->cdone ? SS_W_DONE : SS_W_NO);
         } else if (idx >= st->cn || !SP_HAS_RHY(st->cand[idx] & 31u)) {
-            w = SS_W_DASH3;             /* no rhythm: past the song end, a rest or END */
+            w = SS_S_WORD + SS_W_DASH3; /* no rhythm: past the song end, a rest or END */
         } else {
             s[0] = 'R'; s[1] = 'h'; s[2] = 'y'; n = 3;      /* "Rhy1".."Rhy3" */
             v = (v > 2u ? 2u : v) + 1u;
         }
     }
-    if (w < SS_NWORDS) {                /* the one word copy */
-        n = ss_cpy(s, ss_str(st->k, SS_S_WORD + w), 7);
-        if (w == SS_W_YES && st->clr) {
+    if (w != ~0u) {                     /* the one string copy */
+        t = 0u;
+        if (w == SS_S_CHORD) {          /* bar code h: root * 2 + minor, Rest 24, Drums 26 */
+            w += h >> 1;                /* Rest 12, Drums 13 */
+            t = h < 24u && (h & 1u);
+        }
+        n += ss_cpy(s + n, ss_str(st->k, w), 7 - n);
+        if (t) { s[n++] = 'm'; s[n] = 0; }
+        if (w == SS_S_WORD + SS_W_YES && st->clr) {
             s[3] = ' '; s[4] = (char)('0' + ss_clr_digit(st->clr)); s[5] = 0;
             n = 5;
         }

@@ -2,7 +2,8 @@
 
 <img src="../../docs/images/songbox.png" width="538" height="358" alt="SongBox screen image">
 
-SongBox plays a chord song with bass and chords (electric piano or organ)
+SongBox plays a chord song with bass and chords (electric piano or organ,
+precision bass)
 along with your guitar. You write the song on the pedal, bar by bar, and it can drive
 DrumBox in the same patch, so the drums follow the song.
 
@@ -23,9 +24,9 @@ DrumBox in the same patch, so the drums follow the song.
   patch, SongBox sets its beat, fills and tempo for each bar and starts and
   stops it with the song (MS pedals untested). After a patch change both
   start with 2 count-in bars while DrumBox loads its sounds.
-- **Tempo 40–250 BPM.** Three instrument sets (electric piano, jazz organ,
-  rock organ), each as bass + chords, bass only or chords only, or muted
-  (DrumBox keeps following).
+- **Tempo 40–250 BPM.** Chords on electric piano (EP), Organ1 (jazz organ)
+  or Organ2 (rock organ), with the precision bass (Bs), each organ also with
+  its own bass, the basses alone, or muted (DrumBox keeps following).
 - **Song settings** (MENU): play once or in a loop, chords an octave up or
   down, a chord every bar, half bar or beat.
 - **Footswitch on:** the song plays from bar 1. **Off:** it stops.
@@ -38,7 +39,7 @@ layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SONGBOX.ZDL` (32,635 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
+`SONGBOX.ZDL` (32,571 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
 It is in the **SFX** category (gid 7, fxid 521). Install both as described
 in the [main README](../../README.md#install), then put SongBox, Floppy
 and (optionally) DrumBox into one patch.
@@ -55,7 +56,7 @@ and (optionally) DrumBox into one patch.
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
 | 3 | Tempo | 40–250 | Tempo in BPM |
 | 3 | Volume | 0–100 | Instrument level (50 = unchanged) |
-| 3 | Instr | EPiano, EP Bs, EP Ch, JzzOrg, Jaz Bs, Jaz Ch, RckOrg, Rck Bs, Rck Ch, Mute | Instrument set and which parts play |
+| 3 | Instr | Organ1, Org1+B, Org1Ch, Organ2, Org2+B, Org2Ch, EPno+B, EPnoCh, Bass, OrgBs, Mute | Instrument set and which parts play (default Org1+B; +B = with the precision bass, Ch = chords only, OrgBs = Organ1's own bass alone) |
 
 ### Writing a song
 
@@ -275,7 +276,9 @@ and chords swing with it.
   Floppy's knob fields through [zmenu](../common/zmenu/README.md) stream mode.
   The packer runs a few steps per audio call and checks that the stream
   decodes back to the song before writing it.
-- **Sound:** bass and chords from one of three instrument sets, mono,
+- **Sound:** bass and chords from one of five instrument sets (a keys and
+  a bass instrument each: electric piano, Organ1 or Organ2 with the
+  precision bass, or each organ with its own bass), mono,
   added to the guitar. Each instrument plays one wavetable, built in
   `ctx[3]` a little per audio call after loading or a patch change.
 - **DrumBox:** SongBox writes DrumBox's knob values for each bar; DrumBox
@@ -289,10 +292,11 @@ and chords swing with it.
 |---|---|
 | `songbox.c` | Audio function `Fx_SFX_SongBox`: editor, packer, player, DrumBox control |
 | `build.py` | Generates the headers, runs `cl6x`, then the linker |
-| `instruments/` | `engine.c` (the one instrument engine: a wavetable voice driven by a record, `SsInst` in `engine.h`) and its Python mirror `engine.py`; one `<id>.py` per instrument with its record and wavetable harmonics: `epiano`, `organ_jazz`, `organ_rock`; `inst_lib.h` C helper |
+| `instruments/` | `engine.c` (the one instrument engine: a wavetable voice driven by a record, `SsInst` in `engine.h`) and its Python mirror `engine.py`; one `<id>.py` per instrument with its record and wavetable harmonics: `epiano`, `organ1` (jazz organ), `organ2` (rock organ), `pbass` (precision bass; `pbass_model.py` = the string model and its variants); `inst_lib.h` C helper |
 | `inst_lib.py` | Helpers shared by the instrument models (sine, decay coefficients, voice) |
 | `sets.py` | Instrument sets (one keys + one bass instrument each) and the Instr knob values → `songbox_instr.h` |
 | `proto.py` | Patterns and note increments → `songbox_sound.h`; renders WAV prototypes of each set |
+| `pbass_proto.py` | Renders the precision bass variants of `instruments/pbass_model.py` as WAVs (bass alone, then with electric piano) |
 | `patterns/patterns.json` | The 149 patterns: bass, chords and DrumBox beat / fills (format in `song_patterns.py`) |
 | `patterns/song_patterns.py` | Reads and checks `patterns.json` |
 | `packer/songseq.py` | Reference model of the song stream format (packer + unpacker) |
@@ -315,8 +319,10 @@ Needs the TI C6000 Code Generation Tools (see the
 ```
 python -B build.py --out PATH          # SONGBOX.ZDL to PATH
 python -B build.py --probe --out PATH  # with the CPU load meter in STATUS (development)
+python -B build.py --rhythms N --out PATH   # test build with only the first N rhythms
 python -B build.py --tests             # only regenerate songbox_tests.h (no TI needed)
 python -B proto.py [--set epiano]      # instrument set prototypes -> preview/*.wav
+python -B pbass_proto.py               # precision bass variants -> preview/pbass_*.wav
 ```
 
 After building check: `.fardata: 4 bytes`, the `.obj` relocations each

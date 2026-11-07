@@ -7,13 +7,15 @@ New effects (in `src/`, built separately from DrumBox):
 - **SongBox 0.7 (beta):** chord song sequencer. Songs of up to 128 bars
   (chord + one of 3 rhythms each, 149 patterns: nearly one per DrumBox style
   beat plus variations and arpeggios) written on the pedal,
-  played by electric piano, jazz or rock organ (bass + chords), with MENU
+  played by electric piano, Organ1 (jazz) or Organ2 (rock) chords with a
+  precision bass or the organ's own bass (Instr knob: 11 kits, chords
+  only, bass only, Mute), with MENU
   settings (play once / loop, chord octave, chord every bar / half / beat).
   Drives DrumBox in the same patch. Works on the B1Xon 1.30; MS pedals
-  untested. 8 flash blocks (32,635 B): all instruments run on one engine
+  untested. 8 flash blocks (32,571 B): all instruments run on one engine
   (an instrument is data), rarely-run code is called instead of inlined,
   rhythms are stored sparse, all tables sit in one struct, texts in one
-  string pool.
+  string pool copied by one routine.
 - `build/linker.py`: new options `rela_const_base` (the `.const`
   relocations share one dynamic symbol, offsets as addends, as Zoom's own
   effects do) `drop_attributes` and `anon_edit_syms` (knob handler symbols without

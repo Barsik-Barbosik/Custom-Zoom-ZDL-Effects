@@ -5,7 +5,7 @@
 #define SS_NRAND 149u                  /* Randm picks one of patterns 0..SS_NRAND - 1 */
 #define SS_BITS(m) _dotpu4(_bitc4(m), 0x01010101u)   /* popcount */
 #define SS_NNOTES 768u   /* 1314 note bytes shared */
-#define SS_PAT_INIT {   /* ss_pat[SS_NPAT * 4u]: bass mask, keys mask, bass ofs, keys ofs | swing << 14 */ \
+#define SS_PAT_INIT {   /* ss_pat[SS_NPAT * 4u]: bass mask, keys mask, bass ofs | bar2 << 12, keys ofs | swing << 14 */ \
     0x5555u, 0x1101u, 534u, 669u,   /* Rock */ \
     0x5141u, 0x1101u, 679u, 105u,   /* Rock2 */ \
     0x5505u, 0x1111u, 430u, 80u,   /* Rock3 */ \
@@ -39,13 +39,13 @@
     0x5555u, 0x4444u, 694u, 49157u,   /* PShuf */ \
     0x5555u, 0x2449u, 190u, 77u,   /* DncPp */ \
     0x5519u, 0x1010u, 555u, 51u,   /* Motwn */ \
-    0x4901u, 0x5151u, 198u, 715u,   /* SoftR */ \
+    0x4901u, 0x5151u, 4294u, 715u,   /* SoftR */ \
     0x4909u, 0x5151u, 605u, 438u,   /* FolkR */ \
     0x1111u, 0x0505u, 499u, 658u,   /* FStmp */ \
     0x4D01u, 0x0141u, 202u, 702u,   /* ClRk */ \
     0x5555u, 0x0001u, 473u, 207u,   /* 80sRk */ \
     0x2541u, 0x0511u, 446u, 89u,   /* South */ \
-    0x44C1u, 0x0441u, 208u, 19u,   /* Indie */ \
+    0x44C1u, 0x0441u, 8400u, 19u,   /* Indie */ \
     0x4B01u, 0x1011u, 213u, 88u,   /* AltRk */ \
     0x4545u, 0x1445u, 440u, 660u,   /* Garag */ \
     0x0141u, 0x1111u, 707u, 218u,   /* Glam */ \
@@ -64,7 +64,7 @@
     0x5555u, 0x0441u, 246u, 49811u,   /* Shufl */ \
     0x5555u, 0x4444u, 254u, 49321u,   /* Boogi */ \
     0x1111u, 0x4444u, 433u, 49157u,   /* Rkbly */ \
-    0x5555u, 0x5555u, 262u, 407u,   /* Surf */ \
+    0x5555u, 0x5555u, 12550u, 407u,   /* Surf */ \
     0x1449u, 0x1449u, 727u, 5u,   /* BoDid */ \
     0x5111u, 0x5011u, 468u, 60u,   /* TomGr */ \
     0x4501u, 0x0101u, 523u, 343u,   /* FlTom */ \
@@ -85,7 +85,7 @@
     0x5449u, 0x2244u, 613u, 169u,   /* Funk3 */ \
     0xA445u, 0x9090u, 448u, 553u,   /* FDrum */ \
     0xA429u, 0x4104u, 571u, 529u,   /* Strut */ \
-    0x4441u, 0x2424u, 281u, 5u,   /* GoGo */ \
+    0x4441u, 0x2424u, 4377u, 5u,   /* GoGo */ \
     0x4909u, 0x1448u, 425u, 5u,   /* NOLA */ \
     0x5541u, 0x1111u, 285u, 49157u,   /* Purdy */ \
     0xA209u, 0x1090u, 291u, 66u,   /* LinFk */ \
@@ -96,7 +96,7 @@
     0x0481u, 0x4040u, 68u, 58u,   /* Minml */ \
     0x4444u, 0x2449u, 169u, 230u,   /* Techn */ \
     0x0C05u, 0x0101u, 101u, 343u,   /* Break */ \
-    0x0C05u, 0x0281u, 98u, 226u,   /* Amen */ \
+    0x0C05u, 0x0281u, 16482u, 226u,   /* Amen */ \
     0x1405u, 0x1010u, 562u, 5u,   /* Think */ \
     0x0541u, 0x5101u, 61u, 743u,   /* Apach */ \
     0x2481u, 0x9010u, 467u, 529u,   /* Impch */ \
@@ -113,7 +113,7 @@
     0x2441u, 0x4444u, 582u, 32773u,   /* BBShf */ \
     0x4445u, 0x0101u, 310u, 684u,   /* BBTom */ \
     0x0401u, 0x1010u, 315u, 77u,   /* DnB */ \
-    0x0401u, 0x1010u, 14u, 77u,   /* Jungl */ \
+    0x0401u, 0x1010u, 16398u, 77u,   /* Jungl */ \
     0x0501u, 0x0001u, 97u, 278u,   /* Dubst */ \
     0x0481u, 0x0484u, 589u, 203u,   /* 2Step */ \
     0x0281u, 0x1111u, 317u, 320u,   /* BBap */ \

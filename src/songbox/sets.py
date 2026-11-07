@@ -9,8 +9,8 @@ instruments/<id>.py: ROLE ("keys" or "bass"), LEVEL (mix gain), LOW / HIGH
 REC (engine.DEFAULTS fields that differ). A keys instrument plays its set's
 bass too, at LEVEL.
 
-The Instr knob (INSTR): per set, in SETS order, both / bass only / chords
-only, then Mute. c_header() writes songbox_instr.h: the table terms, the
+The Instr knob (INSTR): a list of (knob text, set, who plays: both / bass
+only / chords only / nobody = Mute). c_header() writes songbox_instr.h: the table terms, the
 records ss_inst_tab (one per instrument used, in first use order; ss_run's
 table = wt + id x SS_WT_ROWS), per set the keys / bass instrument ids and
 levels, the Instr table (set << 2 | 2 = no bass | 1 = no chords) and its knob
@@ -30,14 +30,30 @@ for _d in (HERE, INST_DIR):                             # instrument files impor
     if str(_d) not in sys.path:
         sys.path.append(str(_d))
 
-# name: (knob text, prefix for " Bs" / " Ch" (bass / chords only), keys, bass);
-# the first set = Instr 0 (the default)
+# name: (keys, bass) instruments; a keys instrument can play its own bass
 SETS = {
-    "epiano": ("EPiano", "EP", "epiano", "epiano"),       # bass instruments left out for now:
-    "jazz": ("JzzOrg", "Jaz", "organ_jazz", "organ_jazz"),  # each set's keys play its bass too
-    "rock": ("RckOrg", "Rck", "organ_rock", "organ_rock"),
+    "epiano": ("epiano", "pbass"),
+    "organ1": ("organ1", "pbass"),
+    "organ1own": ("organ1", "organ1"),
+    "organ2": ("organ2", "pbass"),
+    "organ2own": ("organ2", "organ2"),
 }
 NO_CHORDS, NO_BASS = 1, 2
+# Instr knob values in knob order: (knob text, set, NO_* bits)
+INSTR_LIST = (
+    ("Organ1", "organ1own", 0),             # all notes on Organ1
+    ("Org1+B", "organ1", 0),
+    ("Org1Ch", "organ1", NO_BASS),
+    ("Organ2", "organ2own", 0),             # all notes on Organ2
+    ("Org2+B", "organ2", 0),
+    ("Org2Ch", "organ2", NO_BASS),
+    ("EPno+B", "epiano", 0),
+    ("EPnoCh", "epiano", NO_BASS),
+    ("Bass", "epiano", NO_CHORDS),          # the precision bass alone
+    ("OrgBs", "organ1own", NO_CHORDS),      # Organ1's own bass alone
+    ("Mute", "epiano", NO_BASS | NO_CHORDS),
+)
+INSTR_DEFAULT = 1                           # Org1+B
 # every instrument level x MASTER: SongBox Volume 70 ~ DrumBox Volume 70
 # (was 7x louder: SongBox 10 sounded like DrumBox 70), then +10 %, then +8 %
 MASTER = 1.19 / 7.0
@@ -45,10 +61,8 @@ MASTER = 1.19 / 7.0
 
 def instr_values() -> list:
     """Instr knob values: (knob text, set index, NO_* bits)."""
-    out = []
-    for i, (text, pre, _k, _b) in enumerate(SETS.values()):
-        out += [(text, i, 0), (pre + " Bs", i, NO_CHORDS), (pre + " Ch", i, NO_BASS)]
-    out.append(("Mute", 0, NO_BASS | NO_CHORDS))
+    names = list(SETS)
+    out = [(text, names.index(st), m) for text, st, m in INSTR_LIST]
     for text, _s, _m in out:
         assert len(text) <= 6, f"Instr text {text!r} over 6 characters (7 don't fit)"
     return out
@@ -85,7 +99,7 @@ def load_set(name: str) -> tuple:
     """(keys, bass) of set name: render(v) + LEVEL in that role."""
     import engine
     out = []
-    for role, iid in zip(("keys", "bass"), SETS[name][2:]):
+    for role, iid in zip(("keys", "bass"), SETS[name]):
         mod = load(iid)
         out.append(types.SimpleNamespace(render=engine.Instrument(mod).render, LEVEL=level(mod, role)))
     return tuple(out)
@@ -110,7 +124,7 @@ def c_header(path: Path) -> None:
     sets = list(SETS.values())
     ids: list = []                                      # instruments used, first use order
     for st in sets:
-        for iid in st[2:]:
+        for iid in st:
             if iid not in ids:
                 ids.append(iid)
     mods = {iid: load(iid) for iid in ids}
@@ -148,8 +162,8 @@ def c_header(path: Path) -> None:
         rows.append("    " + ", ".join(cfloat(r[k]) for k in engine.FLOATS) + ",")
         rows.append("    " + ", ".join(f"{r[k]}u" for k in engine.INTS) + " },")
     L += c_init("SS_INST_TAB_INIT", "ss_inst_tab[SS_NINST]", rows)
-    lk = [level(mods[st[2]], "keys") for st in sets]
-    lb = [level(mods[st[3]], "bass") for st in sets]
+    lk = [level(mods[st[0]], "keys") for st in sets]
+    lb = [level(mods[st[1]], "bass") for st in sets]
     L += ["", f"#define SS_NSETS {len(sets)}u",
           f"#define SS_NINSTR {len(INSTR)}u    /* Instr knob values */",
           "#define SS_IN_NOCHORDS 1u", "#define SS_IN_NOBASS 2u",
@@ -162,9 +176,9 @@ def c_header(path: Path) -> None:
           "/* per set: keys and bass instrument (ss_inst_tab index) and their levels:",
           " * ss_set_keys / ss_set_bass[SS_NSETS], ss_lvl_keys / ss_lvl_bass[SS_NSETS] */",
           "#define SS_SET_KEYS_INIT { "
-          + ", ".join(f"{ids.index(st[2])}u" for st in sets) + " }",
+          + ", ".join(f"{ids.index(st[0])}u" for st in sets) + " }",
           "#define SS_SET_BASS_INIT { "
-          + ", ".join(f"{ids.index(st[3])}u" for st in sets) + " }",
+          + ", ".join(f"{ids.index(st[1])}u" for st in sets) + " }",
           "#define SS_LVL_KEYS_INIT { " + ", ".join(f"{x:.9g}f" for x in lk) + " }",
           "#define SS_LVL_BASS_INIT { " + ", ".join(f"{x:.9g}f" for x in lb) + " }",
           "", "#endif", ""]

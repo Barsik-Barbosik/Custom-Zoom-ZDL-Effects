@@ -59,6 +59,7 @@ nothing for alloc, because alloc is their sum.
 | Knob texts: one `static` getstr body in `.text`, tiny `GetString_*` wrappers that call it (a call inside `.text` needs no relocation) | menu library 3,104 → 704 B; DrumBox 672 → 416 B | works |
 | One generic engine driven by data records instead of code per instrument | SongBox −368 B file, −560 alloc; a new instrument ~120 B of data instead of ~900 B of code | works |
 | Pick a table index in each branch and copy the text once at the end, instead of a copy in every branch | a copy per return got inlined: +632 B and +24 relocations | works |
+| Send every text (words, instrument names, chord names with a prefix and a minor "m") through that one copy: branches only pick a string number | SongBox −224 B of code (three inlined copy loops → one) | works |
 | Look up a per-firmware table row once per call and keep the pointer, instead of indexing the table at every use | −352 B code, −16 relocations | works |
 | Formulas instead of compare chains or macros expanded per entry | ~7 B per entry per expansion | works |
 | Branch-free operations (`x \|= (a - b) >> 31`), small maps as nibble lists, offset counters | whole 32-byte packets | works |
@@ -89,6 +90,8 @@ Notes:
 | Names as 5 × 6 bits in one word (0 end, digits, A–Z, a–z), decoded by the one text routine | SongBox −72 B of table for 70 names, +32 B of code | works |
 | Per-OS address rows without the fields that are the same on every OS (the id test as a constant), small counts as bytes | zmenu rows 560 → 512 B, −128 B of code | works |
 | All texts (knob names, knob texts, chord and instrument names) as one pool of NUL-terminated strings instead of fixed 8-byte slots; one shared out-of-line routine skips to string *i* | SongBox texts 526 → 360 B, −232 B file in all (the 8-byte compare loop went too) | works |
+| Rare per-entry values in spare bits of another table: SongBox's "every second bar" fill, used by 6 of 149 rhythms, as a 4-bit code in the unused top bits of a note offset (already masked off when read) into a 5-entry list, instead of a byte per rhythm | −112 B alloc (−144 B table, +32 B code) | works |
+| Drop wavetable harmonics whose amplitude is exactly 0 (a plucked string's nodes) | 4 B per term | works |
 
 Notes:
 - A palette only pays when values repeat. SongBox's rhythm names and
@@ -160,4 +163,9 @@ with the busy middle bands at about 1 B per column.
 | The same without `_mvd` (`rela_const_base` folds the offsets) | 29,835 | 26,532 |
 | `compact_edit_stubs` with the 200-step law | 29,099 | 25,796 |
 
-In total −4,623 B of file (9 → 8 blocks) and −3,480 B of alloc.
+In total −4,623 B of file (9 → 8 blocks) and −3,480 B of alloc. The room
+then went to 120 more rhythms and features (31,491 → 32,635 B with 149
+rhythms). A precision bass (one instrument, 196 B of data) and two more
+instrument sets took alloc 244 B over the load limit; the two rows above
+(spare bits, one text copy) and the zero harmonics brought it back to
+29,860 B of alloc (32,571 B file) with all 149 rhythms.

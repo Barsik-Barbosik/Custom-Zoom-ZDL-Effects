@@ -7,44 +7,50 @@
 #define SS_WT_N 2048u            /* wavetable words per cycle (+ 1 guard word) */
 #define SS_WT_OFS 6464.0f       /* a word's high half offset (reads as a tiny float) */
 #define SS_WT_ROWS (SS_WT_N + 1u)    /* words per wavetable */
-#define SS_NINST 3u    /* instruments (ss_inst_tab, one table each) */
+#define SS_NINST 4u    /* instruments (ss_inst_tab, one table each) */
 #define SS_WT_WORDS (SS_NINST * SS_WT_ROWS)   /* all wavetables */
-#define SS_WT_STEP 19u    /* rows built per call */
+#define SS_WT_STEP 12u    /* rows built per call */
 /* table terms: amp (int16) << 16 | cos << 10 | harmonic; per instrument
  * the low half's, then the high half's (ends in ss_wt_end) */
-#define SS_WT_NTERMS 15u
-#define SS_WT_NEND 6u
+#define SS_WT_NTERMS 31u
+#define SS_WT_NEND 8u
 #define SS_WT_TERMS_INIT {   /* ss_wt_terms[SS_WT_NTERMS] */ \
-    0x4E200001u, 0x27100402u, 0x19000001u, 0x39A70001u, 0x39A70402u, 0x39A70003u, \
-    0x19000402u, 0x1DF30001u, 0x25700402u, 0x1DF30003u, 0x1A350404u, 0x12B80406u, \
-    0x12B80408u, 0x0EFA0410u, 0x19000420u, \
+    0x4E200001u, 0x27100402u, 0x19000001u, 0x2B310001u, 0x38C60002u, 0x269C0003u, \
+    0x05B10004u, 0x02260006u, 0x05B80007u, 0x057E0008u, 0x02430009u, 0x0096000Bu, \
+    0x0245000Cu, 0x0291000Du, 0x013B000Eu, 0x00240010u, 0x01120011u, 0x016B0012u, \
+    0x00C60013u, 0x39A70001u, 0x39A70402u, 0x39A70003u, 0x19000402u, 0x1DF30001u, \
+    0x25700402u, 0x1DF30003u, 0x1A350404u, 0x12B80406u, 0x12B80408u, 0x0EFA0410u, \
+    0x19000420u, \
 }
-#define SS_WT_END_INIT { 2u, 3u, 6u, 7u, 14u, 15u }   /* ss_wt_end[SS_WT_NEND] */
+#define SS_WT_END_INIT { 2u, 3u, 6u, 19u, 22u, 23u, 30u, 31u }   /* ss_wt_end[SS_WT_NEND] */
 #define SS_INST_TAB_INIT {   /* ss_inst_tab[SS_NINST] */ \
     { /* 0: epiano (keys) */ \
         4.2949673e+09f, 0.0f, 4.3078522e+09f, 0.0103882285f, 0.999955247f, 0.99888178f, 0.999608481f, 0.989611771f, 0.0103882285f, 1.65e-05f, 2.7e-05f, 3.125f, 0.0f, 0.0f, 0.0f, 0.0375f, 0.997154539f, 0.00284546113f, 0.85f, -0.15f, 0.0f, 0.997154539f, 1.0f, 1.0f, 0.0f, \
         633045u, 0u, 1u, 0u }, \
-    { /* 1: organ_jazz (keys) */ \
+    { /* 1: pbass (bass) */ \
+        4.2949673e+09f, 0.0f, 4.2949673e+09f, 0.050873142f, 0.999960841f, 0.998043935f, 0.997392764f, 0.99973897f, 0.0f, 2.67265935e-05f, 0.0f, 0.336798655f, 0.577369123f, 0.577369123f, 0.0769825498f, 0.05f, 0.998860842f, 0.00113915753f, 1.0f, 0.0f, 0.0f, 0.499430421f, 1.0f, 0.0f, 1.0f, \
+        0u, 3u, 0u, 1u }, \
+    { /* 2: organ1 (keys) */ \
         4.2949673e+09f, 0.0f, 1.28849019e+10f, 0.038402784f, 1.0f, 0.997392764f, 0.961597216f, 0.999373642f, 0.0f, 1.05867113e-06f, 0.0f, 0.0f, 2.3061045f, 0.0f, 2.3061045f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 42.6666667f, 0.25f, 0.0f, 0.8f, \
         0u, 4u, 0u, 3u }, \
-    { /* 2: organ_rock (keys) */ \
+    { /* 3: organ2 (keys) */ \
         4.28208239e+09f, 0.024f, 4.28208239e+09f, 0.038402784f, 1.0f, 0.997392764f, 0.961597216f, 1.0f, 0.0f, 4.69523795e-05f, 0.0f, 0.0f, 0.0f, 1.49752794f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, -0.2f, 1.0f, 0.3f, 0.0f, 0.0f, \
         652523u, 0u, 0u, 1u }, \
 }
 
-#define SS_NSETS 3u
-#define SS_NINSTR 10u    /* Instr knob values */
+#define SS_NSETS 5u
+#define SS_NINSTR 11u    /* Instr knob values */
 #define SS_IN_NOCHORDS 1u
 #define SS_IN_NOBASS 2u
 /* ss_instr[SS_NINSTR]: per Instr value set << 2 | SS_IN_NOBASS | SS_IN_NOCHORDS */
-#define SS_INSTR_INIT { 0u, 1u, 2u, 4u, 5u, 6u, 8u, 9u, 10u, 3u }
+#define SS_INSTR_INIT { 8u, 4u, 6u, 16u, 12u, 14u, 0u, 2u, 1u, 9u, 3u }
 /* Instr names, NUL-terminated (the end of songbox.c's text pool) */
-#define SS_INSTR_NAMES_INIT "EPiano\0" "EP Bs\0" "EP Ch\0" "JzzOrg\0" "Jaz Bs\0" "Jaz Ch\0" "RckOrg\0" "Rck Bs\0" "Rck Ch\0" "Mute"
+#define SS_INSTR_NAMES_INIT "Organ1\0" "Org1+B\0" "Org1Ch\0" "Organ2\0" "Org2+B\0" "Org2Ch\0" "EPno+B\0" "EPnoCh\0" "Bass\0" "OrgBs\0" "Mute"
 /* per set: keys and bass instrument (ss_inst_tab index) and their levels:
  * ss_set_keys / ss_set_bass[SS_NSETS], ss_lvl_keys / ss_lvl_bass[SS_NSETS] */
-#define SS_SET_KEYS_INIT { 0u, 1u, 2u }
-#define SS_SET_BASS_INIT { 0u, 1u, 2u }
-#define SS_LVL_KEYS_INIT { 0.0306f, 0.01071f, 0.018f }
-#define SS_LVL_BASS_INIT { 0.0306f, 0.01071f, 0.018f }
+#define SS_SET_KEYS_INIT { 0u, 2u, 2u, 3u, 3u }
+#define SS_SET_BASS_INIT { 1u, 1u, 2u, 1u, 3u }
+#define SS_LVL_KEYS_INIT { 0.0306f, 0.01071f, 0.01071f, 0.018f, 0.018f }
+#define SS_LVL_BASS_INIT { 0.0595f, 0.0595f, 0.01071f, 0.0595f, 0.018f }
 
 #endif
