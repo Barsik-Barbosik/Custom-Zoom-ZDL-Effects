@@ -1182,10 +1182,19 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         }
     }
 #endif
-    /* Footswitch off: stop the sequencer so the next ON restarts at beat 1. */
+    /* Footswitch off: stop the sequencer so the next ON restarts at beat 1.
+     * Follow mode, driven: the song keeps counting silently, so ON joins it
+     * in place (the driver's bar lines don't move). */
     if (params[0] < 0.5f) {
-        st->running = 0u;
-        return;
+#ifdef DB_FOLLOW
+        if (st->fDrv) {
+            drumGain = 0.0f;
+        } else
+#endif
+        {
+            st->running = 0u;
+            return;
+        }
     }
 
     if (!st->running) {
