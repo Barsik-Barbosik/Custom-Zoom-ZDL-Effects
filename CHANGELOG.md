@@ -7,12 +7,14 @@ New effects (in `src/`, built separately from DrumBox):
 - **SongBox 0.7 (beta):** chord song sequencer. Songs of up to 128 bars
   (chord + one of 3 rhythms each, 149 patterns: nearly one per DrumBox style
   beat plus variations and arpeggios) written on the pedal,
-  played by electric piano, Organ1 (jazz) or Organ2 (rock) chords with a
-  precision bass or the organ's own bass (Instr knob: 11 kits, chords
-  only, bass only, Mute), with MENU
+  played by Organ1 (jazz), Organ2 (rock), electric piano, marimba,
+  kalimba, synth (saw) or pluck chords with a bass guitar (precision
+  bass), Organ1's, Organ2's, the synth's or a triangle bass (Instr knob:
+  48 kits: every chords and bass pairing, each chords part alone, each
+  bass alone, Mute; names like "Or1+BG", "EPCh", "B2"), with MENU
   settings (play once / loop, chord octave, chord every bar / half / beat).
   Drives DrumBox in the same patch. Works on the B1Xon 1.30; MS pedals
-  untested. 8 flash blocks (32,571 B): all instruments run on one engine
+  untested. 8 flash blocks (32,262 B): all instruments run on one engine
   (an instrument is data), rarely-run code is called instead of inlined,
   rhythms are stored sparse, all tables sit in one struct, texts in one
   string pool copied by one routine.

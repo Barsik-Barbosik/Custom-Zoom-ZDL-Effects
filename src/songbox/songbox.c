@@ -6,10 +6,10 @@
  * pattern each rhythm plays, one of patterns/patterns.json, or Randm: a
  * pattern picked per run of bars with that rhythm, again on every pass),
  * page 3 Tempo
- * (40..250 BPM), Volume (50 = x1), Instr (sets.py INSTR_LIST: Mute, the
- * bass alone, chords with or without bass; drums follow in every mode).
+ * (40..250 BPM), Volume (50 = x1), Instr (sets.py INSTR_LIST: a chords
+ * part and a bass part, either silent; drums follow in every mode).
  *
- * Sound: bass + keys (an instrument set, sets.py + instruments/) play the saved song while the
+ * Sound: bass + keys (an instrument kit, sets.py + instruments/) play the saved song while the
  * footswitch is on (MENU PLAY: once or in a loop), added to the guitar.
  * Their 16ths swing like the DrumBox beat of the pattern.
  *
@@ -76,7 +76,7 @@
 #define SP_COLD(f) SS_COLD(f)
 #include "zmenu.h"
 #include "songpack.h"
-#include "songbox_sound.h"              /* patterns + note increments, from proto.py */
+#include "songbox_sound.h"              /* patterns + note steps, from proto.py */
 #include "songbox_drums.h"              /* per style: DrumBox beat, fills; swing amounts */
 
 /* DrumBox control (any known OS, MS pedals untested; DrumBox's follow mode,
@@ -104,7 +104,7 @@
 ZM_EXPAND_PRAGMA(CODE_SECTION(SS_AUDIO_FUNC, ".audio"))
 ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 
-#define SS_MAGIC     0x5353545Au        /* bump on a state layout change */
+#define SS_MAGIC     0x53535541u        /* bump on a state layout change */
 /* Patch change (a gap between audio calls, as DrumBox's DB_AWAY_CYC): the
  * song starts again at bar 1 after SS_AWAY_HOLD calls of silence, which also
  * gives DrumBox time for its cache check (else beat 1 would be dropped). */
@@ -126,7 +126,7 @@ ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 #define SS_K_TEMPO  6u
 #define SS_TEMPO_MAX 210u               /* BPM = 40 + value (build.py's Tempo max) */
 #define SS_K_VOLUME 7u
-#define SS_K_INSTR  8u                  /* ss_instr[]: set + who plays */
+#define SS_K_INSTR  8u                  /* ss_instr[]: keys part << 4 | bass part */
 #define SS_CLR_SEC  5513u               /* audio calls per second (44100 / 8) */
 #define SS_CLR_CALLS (5u * SS_CLR_SEC)  /* Clear: "YES 5" .. "YES 1", then cleared */
 
@@ -167,7 +167,9 @@ typedef struct {
  *   MENU), the fixed knob texts and STATUS's texts.
  * - SS_S_CHORD: chord names by bar code >> 1: roots 0..11, Rest 12,
  *   Drums 13.
- * - SS_S_INSTR: Instr's (songbox_instr.h). */
+ * - SS_S_INSTR: Instr's kit text parts (songbox_instr.h): "Mute", ""
+ *   (bass alone), the chords part names, "Ch" (chords only), "+" + the bass
+ *   part names; ss_text joins them. */
 #define SS_S_KNOB   0u
 #define SS_S_WORD   18u
 #define SS_S_CHORD  48u
@@ -217,11 +219,9 @@ typedef struct {
  * as addend) instead of one per table. The generated headers give the
  * initializers; the old table names stay as aliases. */
 typedef struct {
-    SsInst inst_tab[SS_NINST];
+    uint32_t inst_pool[SS_NPOOL];
     uint32_t wt_terms[SS_WT_NTERMS];
     uint32_t pat_names[SS_NPAT + 1u];
-    float inc[12];
-    float lvl_keys[SS_NSETS], lvl_bass[SS_NSETS];
     float swing[4];
     int8_t bass_ofs[SS_NBASS * 2u];
     uint8_t key_ofs[SS_NKEY * 6u];
@@ -231,23 +231,24 @@ typedef struct {
     uint8_t bar2[SS_NBAR2];
     uint8_t wt_end[SS_WT_NEND];
     uint8_t instr[SS_NINSTR];
-    uint8_t set_keys[SS_NSETS], set_bass[SS_NSETS];
+    uint8_t keys_id[SS_NKEYI], bass_id[SS_NBASSI];    /* record | table << 4 */
+    uint8_t keys_lvl[SS_NKEYI], bass_lvl[SS_NBASSI];  /* level * SS_LVL_DIV */
+    uint8_t inst_idx[SS_NINSTB];
     char strs[sizeof(SS_STRS_INIT)];
+    uint32_t inst_mask[SS_NREC];
 } SsConst;
 static const SsConst ss_c = {
-    SS_INST_TAB_INIT, SS_WT_TERMS_INIT, SS_PAT_NAMES_INIT, SS_INC_INIT, SS_LVL_KEYS_INIT, SS_LVL_BASS_INIT,
+    SS_INST_POOL_INIT, SS_WT_TERMS_INIT, SS_PAT_NAMES_INIT,
     SS_SWING_INIT, SS_BASS_OFS_INIT, SS_KEY_OFS_INIT, SS_PAT_INIT, SS_PAT_NOTES_INIT, SS_DB_STYLE_INIT, SS_BAR2_INIT, SS_WT_END_INIT, SS_INSTR_INIT,
-    SS_SET_KEYS_INIT, SS_SET_BASS_INIT, SS_STRS_INIT
+    SS_KEYS_ID_INIT, SS_BASS_ID_INIT, SS_KEYS_LVL_INIT, SS_BASS_LVL_INIT, SS_INST_IDX_INIT, SS_STRS_INIT, SS_INST_MASK_INIT
 };
 /* SS_K: the tables' base. In the player code st->k (set each call): a load
  * from the state instead of an MVKL / MVKH pair with two .rela.dyn entries
  * per use; &ss_c where no state is at hand (the engine). */
 #define SS_K (&ss_c)
-#define ss_inst_tab    (SS_K->inst_tab)
 #define ss_wt_terms    (SS_K->wt_terms)
-#define ss_inc         (SS_K->inc)
-#define ss_lvl_keys    (SS_K->lvl_keys)
-#define ss_lvl_bass    (SS_K->lvl_bass)
+#define ss_keys_lvl    (SS_K->keys_lvl)
+#define ss_bass_lvl    (SS_K->bass_lvl)
 #define ss_swing_amt   (SS_K->swing)
 #define ss_bass_ofs    (SS_K->bass_ofs)
 #define ss_key_ofs     (SS_K->key_ofs)
@@ -257,8 +258,8 @@ static const SsConst ss_c = {
 #define ss_bar2        (SS_K->bar2)
 #define ss_wt_end      (SS_K->wt_end)
 #define ss_instr       (SS_K->instr)
-#define ss_set_keys    (SS_K->set_keys)
-#define ss_set_bass    (SS_K->set_bass)
+#define ss_keys_id     (SS_K->keys_id)
+#define ss_bass_id     (SS_K->bass_id)
 #define ss_pat_names   (SS_K->pat_names)
 
 #include "instruments/inst_lib.h"
@@ -312,6 +313,7 @@ typedef struct {
     float acc[8];                       /* ss_play: this call's bass + keys samples */
     uint32_t si[16];                    /* ss_run's scratch (2 per sample) */
     float sf[24];
+    SsInst inst[SS_NREC];               /* instrument records (unpacked by ss_wt_build) */
     uint32_t retry;                     /* packs again after a failed verify */
     uint32_t dslot, dtgt, dbeat, dfill; /* DrumBox: slot, bar whose values are written, they */
     uint32_t ddrv, dwait;               /* DrumBox driven (its live values are ours); join wait */
@@ -713,11 +715,12 @@ static void ss_edit(SsState *st, unsigned int *ctx)
  * instead of whole samples per step); the instruments in instruments/. */
 
 SS_COLD(ss_trigger)
-static void ss_trigger(const SsConst *k, SsVoice *v, uint32_t note, float gate)
+static void ss_trigger(SsVoice *v, uint32_t note, float gate)
 {
-    float inc = 1.0f;
+    float inc = SS_INC0;
     while (note >= 12u) { note -= 12u; inc *= 2.0f; }
-    v->inc = k->inc[note] * inc;
+    for (; note; --note) inc *= SS_SEMI;    /* equal temperament, as proto.py's FREQ */
+    v->inc = inc;
     v->gate = gate;
     v->trig = 1u;
 }
@@ -839,7 +842,7 @@ static inline void ss_events(SsState *st, const float *params)
         t += 8u;                        /* 28 + (root - 4) mod 12: E1..D#2, + the code's interval */
         if (t >= 12u) t -= 12u;
         t = (uint32_t)((int32_t)(t + 28u) + ss_bass_ofs[(code & 15u) * 2u + minor]);
-        ss_trigger(st->k, &st->vk[SS_VB], t, (float)(code >> 4) - 0.25f);
+        ss_trigger(&st->vk[SS_VB], t, (float)(code >> 4) - 0.25f);
     }
     code = pat;                         /* keys note */
     if (!code) return;
@@ -874,9 +877,9 @@ static inline void ss_events(SsState *st, const float *params)
     n0 += x; n1 += x; n2 += x;
     len = (float)(code >> 4);
     if ((SS_KEY_CHORDS >> (code & 15u)) & 1u) {     /* chord: all three voices */
-        ss_trigger(st->k, &st->vk[0], n0, len - 0.25f);
-        ss_trigger(st->k, &st->vk[1], n1, len - 0.25f);
-        ss_trigger(st->k, &st->vk[2], n2, len - 0.25f);
+        ss_trigger(&st->vk[0], n0, len - 0.25f);
+        ss_trigger(&st->vk[1], n1, len - 0.25f);
+        ss_trigger(&st->vk[2], n2, len - 0.25f);
     } else {                            /* arpeggio: one tone (1 / 2 / 3 the triad's low / mid /
                                          * high; single-tone codes: all three equal), voices in turn */
         for (i = 0u; i < 3u; ++i) st->vk[i].gate = 0.0f;
@@ -889,7 +892,7 @@ static inline void ss_events(SsState *st, const float *params)
             SS_NEAR(n1);
             SS_NEAR(n2);
         }
-        ss_trigger(st->k, &st->vk[st->arp], t, len);
+        ss_trigger(&st->vk[st->arp], t, len);
         st->alast = t;
         st->arp = st->arp < 2u ? st->arp + 1u : 0u;
     }
@@ -1041,7 +1044,7 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
     float *params = (float *)(uintptr_t)ctx[1];
     float *fx = (float *)(uintptr_t)ctx[5];
     float inc, vol, s, bg, kg, len;
-    uint32_t i, j, set, ki, bi, lm, i0, e, ev;
+    uint32_t i, j, ki, bi, lm, i0, e, ev;
 
     if (params[0] < 0.5f) st->done = 0u;            /* footswitch off: Once plays again */
     if (st->hold) st->hold--;                       /* after a patch change */
@@ -1066,12 +1069,11 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
     ss_drums(st, params);
     inc = (float)(40u + zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX)) * SS_STEP_PER_BPM;
     vol = (float)zm_knob(params[5u + SS_K_VOLUME], 100u) * 0.02f;
-    j = ss_instr[zm_knob(params[5u + SS_K_INSTR], SS_NINSTR - 1u)];  /* Instr: set, who plays (drums always) */
-    set = j >> 2;
-    bg = (j & SS_IN_NOBASS) ? 0.0f : ss_lvl_bass[set];
-    kg = (j & SS_IN_NOCHORDS) ? 0.0f : ss_lvl_keys[set];
-    ki = ss_set_keys[set];                          /* instruments (ss_run ids) */
-    bi = ss_set_bass[set];
+    j = ss_instr[zm_knob(params[5u + SS_K_INSTR], SS_NINSTR - 1u)];  /* Instr: keys part << 4 | bass part (0 = silent; drums always) */
+    bg = (float)ss_bass_lvl[j & 15u] * (1.0f / SS_LVL_DIV);
+    kg = (float)ss_keys_lvl[j >> 4] * (1.0f / SS_LVL_DIV);
+    ki = ss_keys_id[j >> 4];                        /* instruments: record | table << 4 */
+    bi = ss_bass_id[j & 15u];
     lm = 15u >> st->ms[SS_OPT_LEN];                 /* song bar line: step & lm == 0 */
 
     for (i = 0u; i < 8u; ++i) st->acc[i] = 0.0f;
@@ -1119,8 +1121,8 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
         { uint32_t tv = TSCL;
 #endif
         for (j = 0u; j < 4u; ++j)                   /* keys 0..2, then the bass */
-            ss_run(&st->vk[j], &ss_inst_tab[j < SS_VB ? ki : bi], j < SS_VB ? kg : bg, inc,
-                   &st->acc[i0], e - i0, SS_WT_OF(st) + (j < SS_VB ? ki : bi) * SS_WT_ROWS,
+            ss_run(&st->vk[j], &st->inst[(j < SS_VB ? ki : bi) & 15u], j < SS_VB ? kg : bg, inc,
+                   &st->acc[i0], e - i0, SS_WT_OF(st) + ((j < SS_VB ? ki : bi) >> 4) * SS_WT_ROWS,
                    st->si, st->sf);
 #ifdef SS_PROBE
         SS_PM_OF(st)->cur[3] += TSCL - tv; }
@@ -1393,7 +1395,7 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     if (st->wtn < SS_WT_ROWS) {
         i = SS_WT_ROWS - st->wtn;
         if (i > SS_WT_STEP) i = SS_WT_STEP;
-        ss_wt_build(st->k, SS_WT_OF(st), st->wtn, i);
+        ss_wt_build(st->k, SS_WT_OF(st), st->wtn, i, (uint32_t *)st->inst);
         st->wtn += i;
     }
 #ifdef SS_PROBE
@@ -1428,6 +1430,7 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
 {
     const volatile SsState *st = ss_g;
     uint32_t sel = 0u, stat = 0u, idx, h = 0u, t = 0u, w = ~0u;  /* w: text pool string (~0: a number) */
+    uint32_t w2 = ~0u, skip = 0u;       /* Instr: then string w2 from its character skip */
     int n = 0;
     if (st) { sel = st->sel; stat = st->stat; }
     idx = sel - 1u;
@@ -1437,8 +1440,16 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
             s[n] = (char)(t + (t < 11u ? '0' - 1u : t < 37u ? 'A' - 11u : 'a' - 37u));
         s[n] = 0;
         return n;
-    } else if (k == SS_K_INSTR) {       /* Organ1, Org1+B, Org1Ch, ..., Mute (sets.py) */
-        w = SS_S_INSTR + (v < SS_NINSTR ? v : SS_NINSTR - 1u);
+    } else if (k == SS_K_INSTR) {       /* the kit's text from its parts (sets.py kit_name) */
+        h = st->k->instr[v < SS_NINSTR ? v : SS_NINSTR - 1u];
+        t = h & 15u;                    /* bass part */
+        h >>= 4;                        /* chords part */
+        w = SS_S_INSTR + 1u + h - (h + t == 0u);    /* chords part name, "" (none), "Mute" */
+        /* then "+" + the bass part name (alone: the name, "B1"; no bass:
+         * "Ch"), unless the chords part plays its own bass (same id); the
+         * silent parts share an id no part has (sets.py): none for "Mute" */
+        if (st->k->keys_id[h] != st->k->bass_id[t])
+            w2 = SS_S_INSTR + SS_NKEYI + 1u + t, skip = h == 0u;
     } else if (k == SS_K_TEMPO) {       /* BPM */
         v = 40u + (v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v);
     } else if (!st || k == SS_K_VOLUME) {
@@ -1491,6 +1502,9 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
             t = h < 24u && (h & 1u);
         }
         n += ss_cpy(s + n, ss_str(st->k, w), 7 - n);
+        if (w2 != ~0u) {                /* Instr: + string w2 from its character skip */
+            n += ss_cpy(s + n, ss_str(st->k, w2) + skip, 7 - n);
+        }
         if (t) { s[n++] = 'm'; s[n] = 0; }
         if (w == SS_S_WORD + SS_W_YES && st->clr) {
             s[3] = ' '; s[4] = (char)('0' + ss_clr_digit(st->clr)); s[5] = 0;

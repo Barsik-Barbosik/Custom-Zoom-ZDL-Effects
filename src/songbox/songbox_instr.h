@@ -7,50 +7,79 @@
 #define SS_WT_N 2048u            /* wavetable words per cycle (+ 1 guard word) */
 #define SS_WT_OFS 6464.0f       /* a word's high half offset (reads as a tiny float) */
 #define SS_WT_ROWS (SS_WT_N + 1u)    /* words per wavetable */
-#define SS_NINST 4u    /* instruments (ss_inst_tab, one table each) */
-#define SS_WT_WORDS (SS_NINST * SS_WT_ROWS)   /* all wavetables */
-#define SS_WT_STEP 12u    /* rows built per call */
-/* table terms: amp (int16) << 16 | cos << 10 | harmonic; per instrument
+#define SS_NREC 9u    /* instrument records (SsState.inst) */
+#define SS_NTAB 7u    /* wavetables */
+#define SS_WT_WORDS (SS_NTAB * SS_WT_ROWS)   /* all wavetables */
+#define SS_WT_STEP 6u    /* rows built per call */
+/* table terms: amp (int16) << 16 | cos << 10 | harmonic; per table
  * the low half's, then the high half's (ends in ss_wt_end) */
-#define SS_WT_NTERMS 31u
-#define SS_WT_NEND 8u
+#define SS_WT_NTERMS 74u
+#define SS_WT_NEND 14u
 #define SS_WT_TERMS_INIT {   /* ss_wt_terms[SS_WT_NTERMS] */ \
-    0x4E200001u, 0x27100402u, 0x19000001u, 0x2B310001u, 0x38C60002u, 0x269C0003u, \
+    0x39A70001u, 0x39A70402u, 0x39A70003u, 0x19000402u, 0x1DF30001u, 0x25700402u, \
+    0x1DF30003u, 0x1A350404u, 0x12B80406u, 0x12B80408u, 0x0EFA0410u, 0x19000420u, \
+    0x628B0001u, 0x31450402u, 0x16FE0003u, 0x0B7F0404u, 0x19000001u, 0x42010001u, \
+    0x21000002u, 0x16000003u, 0x10800004u, 0x0D330005u, 0x0B000006u, 0x096E0007u, \
+    0x08400008u, 0x07550009u, 0x069A000Au, 0x0600000Bu, 0x0580000Cu, 0x0514000Du, \
+    0x04B7000Eu, 0x0466000Fu, 0x04200010u, 0x03E20011u, 0x03AB0012u, 0x03790013u, \
+    0x034D0014u, 0x0E760001u, 0x073B0002u, 0x04D20003u, 0x039D0004u, 0x02E40005u, \
+    0x02690006u, 0x02110007u, 0x01CF0008u, 0x019B0009u, 0x0172000Au, 0x0151000Bu, \
+    0x0134000Cu, 0x75300001u, 0x19000001u, 0x2B310001u, 0x38C60002u, 0x269C0003u, \
     0x05B10004u, 0x02260006u, 0x05B80007u, 0x057E0008u, 0x02430009u, 0x0096000Bu, \
     0x0245000Cu, 0x0291000Du, 0x013B000Eu, 0x00240010u, 0x01120011u, 0x016B0012u, \
-    0x00C60013u, 0x39A70001u, 0x39A70402u, 0x39A70003u, 0x19000402u, 0x1DF30001u, \
-    0x25700402u, 0x1DF30003u, 0x1A350404u, 0x12B80406u, 0x12B80408u, 0x0EFA0410u, \
-    0x19000420u, \
+    0x00C60013u, 0x61D10001u, 0xF5220003u, 0x03EA0005u, 0xFE010007u, 0x01350009u, \
+    0xFF31000Bu, 0x0094000Du, \
 }
-#define SS_WT_END_INIT { 2u, 3u, 6u, 19u, 22u, 23u, 30u, 31u }   /* ss_wt_end[SS_WT_NEND] */
-#define SS_INST_TAB_INIT {   /* ss_inst_tab[SS_NINST] */ \
-    { /* 0: epiano (keys) */ \
-        4.2949673e+09f, 0.0f, 4.3078522e+09f, 0.0103882285f, 0.999955247f, 0.99888178f, 0.999608481f, 0.989611771f, 0.0103882285f, 1.65e-05f, 2.7e-05f, 3.125f, 0.0f, 0.0f, 0.0f, 0.0375f, 0.997154539f, 0.00284546113f, 0.85f, -0.15f, 0.0f, 0.997154539f, 1.0f, 1.0f, 0.0f, \
-        633045u, 0u, 1u, 0u }, \
-    { /* 1: pbass (bass) */ \
-        4.2949673e+09f, 0.0f, 4.2949673e+09f, 0.050873142f, 0.999960841f, 0.998043935f, 0.997392764f, 0.99973897f, 0.0f, 2.67265935e-05f, 0.0f, 0.336798655f, 0.577369123f, 0.577369123f, 0.0769825498f, 0.05f, 0.998860842f, 0.00113915753f, 1.0f, 0.0f, 0.0f, 0.499430421f, 1.0f, 0.0f, 1.0f, \
-        0u, 3u, 0u, 1u }, \
-    { /* 2: organ1 (keys) */ \
-        4.2949673e+09f, 0.0f, 1.28849019e+10f, 0.038402784f, 1.0f, 0.997392764f, 0.961597216f, 0.999373642f, 0.0f, 1.05867113e-06f, 0.0f, 0.0f, 2.3061045f, 0.0f, 2.3061045f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 42.6666667f, 0.25f, 0.0f, 0.8f, \
-        0u, 4u, 0u, 3u }, \
-    { /* 3: organ2 (keys) */ \
-        4.28208239e+09f, 0.024f, 4.28208239e+09f, 0.038402784f, 1.0f, 0.997392764f, 0.961597216f, 1.0f, 0.0f, 4.69523795e-05f, 0.0f, 0.0f, 0.0f, 1.49752794f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, -0.2f, 1.0f, 0.3f, 0.0f, 0.0f, \
-        652523u, 0u, 0u, 1u }, \
+#define SS_WT_END_INIT { 3u, 4u, 11u, 12u, 16u, 17u, 37u, 49u, 50u, 51u, 54u, 67u, 74u, 74u }   /* ss_wt_end[SS_WT_NEND] */
+#define SS_INST_WORDS 29u    /* words per record (sizeof(SsInst) / 4) */
+#define SS_NPOOL 75u    /* distinct record words */
+#define SS_INST_POOL_INIT {   /* ss_inst_pool[SS_NPOOL] */ \
+    0x00000000u, 0x00000001u, 0x00000002u, 0x00000003u, 0x00000004u, 0x0009A8D5u, \
+    0x0009F4EBu, 0x350BCF65u, 0x358E17AAu, 0x370BCF65u, 0x375B77C5u, 0x37B3908Au, \
+    0x37E032ECu, 0x3844EEBCu, 0x3A954FC9u, 0x3B3A7AEAu, 0x3C2A3363u, 0x3CC49BA6u, \
+    0x3CFCA87Du, 0x3D19999Au, 0x3D1D4C3Du, 0x3D4CCCCDu, 0x3D50605Bu, 0x3D9A4708u, \
+    0x3D9DA907u, 0x3E14776Fu, 0x3E800000u, 0x3E99999Au, 0x3EAC70E0u, 0x3ED040A9u, \
+    0x3EFFB558u, 0x3F13CE76u, 0x3F4CCCCDu, 0x3F59999Au, 0x3F762B3Cu, 0x3F7D5732u, \
+    0x3F7EAAB6u, 0x3F7F3303u, 0x3F7F4585u, 0x3F7F5522u, 0x3F7F7FCFu, 0x3F7FB558u, \
+    0x3F7FB6B7u, 0x3F7FBB99u, 0x3F7FD6F3u, 0x3F7FDDCAu, 0x3F7FE657u, 0x3F7FEB79u, \
+    0x3F7FEEE5u, 0x3F7FF156u, 0x3F7FFA4Cu, 0x3F7FFD11u, 0x3F7FFD6Fu, 0x3F800000u, \
+    0x3FAAAAABu, 0x3FB40000u, 0x3FBFAEFFu, 0x40139737u, 0x40340000u, 0x407C44B9u, \
+    0x40870000u, 0x40960000u, 0x42034835u, 0x422AAAABu, 0x4F7F3B64u, 0x4F7F9DB2u, \
+    0x4F800000u, 0x4F803127u, 0x4F80624Eu, 0x50000000u, 0x50400000u, 0x50FB851Fu, \
+    0x512CCCCDu, 0xBE19999Au, 0xBE4CCCCDu, \
 }
+#define SS_NINSTB 119u    /* default record + differing words */
+#define SS_INST_IDX_INIT {   /* ss_inst_idx[SS_NINSTB] */ \
+    /* default */ 66u, 0u, 66u, 18u, 53u, 39u, 53u, 53u, 0u, 7u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 53u, 0u, 0u, 63u, 53u, 0u, 0u, 0u, 0u, 0u, 1u, \
+    /* 0: organ1 (keys) */ 70u, 20u, 34u, 44u, 8u, 57u, 57u, 26u, 32u, 4u, 3u,  \
+    /* 1: organ2 (keys) */ 64u, 17u, 64u, 20u, 34u, 13u, 56u, 74u, 53u, 27u, 6u,  \
+    /* 2: epiano (keys) */ 68u, 16u, 51u, 42u, 46u, 35u, 16u, 10u, 11u, 59u, 19u, 38u, 15u, 33u, 73u, 38u, 53u, 5u, 1u, 0u,  \
+    /* 3: saw (keys) */ 65u, 67u, 43u, 9u, 61u, 54u, 0u, 1u, 0u,  \
+    /* 4: pluck (keys) */ 23u, 46u, 37u, 0u,  \
+    /* 5: marimba (keys) */ 69u, 71u, 25u, 47u, 45u, 39u, 58u,  \
+    /* 6: kalimba (keys) */ 69u, 72u, 29u, 50u, 49u, 36u, 60u, 55u, 62u, 2u,  \
+    /* 7: pbass (bass) */ 22u, 52u, 40u, 39u, 48u, 12u, 28u, 31u, 31u, 24u, 21u, 41u, 14u, 30u, 53u, 3u,  \
+    /* 8: tri (keys) */ 43u, 0u,  \
+}
+#define SS_INST_MASK_INIT { 0x154052CCu, 0x0270224Fu, 0x1AAF8FFCu, 0x18600A25u, 0x00400038u, 0x0000207Du, 0x0420607Du, 0x0523FAF8u, 0x00400020u }   /* ss_inst_mask[SS_NREC]: words differing from the default */
 
-#define SS_NSETS 5u
-#define SS_NINSTR 11u    /* Instr knob values */
-#define SS_IN_NOCHORDS 1u
-#define SS_IN_NOBASS 2u
-/* ss_instr[SS_NINSTR]: per Instr value set << 2 | SS_IN_NOBASS | SS_IN_NOCHORDS */
-#define SS_INSTR_INIT { 8u, 4u, 6u, 16u, 12u, 14u, 0u, 2u, 1u, 9u, 3u }
-/* Instr names, NUL-terminated (the end of songbox.c's text pool) */
-#define SS_INSTR_NAMES_INIT "Organ1\0" "Org1+B\0" "Org1Ch\0" "Organ2\0" "Org2+B\0" "Org2Ch\0" "EPno+B\0" "EPnoCh\0" "Bass\0" "OrgBs\0" "Mute"
-/* per set: keys and bass instrument (ss_inst_tab index) and their levels:
- * ss_set_keys / ss_set_bass[SS_NSETS], ss_lvl_keys / ss_lvl_bass[SS_NSETS] */
-#define SS_SET_KEYS_INIT { 0u, 2u, 2u, 3u, 3u }
-#define SS_SET_BASS_INIT { 1u, 1u, 2u, 1u, 3u }
-#define SS_LVL_KEYS_INIT { 0.0306f, 0.01071f, 0.01071f, 0.018f, 0.018f }
-#define SS_LVL_BASS_INIT { 0.0595f, 0.0595f, 0.01071f, 0.0595f, 0.018f }
+#define SS_NKEYI 8u    /* chords parts + silent */
+#define SS_NBASSI 6u    /* bass parts + silent */
+#define SS_NINSTR 48u    /* Instr knob values */
+/* ss_instr[SS_NINSTR]: per Instr value keys part << 4 | bass part (0 = silent) */
+#define SS_INSTR_INIT { 0x13u, 0x11u, 0x14u, 0x15u, 0x12u, 0x10u, 0x24u, 0x21u, 0x23u, 0x25u, 0x22u, 0x20u, 0x31u, 0x33u, 0x34u, 0x35u, 0x32u, 0x30u, 0x61u, 0x63u, 0x64u, 0x65u, 0x62u, 0x60u, 0x71u, 0x73u, 0x74u, 0x75u, 0x72u, 0x70u, 0x45u, 0x41u, 0x43u, 0x44u, 0x42u, 0x40u, 0x51u, 0x53u, 0x54u, 0x55u, 0x52u, 0x50u, 0x01u, 0x03u, 0x04u, 0x05u, 0x02u, 0x00u }
+/* Instr kit text parts, NUL-terminated (the end of songbox.c's text pool):
+ * "Mute", "" (bass alone), chords parts 1.., "Ch" (chords only), "+" + bass
+ * parts 1.. (ss_text joins them) */
+#define SS_INSTR_NAMES_INIT "Mute\0" "\0" "Or1\0" "Or2\0" "EP\0" "Syn\0" "Plk\0" "Mrm\0" "Klm\0" "Ch\0" "+BG\0" "+BT\0" "+B1\0" "+B2\0" "+BS"
+/* per part: instrument (record | wavetable << 4) and level:
+ * ss_keys_id / ss_keys_lvl[SS_NKEYI] (-, Or1, Or2, EP, Syn, Plk, Mrm, Klm),
+ * ss_bass_id / ss_bass_lvl[SS_NBASSI] (-, BG, BT, B1, B2, BS)
+ * (level * SS_LVL_DIV, quantized: <= 0.63 % off) */
+#define SS_LVL_DIV 4096.0f
+#define SS_KEYS_ID_INIT { 1u, 0u, 17u, 34u, 51u, 52u, 69u, 70u }
+#define SS_BASS_ID_INIT { 1u, 87u, 104u, 0u, 17u, 51u }
+#define SS_KEYS_LVL_INIT { 0u, 44u, 74u, 125u, 70u, 71u, 78u, 53u }
+#define SS_BASS_LVL_INIT { 0u, 244u, 125u, 44u, 74u, 125u }
 
 #endif

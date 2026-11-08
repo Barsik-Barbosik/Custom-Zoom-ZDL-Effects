@@ -1,13 +1,13 @@
 """SongBox sound prototypes: bass + keys playing a chord song.
 
-Each instrument set (sets.py: a keys and a bass instrument from
+Each instrument kit (sets.py KITS: a keys and a bass instrument from
 instruments/, picked by the Instr knob) rendered over the same song excerpt with
 three rhythm patterns (rhythm 1, 2, 3 = what the Rhy knobs pick).
 c_header() writes songbox_sound.h (patterns, note increments); the
 instruments' header comes from sets.py.
 
-    python -B proto.py            -> preview/songbox_<set>.wav
-    python -B proto.py --set epiano    (a sets.py SETS name)
+    python -B proto.py            -> preview/songbox_<kit>.wav
+    python -B proto.py --set EP+BG    (a sets.py KITS name = knob text)
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from inst_lib import SR, Voice  # noqa: E402
-from sets import SETS, c_init, load_set  # noqa: E402
+from sets import KITS, c_init, load_set  # noqa: E402
 
 BPM = 100
 STEP = int(SR * 60 / BPM / 4 + 0.5)            # samples per 16th
@@ -209,8 +209,8 @@ def c_header(path: Path, swings: list | None = None, bar2: list | None = None) -
     L += c_init("SS_PAT_NAMES_INIT", "ss_pat_names[SS_NPAT + 1u]: Randm, the patterns, 6 bits a character",
                 [", ".join(f"0x{name_word(s):08X}u" for s in names[i:i + 6]) + ","
                  for i in range(0, len(names), 6)])
-    L.append("#define SS_INC_INIT { " + ", ".join(f"{FREQ[n] / SR:.9g}f" for n in range(12)) +
-             " }   /* ss_inc[12] */")
+    L.append(f"#define SS_INC0 {FREQ[0] / SR:.9g}f   /* note 0's phase step per sample */")
+    L.append(f"#define SS_SEMI {2.0 ** (1.0 / 12.0):.9g}f   /* one semitone up */")
     L.append("#define SS_BASS_OFS_INIT { " + ", ".join(f"{o}" for pair in BASS_OFS for o in pair)
              + " }   /* ss_bass_ofs[code * 2 + minor]: semitones above the root */")
     L.append(f"#define SS_BASS_APPROACH {BASS_APPROACH}u   /* bass code: from the next bar's root */")
@@ -237,12 +237,12 @@ def write_wav(path: Path, samples: list) -> None:
 
 
 def main() -> None:
-    names = [sys.argv[sys.argv.index("--set") + 1]] if "--set" in sys.argv else list(SETS)
+    names = [sys.argv[sys.argv.index("--set") + 1]] if "--set" in sys.argv else list(KITS)
     out = HERE / "preview"
     out.mkdir(exist_ok=True)
     print(f"{len(SONG)} bars at {BPM} BPM: {', '.join(p['name'] for p in PATTERNS)} patterns")
     for n in names:
-        write_wav(out / f"songbox_{n}.wav", render(n))
+        write_wav(out / f"songbox_{n.replace('+', '_')}.wav", render(n))
 
 
 if __name__ == "__main__":

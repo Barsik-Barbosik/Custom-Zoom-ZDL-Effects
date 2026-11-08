@@ -77,10 +77,16 @@
 #define SP_END_OUT  1u                  /* tokens ran out between two items */
 #define SP_END_CUT  2u                  /* ran out inside an event */
 
-/* chord relative to the key -> degree token | flat << 3 | default minor << 4 */
-static const uint8_t sp_rel_code[12] = { 1u, 10u, 18u, 11u, 19u, 4u, 13u, 5u, 14u, 22u, 7u, 9u };
-static const uint8_t sp_deg_ofs[7] = { 0u, 2u, 4u, 5u, 7u, 9u, 10u };
-static const uint8_t sp_deg_min[7] = { 0u, 1u, 1u, 0u, 0u, 1u, 0u };
+/* rel_code: chord relative to the key -> degree token | flat << 3 | default
+ * minor << 4. One byte struct: no 8-byte alignment (and padding) as each
+ * char array gets. */
+static const struct { uint8_t rel_code[12], deg_ofs[7], deg_min[7]; } sp_tabs = {
+    { 1u, 10u, 18u, 11u, 19u, 4u, 13u, 5u, 14u, 22u, 7u, 9u },
+    { 0u, 2u, 4u, 5u, 7u, 9u, 10u },
+    { 0u, 1u, 1u, 0u, 0u, 1u, 0u } };
+#define sp_rel_code (sp_tabs.rel_code)
+#define sp_deg_ofs  (sp_tabs.deg_ofs)
+#define sp_deg_min  (sp_tabs.deg_min)
 
 typedef struct {
     uint32_t n, phase, p, k, cur, best, bkey, bcost, ntok, bits, fits;

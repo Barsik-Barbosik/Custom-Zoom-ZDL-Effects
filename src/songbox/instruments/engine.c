@@ -3,8 +3,9 @@
  * sample formula is in its docstring). Included by songbox.c after
  * SsConst (SsInst: engine.h); needs SsVoice and inst_lib.h.
  *
- * ss_wt_build (out of line, .text): rows of every instrument's table from
- * the term lists ss_wt_terms (ends per table half in ss_wt_end). ss_run: a
+ * ss_wt_build (out of line, .text): rows of every table from the term
+ * lists ss_wt_terms (ends per table half in ss_wt_end); first the records
+ * (SsState.inst) from ss_inst_pool / ss_inst_idx. ss_run: a
  * voice over a piece, as three loops (cl6x at -ms3 only overlaps samples in
  * loops with short chains): a = what is carried from sample to sample ->
  * si[2] phases, sf[3] levels; b = the table reads -> sf[1]; c = soft clip,
@@ -27,16 +28,30 @@ static inline float ss_wt_term(uint32_t i, uint32_t w)
 }
 
 /* rows i .. i + n - 1 of every table (t: the tables one after the other;
- * c: SongBox's tables) */
+ * c: SongBox's tables); at row 0 also the records rec[] from the pool */
 SS_COLD(ss_wt_build)
-static void ss_wt_build(const SsConst *c, uint32_t *t, uint32_t i, uint32_t n)
+static void ss_wt_build(const SsConst *c, uint32_t *t, uint32_t i, uint32_t n, uint32_t *rec)
 {
-    uint32_t k, e;
+    uint32_t k, e, m, j;
     float a, b;
+    if (i == 0u) {                      /* each record: the default, its mask's words from p */
+        const uint8_t *p = c->inst_idx + SS_INST_WORDS;
+        #pragma UNROLL(1)
+        for (k = 0u; k < SS_NREC; ++k) {
+            m = c->inst_mask[k];
+            #pragma UNROLL(1)
+            for (j = 0u; j < SS_INST_WORDS; ++j, m >>= 1) {
+                e = c->inst_idx[j];
+                e += (*p - e) & (0u - (m & 1u));    /* the record's own word */
+                p += m & 1u;
+                *(volatile uint32_t *)rec++ = c->inst_pool[e];
+            }
+        }
+    }
     for (; n; --n, ++i) {
         e = 0u;
         #pragma UNROLL(1)
-        for (k = 0u; k < SS_NINST; ++k) {
+        for (k = 0u; k < SS_NTAB; ++k) {
             a = 0.0f;
             for (; e < c->wt_end[2u * k]; ++e) a += ss_wt_term(i, c->wt_terms[e]);
             b = 0.0f;

@@ -1,4 +1,4 @@
-"""Precision bass (bass): fingers into a light drive, the SongBox "Bass".
+"""Precision bass (bass): fingers into a light drive, the SongBox "BG".
 String model and engine mapping: pbass_model.py (variant fing_grit; the
 other variants are prototypes, pbass_proto.py)."""
 

@@ -289,6 +289,10 @@ def main() -> None:
         rela_const_base=True,           # .const MVKL/MVKH relocations: one dynsym + addends
         drop_attributes=True,           # no .c6xabi.attributes section
         anon_edit_syms=True,            # knob handler dynsyms without names
+        rela_text_base=True,            # getstr targets: one dynsym + addends (untested)
+        drop_empty_shdrs=True,          # no .rela.plt / .audio section headers (untested)
+        anon_abi_syms=True,             # ABI dynsyms without names (untested)
+        overlap_zero_tail=True,         # Coe + blank knob bitmap in imageInfo's zero tail (untested)
         # 9 knob handlers = 16-byte stubs into one shared body (as Floppy);
         # Tempo's max 210 gives the body the 200 law for every knob
         **{**link_common(), "synth_edit_start_index": 0, "compact_edit_stubs": True},

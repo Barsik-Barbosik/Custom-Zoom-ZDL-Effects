@@ -95,16 +95,22 @@ def table(lw: list, hw: list) -> list:
 
 
 class Instrument:
-    """An instrument file's record + table, ready for render() and the C header."""
+    """A record (mod's REC) + a table (tab's LOW / HIGH; tab None = mod's own),
+    ready for render() and the C header. A record on another file's table
+    is per unit of that table's peak (one record serves several tables)."""
 
-    def __init__(self, mod):
+    def __init__(self, mod, tab=None):
         rec = dict(DEFAULTS)
         for k in mod.REC:
             if k not in rec:
                 raise ValueError(f"{mod.__name__}: REC field {k!r} unknown")
         rec.update(mod.REC)
-        self.low, tso = scaled_terms(mod.LOW, TSO_PEAK)
-        self.high, tsc = scaled_terms(getattr(mod, "HIGH", []), TSC_PEAK)
+        own = tab is None or tab is mod
+        tab = mod if own else tab
+        self.low, tso = scaled_terms(tab.LOW, TSO_PEAK)
+        self.high, tsc = scaled_terms(getattr(tab, "HIGH", []), TSC_PEAK)
+        if not own:
+            tso, tsc = TSO_PEAK, TSC_PEAK
         rec["g0"] /= tso
         rec["g1"] /= tso
         for k in ("r2", "q2", "b2", "b3"):

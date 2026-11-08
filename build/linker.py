@@ -97,7 +97,23 @@ means byte-identical output to repeat98's):
     stock effect has one; 12 sections instead of 13). Works (SongBox, B1Xon 1.30).
   * LinkerConfig.anon_edit_syms: the knob edit handlers' dynsym entries
     without names (as the getstr targets already are); stock effects name
-    them <audio>_<knob>_edit. Saves their .dynstr bytes. UNTESTED.
+    them <audio>_<knob>_edit. Saves their .dynstr bytes. Works (SongBox,
+    B1Xon 1.30).
+  * LinkerConfig.rela_text_base: the ABS32 .rela.dyn entries into .text
+    that aren't ABI symbols (the descriptor's getstr pointers) share one
+    dynsym with nonzero addends, as rela_const_base does for .const.
+    Works (SongBox, B1Xon 1.30; no stock ZDL uses ABS32 addends).
+  * LinkerConfig.drop_empty_shdrs: no section headers for the empty
+    .rela.plt and .audio (DT_JMPREL still points at the empty .rela.plt);
+    the other indexes move down. Works (SongBox, B1Xon 1.30).
+  * LinkerConfig.overlap_zero_tail: the zero-filled Coe table and an
+    all-zero knob_bitmap go into imageInfo's zero tail (its unused knob
+    blocks) instead of after it: the bytes read stay the same, .const
+    (alloc) gets ~80 B smaller. Works (SongBox, B1Xon 1.30).
+  * LinkerConfig.anon_abi_syms: the local ABI dynsyms (_Coe, knob info /
+    pictures, audio / _init / _onf, effectTypeImageInfo, SonicStomp)
+    without names; Dll_<name> and the SONAME stay. Works (SongBox,
+    B1Xon 1.30; MS pedals untested).
   * LinkerConfig.init_call_loop (with materialize_init + compact clones):
     the _init calls the cloned knob handlers (a run at a fixed stride) from
     one 160-B loop block (_INIT_LOOP, source build/init_call_loop.asm)
@@ -463,6 +479,14 @@ class LinkerConfig:
     drop_attributes: bool = False
     # Knob edit handler dynsyms without names (stock: <audio>_<knob>_edit).
     anon_edit_syms: bool = False
+    # .text ABS32 targets (getstr) share one dynsym + addends. Untested.
+    rela_text_base: bool = False
+    # No section headers for the empty .rela.plt / .audio. Untested.
+    drop_empty_shdrs: bool = False
+    # Local ABI dynsyms without names (Dll_ and SONAME stay). Untested.
+    anon_abi_syms: bool = False
+    # Coe table + all-zero knob bitmap inside imageInfo's zero tail. Untested.
+    overlap_zero_tail: bool = False
     # DSP cost at the name entry's +0x28 (firmware budget per patch).
     dsp_cost: float = 20.0
 
@@ -1725,11 +1749,18 @@ def link(cfg: LinkerConfig) -> None:
     else:
         kdata = b''
         knob_info = _KNOB_INFO
+    # overlap_zero_tail: Coe at the end of imageInfo's 212 bytes, an
+    # all-zero knob bitmap just before it (both checked after the build)
+    overlap = cfg.overlap_zero_tail and not any(kdata)
+    if cfg.overlap_zero_tail and not overlap:
+        raise ValueError("overlap_zero_tail needs an all-zero knob_bitmap")
+    COE_IN_INFO = 212 - len(_DUMMY_COE)
+    KBMP_IN_INFO = (COE_IN_INFO - len(kdata)) & ~3
     after_info = INFO_OFF_IN_CONST + 212
-    if kdata:
+    if kdata and not overlap:
         after_info = _align_up(after_info, 4) + len(kdata)
     coe_off_est = _align_up(after_info, 4)
-    after_coe = coe_off_est + len(_DUMMY_COE)
+    after_coe = after_info if overlap else coe_off_est + len(_DUMMY_COE)
     for sec in obj_const_secs:
         if sec['size'] > 0:
             after_coe = _align_up(after_coe, max(sec['align'], 4)) + sec['size']
@@ -1754,16 +1785,28 @@ def link(cfg: LinkerConfig) -> None:
     const_data.extend(info_bytes)
 
     KBMP_VA = 0
-    if kdata:
-        KBMP_OFF_IN_CONST = _align_up(len(const_data), 4)
-        _pad_to(const_data, KBMP_OFF_IN_CONST)
-        KBMP_VA = CONST_VA + KBMP_OFF_IN_CONST
-        const_data.extend(kdata)
+    if overlap:
+        z = len(info_bytes) - len(info_bytes.rstrip(b"\0"))
+        lo = KBMP_IN_INFO if kdata else COE_IN_INFO
+        if len(info_bytes) != 212 or 212 - z > lo:
+            raise ValueError(f"overlap_zero_tail: imageInfo has {z} trailing zero "
+                             f"bytes, needs {212 - lo}")
+        if kdata:
+            KBMP_VA = INFO_VA + KBMP_IN_INFO
+        COE_VA = INFO_VA + COE_IN_INFO
+        print(f"  overlap_zero_tail: Coe{' + knob bitmap' if kdata else ''} "
+              f"in imageInfo's {z} zero bytes")
+    else:
+        if kdata:
+            KBMP_OFF_IN_CONST = _align_up(len(const_data), 4)
+            _pad_to(const_data, KBMP_OFF_IN_CONST)
+            KBMP_VA = CONST_VA + KBMP_OFF_IN_CONST
+            const_data.extend(kdata)
 
-    COE_OFF_IN_CONST = _align_up(len(const_data), 4)
-    _pad_to(const_data, COE_OFF_IN_CONST)
-    COE_VA = CONST_VA + COE_OFF_IN_CONST
-    const_data.extend(_DUMMY_COE)
+        COE_OFF_IN_CONST = _align_up(len(const_data), 4)
+        _pad_to(const_data, COE_OFF_IN_CONST)
+        COE_VA = CONST_VA + COE_OFF_IN_CONST
+        const_data.extend(_DUMMY_COE)
 
     # Append the .obj's own .const data (compiler-emitted constants — float
     # divisor tables, jump tables, etc.). Without this, any cross-section
@@ -2003,9 +2046,19 @@ def link(cfg: LinkerConfig) -> None:
     STV_HIDDEN = 2
     STV_PROTECTED = 3
 
+    sec_names = ['', '.rela.dyn', '.rela.plt', '.audio', '.text',
+                 '.const', '.fardata', '.dynamic', '.dynsym', '.dynstr',
+                 '.hash', '.c6xabi.attributes', '.shstrtab']
+    if cfg.drop_attributes:
+        sec_names.remove('.c6xabi.attributes')
+    if cfg.drop_empty_shdrs:
+        sec_names.remove('.rela.plt')
+        sec_names.remove('.audio')
+    SEC = {n: i for i, n in enumerate(sec_names)}
+
     def _shndx(va: int) -> int:
-        if va < 0x80000000: return 4 # .text
-        return 6 if va >= FARDATA_VA else 5 # .fardata or .const
+        if va < 0x80000000: return SEC['.text']
+        return SEC['.fardata'] if va >= FARDATA_VA else SEC['.const']
 
     def _add_sym(name, value, size, stype, bind, visibility, shndx=None, map_reloc=True):
         idx = len(dynsym_list)
@@ -2039,6 +2092,12 @@ def link(cfg: LinkerConfig) -> None:
                        and tgt not in other and tgt != COE_VA})
         fold = {tgt: cand[0] for tgt in cand}
         print(f"  rela_const_base: {len(cand)} .const targets -> 1 symbol + addends")
+    if cfg.rela_text_base:
+        other = {tgt for _, rtype, tgt in all_rela if rtype != RT_ABS32}
+        cand = sorted({tgt for _, rtype, tgt in all_rela if rtype == RT_ABS32
+                       and tgt < 0x80000000 and tgt not in abi_vas and tgt not in other})
+        fold.update({tgt: cand[0] for tgt in cand})
+        print(f"  rela_text_base: {len(cand)} .text ABS32 targets -> 1 symbol + addends")
 
     for tgt in sorted(dynsym_targets.keys()):
         if tgt not in abi_vas and fold.get(tgt, tgt) == tgt:
@@ -2050,24 +2109,25 @@ def link(cfg: LinkerConfig) -> None:
     # audio/init/onf, then imageInfo + descriptor. The firmware should use
     # relocations, but hardware tests show the edit-mode path is sensitive
     # to details the loader's normal relocation path ignores.
-    _add_sym(f'_{cfg.audio_func_name}_Coe', COE_VA, len(_DUMMY_COE), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+    _abi = (lambda n: '') if cfg.anon_abi_syms else (lambda n: n)
+    _add_sym(_abi(f'_{cfg.audio_func_name}_Coe'), COE_VA, len(_DUMMY_COE), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
     if KBMP_VA:
-        _add_sym(f'_infoEffectTypeKnob_{cfg.effect_name}', KNOB_INFO_VA, len(knob_info), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
-        _add_sym(f'picEffectTypeKnob_{cfg.effect_name}', KBMP_VA, len(kdata), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+        _add_sym(_abi(f'_infoEffectTypeKnob_{cfg.effect_name}'), KNOB_INFO_VA, len(knob_info), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+        _add_sym(_abi(f'picEffectTypeKnob_{cfg.effect_name}'), KBMP_VA, len(kdata), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
     elif knob_info != _KNOB_INFO:
-        _add_sym(f'_infoEffectTypeKnob_{cfg.effect_name}', KNOB_INFO_VA, len(knob_info), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+        _add_sym(_abi(f'_infoEffectTypeKnob_{cfg.effect_name}'), KNOB_INFO_VA, len(knob_info), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
     else:
-        _add_sym('_infoEffectTypeKnob_A_2', KNOB_INFO_VA, len(_KNOB_INFO), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
-    _add_sym(f'picEffectType_{cfg.effect_name}', PIC_VA, pic_end, STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+        _add_sym(_abi('_infoEffectTypeKnob_A_2'), KNOB_INFO_VA, len(_KNOB_INFO), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+    _add_sym(_abi(f'picEffectType_{cfg.effect_name}'), PIC_VA, pic_end, STT_OBJECT, STB_LOCAL, STV_HIDDEN)
     for i in reversed(range(len(knob_edit_vas))):
         p_name = cfg.params[i].name.replace(' ', '')
         _add_sym('' if cfg.anon_edit_syms else f"{cfg.audio_func_name}_{p_name}_edit",
                  knob_edit_vas[i], 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
-    _add_sym(cfg.audio_func_name, TEXT_VA + AUDIO_OFF, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
-    _add_sym(f"{cfg.audio_func_name}_init", init_va, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
-    _add_sym(f"{cfg.audio_func_name}_onf", onf_va, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
-    _add_sym('effectTypeImageInfo', INFO_VA, len(info_bytes), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
-    _add_sym('SonicStomp', DESC_TABLE_VA, len(desc_bytes), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+    _add_sym(_abi(cfg.audio_func_name), TEXT_VA + AUDIO_OFF, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
+    _add_sym(_abi(f"{cfg.audio_func_name}_init"), init_va, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
+    _add_sym(_abi(f"{cfg.audio_func_name}_onf"), onf_va, 0, STT_FUNC, STB_LOCAL, STV_HIDDEN)
+    _add_sym(_abi('effectTypeImageInfo'), INFO_VA, len(info_bytes), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
+    _add_sym(_abi('SonicStomp'), DESC_TABLE_VA, len(desc_bytes), STT_OBJECT, STB_LOCAL, STV_HIDDEN)
 
     # 3. Profiling/static-base locals (SHN_ABS)
     SHN_ABS = 0xFFF1
@@ -2167,16 +2227,11 @@ def link(cfg: LinkerConfig) -> None:
     c6xabi_file_off = _align_up(cur, 4);               cur = c6xabi_file_off + len(c6xabi_attrs)
 
     shstr = _StringTable()
-    shstr_names = ['', '.rela.dyn', '.rela.plt', '.audio', '.text',
-                   '.const', '.fardata', '.dynamic', '.dynsym', '.dynstr',
-                   '.hash', '.c6xabi.attributes', '.shstrtab']
-    if cfg.drop_attributes:
-        shstr_names.remove('.c6xabi.attributes')
-    shname_idx = {n: shstr.add(n) for n in shstr_names}
+    shname_idx = {n: shstr.add(n) for n in sec_names}
     shstr_data = shstr.get_bytes()
     shstrtab_file_off = _align_up(cur, 4);             cur = shstrtab_file_off + len(shstr_data)
 
-    NUM_SECTIONS = 12 if cfg.drop_attributes else 13
+    NUM_SECTIONS = len(sec_names)
     SHDR_SIZE    = 0x28
     phdr_file_off = cur;                               cur = phdr_file_off + PHDR_TABLE
     shdr_file_off = cur;                               cur = shdr_file_off + NUM_SECTIONS * SHDR_SIZE
@@ -2284,6 +2339,9 @@ def link(cfg: LinkerConfig) -> None:
     # ----- Section headers -----
     def _sh(idx, name, sh_type, flags, addr, offset, size,
             link=0, info=0, align=0, entsize=0):
+        if name not in SEC:                 # left out (drop_* options)
+            return
+        assert idx == SEC[name], name
         o = shdr_file_off + idx * SHDR_SIZE
         _p32(elf, o + 0x00, shname_idx.get(name, 0))
         _p32(elf, o + 0x04, sh_type)
@@ -2297,35 +2355,34 @@ def link(cfg: LinkerConfig) -> None:
         _p32(elf, o + 0x24, entsize)
 
     _sh(0, '', SHT_NULL, 0, 0, 0, 0)
-    _sh(1, '.rela.dyn', SHT_RELA, 0, 0, rela_dyn_file_off, len(rela_dyn_data),
-        link=8, info=0, entsize=12)
-    _sh(2, '.rela.plt', SHT_RELA, 0, 0, rela_plt_file_off, 0,
-        link=8, info=0, entsize=12)
-    _sh(3, '.audio', SHT_PROGBITS, 0, 0, 0, 0, align=1)
-    _sh(4, '.text',  SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR,
+    _sh(SEC['.rela.dyn'], '.rela.dyn', SHT_RELA, 0, 0, rela_dyn_file_off, len(rela_dyn_data),
+        link=SEC['.dynsym'], info=0, entsize=12)
+    _sh(SEC.get('.rela.plt'), '.rela.plt', SHT_RELA, 0, 0, rela_plt_file_off, 0,
+        link=SEC['.dynsym'], info=0, entsize=12)
+    _sh(SEC.get('.audio'), '.audio', SHT_PROGBITS, 0, 0, 0, 0, align=1)
+    _sh(SEC['.text'], '.text',  SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR,
         TEXT_VA, text_file_off, TEXT_TOTAL, align=32)
-    _sh(5, '.const', SHT_PROGBITS, SHF_ALLOC,
+    _sh(SEC['.const'], '.const', SHT_PROGBITS, SHF_ALLOC,
         CONST_VA, const_file_off, CONST_SIZE, align=8)
-    _sh(6, '.fardata', SHT_PROGBITS, SHF_ALLOC | SHF_WRITE,
+    _sh(SEC['.fardata'], '.fardata', SHT_PROGBITS, SHF_ALLOC | SHF_WRITE,
         FARDATA_VA, fardata_file_off, len(fardata_data), align=4)
-    _sh(7, '.dynamic', SHT_DYNAMIC, 0,
-        0, dynamic_file_off, dynamic_size, link=9, entsize=8)
+    _sh(SEC['.dynamic'], '.dynamic', SHT_DYNAMIC, 0,
+        0, dynamic_file_off, dynamic_size, link=SEC['.dynstr'], entsize=8)
     # SHT_DYNSYM info field: ELF spec mandates this be the index of the
     # first STB_GLOBAL symbol. Stock effects all set this correctly; v1's
     # linker left it 0 — fine for ≤2 params but breaks 3-param render.
-    _sh(8, '.dynsym',  SHT_DYNSYM, 0,
+    _sh(SEC['.dynsym'], '.dynsym',  SHT_DYNSYM, 0,
         0, dynsym_file_off, len(dynsym_data),
-        link=9, info=first_global_idx, entsize=16)
-    _sh(9, '.dynstr',  SHT_STRTAB, 0,
+        link=SEC['.dynstr'], info=first_global_idx, entsize=16)
+    _sh(SEC['.dynstr'], '.dynstr',  SHT_STRTAB, 0,
         0, dynstr_file_off, len(dynstr_data))
-    _sh(10, '.hash', SHT_HASH, 0,
-        0, hash_file_off, len(hash_data), link=8)
+    _sh(SEC['.hash'], '.hash', SHT_HASH, 0,
+        0, hash_file_off, len(hash_data), link=SEC['.dynsym'])
     # SHT_C6000_ATTRIBUTES = 0x70000003 (SHT_LOPROC + 3) per SPRAB89B Ch.17.
     # Stock effects emit this as a non-allocated, non-loaded section.
-    if not cfg.drop_attributes:
-        _sh(11, '.c6xabi.attributes', 0x70000003, 0,
-            0, c6xabi_file_off, len(c6xabi_attrs))
-    _sh(NUM_SECTIONS - 1, '.shstrtab', SHT_STRTAB, 0,
+    _sh(SEC.get('.c6xabi.attributes'), '.c6xabi.attributes', 0x70000003, 0,
+        0, c6xabi_file_off, len(c6xabi_attrs))
+    _sh(SEC['.shstrtab'], '.shstrtab', SHT_STRTAB, 0,
         0, shstrtab_file_off, len(shstr_data))
 
     # ----- Combine + optional audio NOP -----

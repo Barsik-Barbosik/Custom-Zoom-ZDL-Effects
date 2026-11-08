@@ -24,9 +24,11 @@ DrumBox in the same patch, so the drums follow the song.
   patch, SongBox sets its beat, fills and tempo for each bar and starts and
   stops it with the song (MS pedals untested). After a patch change both
   start with 2 count-in bars while DrumBox loads its sounds.
-- **Tempo 40–250 BPM.** Chords on electric piano (EP), Organ1 (jazz organ)
-  or Organ2 (rock organ), with the precision bass (Bs), each organ also with
-  its own bass, the basses alone, or muted (DrumBox keeps following).
+- **Tempo 40–250 BPM.** Chords on Organ1 (jazz organ), Organ2 (rock
+  organ), electric piano, marimba, kalimba, a saw or a plucked saw, with
+  the precision bass, a triangle bass, Organ1's or the saw's bass (each
+  organ and the saw also with its own bass), the basses alone, or muted
+  (DrumBox keeps following).
 - **Song settings** (MENU): play once or in a loop, chords an octave up or
   down, a chord every bar, half bar or beat.
 - **Footswitch on:** the song plays from bar 1. **Off:** it stops.
@@ -39,7 +41,7 @@ layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SONGBOX.ZDL` (32,571 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
+`SONGBOX.ZDL` (32,262 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
 It is in the **SFX** category (gid 7, fxid 521). Install both as described
 in the [main README](../../README.md#install), then put SongBox, Floppy
 and (optionally) DrumBox into one patch.
@@ -56,7 +58,7 @@ and (optionally) DrumBox into one patch.
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
 | 3 | Tempo | 40–250 | Tempo in BPM |
 | 3 | Volume | 0–100 | Instrument level (50 = unchanged) |
-| 3 | Instr | Organ1, Org1+B, Org1Ch, Organ2, Org2+B, Org2Ch, EPno+B, EPnoCh, Bass, OrgBs, Mute | Instrument set and which parts play (default Org1+B; +B = with the precision bass, Ch = chords only, OrgBs = Organ1's own bass alone) |
+| 3 | Instr | Or1, Or1+BG, Or1+B2, Or1+BS, Or1+BT, Or1Ch, Or2, Or2+BG, Or2+B1, Or2+BS, Or2+BT, Or2Ch, EP+BG, EP+B1, EP+B2, EP+BS, EP+BT, EPCh, Mrm+BG, Mrm+B1, Mrm+B2, Mrm+BS, Mrm+BT, MrmCh, Klm+BG, Klm+B1, Klm+B2, Klm+BS, Klm+BT, KlmCh, Syn, Syn+BG, Syn+B1, Syn+B2, Syn+BT, SynCh, Plk+BG, Plk+B1, Plk+B2, Plk+BS, Plk+BT, PlkCh, BG, B1, B2, BS, BT, Mute | Instrument kit: a chords part and a bass part (default Or1+BG), grouped by chords sound. Chords: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay. Bass after the +: BG = bass guitar (precision bass), B1 = Organ1's bass, B2 = Organ2's bass, BS = the synth's bass, BT = triangle bass; a name alone (Or1, Or2, Syn) plays its own bass; Ch = the chords alone (no bass). BG, B1, B2, BS, BT alone = that bass alone |
 
 ### Writing a song
 
@@ -276,11 +278,16 @@ and chords swing with it.
   Floppy's knob fields through [zmenu](../common/zmenu/README.md) stream mode.
   The packer runs a few steps per audio call and checks that the stream
   decodes back to the song before writing it.
-- **Sound:** bass and chords from one of five instrument sets (a keys and
-  a bass instrument each: electric piano, Organ1 or Organ2 with the
-  precision bass, or each organ with its own bass), mono,
-  added to the guitar. Each instrument plays one wavetable, built in
-  `ctx[3]` a little per audio call after loading or a patch change.
+- **Sound:** bass and chords from one of the Instr kits (a chords and a
+  bass part each), mono, added to the guitar. An instrument is a record
+  (envelope, gains) playing a wavetable; one record can play another
+  file's table (the pluck record plays the saw table as Plk, the kalimba
+  the marimba's sine table). The saw reads its table twice, 0.3 % apart
+  (two detuned oscillators), into a little drive; the pluck decays while
+  the note is held; marimba and kalimba add a short partial on a second
+  phase. The wavetables are built in `ctx[3]` a little per audio call after
+  loading or a patch change, and the records are unpacked there from a
+  shared pool of values.
 - **DrumBox:** SongBox writes DrumBox's knob values for each bar; DrumBox
   (follow mode) copies them every call. With shorter song bars (MENU
   LENGTH) a DrumBox bar takes the beat of its first chord bar.
@@ -292,9 +299,9 @@ and chords swing with it.
 |---|---|
 | `songbox.c` | Audio function `Fx_SFX_SongBox`: editor, packer, player, DrumBox control |
 | `build.py` | Generates the headers, runs `cl6x`, then the linker |
-| `instruments/` | `engine.c` (the one instrument engine: a wavetable voice driven by a record, `SsInst` in `engine.h`) and its Python mirror `engine.py`; one `<id>.py` per instrument with its record and wavetable harmonics: `epiano`, `organ1` (jazz organ), `organ2` (rock organ), `pbass` (precision bass; `pbass_model.py` = the string model and its variants); `inst_lib.h` C helper |
+| `instruments/` | `engine.c` (the one instrument engine: a wavetable voice driven by a record, `SsInst` in `engine.h`) and its Python mirror `engine.py`; one `<id>.py` per instrument with its record and wavetable harmonics: `epiano`, `organ1` (jazz organ), `organ2` (rock organ), `pbass` (precision bass; `pbass_model.py` = the string model and its variants); `tri` (triangle synth; the triangle bass), `saw` (two detuned saws), `pluck` (pluck record, played on the saw's table), `marimba`, `kalimba` (record on the marimba's table); `inst_lib.h` C helper |
 | `inst_lib.py` | Helpers shared by the instrument models (sine, decay coefficients, voice) |
-| `sets.py` | Instrument sets (one keys + one bass instrument each) and the Instr knob values → `songbox_instr.h` |
+| `sets.py` | Instrument sets (one keys + one bass instrument each, `"record:table"` to pair one file's record with another's wavetable) and the Instr knob values → `songbox_instr.h` |
 | `proto.py` | Patterns and note increments → `songbox_sound.h`; renders WAV prototypes of each set |
 | `pbass_proto.py` | Renders the precision bass variants of `instruments/pbass_model.py` as WAVs (bass alone, then with electric piano) |
 | `patterns/patterns.json` | The 149 patterns: bass, chords and DrumBox beat / fills (format in `song_patterns.py`) |
@@ -326,7 +333,8 @@ python -B pbass_proto.py               # precision bass variants -> preview/pbas
 ```
 
 After building check: `.fardata: 4 bytes`, the `.obj` relocations each
-with a `.rela.dyn` entry, and the allocated size under ~29,968 B.
+with a `.rela.dyn` entry, and the allocated size under ~30,096 B (the largest known to load on the
+G1on family).
 
 ## Known limitations
 

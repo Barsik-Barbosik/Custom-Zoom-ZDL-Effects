@@ -249,7 +249,8 @@
     0x34CE6A4Cu, 0x05FBE954u, 0x3797CA5Eu, 0x37A79C0Cu, 0x03A79C0Cu, 0x3B774D8Bu, \
     0x3DDB8C8Du, 0x2AB1DC8Du, 0x2C9F6957u, 0x00CF6A8Bu, 0x2BCA5B0Cu, 0x31DF5957u, \
 }
-#define SS_INC_INIT { 0.000185392266f, 0.000196416263f, 0.000208095782f, 0.000220469801f, 0.000233579618f, 0.000247468985f, 0.000262184256f, 0.000277774544f, 0.000294291878f, 0.000311791383f, 0.000330331464f, 0.000349973995f }   /* ss_inc[12] */
+#define SS_INC0 0.000185392266f   /* note 0's phase step per sample */
+#define SS_SEMI 1.05946309f   /* one semitone up */
 #define SS_BASS_OFS_INIT { 0, 0, 7, 7, 12, 12, 4, 3, 9, 9, 10, 10, 11, 10, 2, 2, -1, -1 }   /* ss_bass_ofs[code * 2 + minor]: semitones above the root */
 #define SS_BASS_APPROACH 8u   /* bass code: from the next bar's root */
 #define SS_KEY_OFS_INIT { 0u, 4u, 7u, 0u, 3u, 7u, 0u, 4u, 7u, 0u, 3u, 7u, 0u, 4u, 7u, 0u, 3u, 7u, 0u, 4u, 7u, 0u, 3u, 7u, 0u, 5u, 7u, 0u, 5u, 7u, 0u, 2u, 7u, 0u, 2u, 7u, 2u, 2u, 2u, 2u, 2u, 2u, 0u, 4u, 7u, 0u, 3u, 7u, 4u, 7u, 12u, 3u, 7u, 12u, 7u, 12u, 16u, 7u, 12u, 15u, 0u, 7u, 16u, 0u, 7u, 15u, 0u, 0u, 0u, 0u, 0u, 0u, 7u, 7u, 7u, 7u, 7u, 7u, 12u, 12u, 12u, 12u, 12u, 12u, 16u, 16u, 16u, 15u, 15u, 15u }   /* ss_key_ofs[code * 6 + minor * 3 + i] */

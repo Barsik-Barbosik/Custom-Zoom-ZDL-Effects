@@ -1,6 +1,6 @@
 /* The instrument record SsInst of the engine (engine.c; Python: engine.py
- * FLOATS + INTS, in this order). Included by songbox_instr.h, so the
- * records can be a member of songbox.c's SsConst. */
+ * FLOATS + INTS, in this order). Included by songbox_instr.h; the records
+ * live in songbox.c's SsState (unpacked from the pool in SsConst). */
 
 typedef struct {
     float pa, pb, pc;           /* phase steps x inc: ip (pa + pb tf), ip2 (pc + pb tf) */

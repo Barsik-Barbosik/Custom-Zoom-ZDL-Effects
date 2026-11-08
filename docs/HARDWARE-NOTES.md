@@ -15,7 +15,9 @@ section on its own decides it.
 
 | Allocated sum | Result |
 |---|---|
-| 29,968 B | loads (largest known to work) |
+| 30,096 B | loads (largest known to work) |
+| 29,992 B | loads |
+| 29,968 B | loads |
 | 30,216 B | freezes on select |
 | 30,360 B | freezes on select |
 

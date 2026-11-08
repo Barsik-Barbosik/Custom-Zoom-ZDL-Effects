@@ -11,7 +11,7 @@ unless marked alloc.
 | Limit | What counts | Value |
 |---|---|---|
 | Flash | the whole `.ZDL` file | 4,090-byte blocks (8 blocks = 32,720 B) |
-| Load (G1on family) | alloc = `.text` + `.const` + `.fardata` | 29,968 B loaded, 30,216 B froze on selecting the effect |
+| Load (G1on family) | alloc = `.text` + `.const` + `.fardata` | 30,096 B loaded, 30,216 B froze on selecting the effect |
 
 The gap between the two is ELF bookkeeping: `.rela.dyn`, `.dynsym`,
 `.dynstr`, `.hash` and the headers. In SongBox it was 4,446 B at the
@@ -92,6 +92,12 @@ Notes:
 | All texts (knob names, knob texts, chord and instrument names) as one pool of NUL-terminated strings instead of fixed 8-byte slots; one shared out-of-line routine skips to string *i* | SongBox texts 526 → 360 B, −232 B file in all (the 8-byte compare loop went too) | works |
 | Rare per-entry values in spare bits of another table: SongBox's "every second bar" fill, used by 6 of 149 rhythms, as a 4-bit code in the unused top bits of a note offset (already masked off when read) into a 5-entry list, instead of a byte per rhythm | −112 B alloc (−144 B table, +32 B code) | works |
 | Drop wavetable harmonics whose amplitude is exactly 0 (a plucked string's nodes) | 4 B per term | works |
+| Instrument records (29 words each) as one index byte per field into a pool of the distinct words, copied into the effect's state when the wavetables are built | SongBox 6 records 696 → 418 B (+64 B of code) | works (B1Xon 1.30) |
+| One record (envelope, gains) shared by several wavetables: a set names record and table separately | a new wave costs only its harmonic list | works (B1Xon 1.30) |
+| Per-OS fingerprint: the words that are the same on every OS stored once, a run of consecutive addresses as one base address, the values as one array; the check out of line (it runs once after a reset), without RAM / alignment tests on the table's own constant addresses | zmenu rows 512 → 412 B; the check 192 B inline in the audio code → 160 B in `.text`. An unrolled first try cost +256 B of code | works (B1Xon 1.30) |
+| Levels as bytes (level × 4096, ≤ 0.6 % off) instead of floats | SongBox 64 → 16 B | works (B1Xon 1.30) |
+| Note steps from one base step and a semitone factor (a loop in the rarely-run trigger) instead of a 12-float table | −48 B table, +24 B code | works (B1Xon 1.30) |
+| Small byte tables in a byte struct instead of `uint8_t` arrays: cl6x gives each array its own 8-byte-aligned section, a struct of bytes only 1-byte alignment | SongBox's 4 small tables: 13 → 5 B of padding | works (B1Xon 1.30) |
 
 Notes:
 - A palette only pays when values repeat. SongBox's rhythm names and
@@ -123,6 +129,10 @@ Notes:
 | `drop_attributes` | no `.c6xabi.attributes` section (every stock effect has one) | 123 B | works |
 | `anon_edit_syms` | the knob handlers' `.dynsym` entries without names, as the knob-text callbacks' already are (Zoom's effects name them `<audio>_<knob>_edit`) | SongBox 231 B of `.dynstr` | works |
 | no `_init` | for an effect that never reads its knob values from `params[]` | | works |
+| `rela_text_base` | the descriptor's knob-text callback pointers share one `.dynsym` entry, the offset in each entry's addend (no Zoom effect does this for these pointers) | SongBox 192 B | works (B1Xon 1.30) |
+| `drop_empty_shdrs` | no section headers for the empty `.rela.plt` and `.audio` | 97 B | works (B1Xon 1.30) |
+| `overlap_zero_tail` | the linker's zero-filled coefficient table (68 B) and an all-zero knob graphic go into the 128 zero bytes at the end of the 212-B image info block (its unused knob slots) instead of after it; every byte the pedal reads stays the same | SongBox 80 B alloc | works (B1Xon 1.30) |
+| `anon_abi_syms` | the local `.dynsym` entries (picture, descriptor, audio / init functions...) without names; `Dll_<name>` and the library name stay | SongBox 180 B of `.dynstr` | works (B1Xon 1.30) |
 
 Each `.dynsym` entry costs 16 B plus 8 B of `.hash` once there are more
 than 17. Each MVKL / MVKH address load costs 8 B of code plus 24 B of
@@ -145,6 +155,18 @@ with the busy middle bands at about 1 B per column.
 - A local base pointer for tables (cl6x reloads the address anyway).
 - Copying a header library's source into the effect: `static inline`
   header code is already compiled into the effect.
+- Generating saw / square / triangle wavetables by a formula (1 / n by a
+  reciprocal estimate) instead of harmonic lists: the code (~190 B) cost
+  as much as the 176 B of harmonics it replaced. A second try (46
+  harmonics -> 4 series entries, 168 B less data) grew the loaded size by
+  24-248 B: float latency fills the loop with NOPs, so a stored 4-byte
+  harmonic is cheaper than computing it.
+- Instrument records as a default record + a bitmask per record of the
+  fields that differ (only those indexes stored): −8 B for 10 records, as
+  the decode code grew almost as much as the data shrank.
+- Most linker options (above) shrink the file, not the code + data the
+  pedal loads, so they don't help against the load limit
+  (`overlap_zero_tail` is the exception: it shrinks `.const`).
 
 ## 9. SongBox, step by step
 

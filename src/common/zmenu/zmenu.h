@@ -86,7 +86,9 @@
 #define ZM_POST_GAP 64u                 /* calls between them (~12 ms) */
 
 /* One known OS (zvis.h's ZvFw plus the slot rows and the Floppy id test).
- * sig: fingerprint (address, value), address 0 ends; sig[0][0] = Event_post.
+ * Fingerprint: post = Event_post, whose first 5 words are zm_fwt.w[0..2]
+ * (the same on every known OS) and val[0..1]; then the words at sig[i]
+ * must be val[2 + i] (sig 0 ends).
  * event: where the UI event object pointer is kept. Screen test: zero[]
  * must read 0, nonzero not (0 = unused), page = page word (0 = none),
  * cursor = selected effect byte, map = slot map (mstride B per page, 4 B
@@ -97,7 +99,7 @@
  * the current patch number word (not used by zmenu; for effects that track
  * patch changes). */
 typedef struct {
-    uint32_t sig[10][2];
+    uint32_t post, val[7], sig[5];
     uint32_t event;
     uint32_t zero[3], nonzero, page, cursor, map;
     uint32_t rec, tab, patch;
@@ -105,24 +107,24 @@ typedef struct {
 } ZmFw;
 #define ZM_FLOPPY_ID ((7u << 24) | ZM_FLOPPY_FXID)  /* Floppy's slot record word +4 */
 
-static const ZmFw zm_fws[ZM_NFW] = {
+/* The shared words and the rows in one object (one .const section). */
+static const struct { uint32_t w[3]; ZmFw row[ZM_NFW]; } zm_fwt = {
+  { 0x27773577u, 0x85778677u, 0xB64631F7u }, {
     /* MS-70CDR 2.10 (zvis.h's entry; rows from the state[31] lookup at
      * 0xC00B820C, static; record word +4 = the ZDL header's u32 at 0x40,
      * (gid << 24) | fxid as on the G1on, compared whole by the OS).
      * UNTESTED: no slot-row write or Floppy test on an MS pedal yet. */
-    { { { 0xC00CBF40u, 0x27773577u }, { 0xC00CBF44u, 0x85778677u }, { 0xC00CBF48u, 0xB64631F7u },
-        { 0xC00CBF4Cu, 0x02E7442Bu }, { 0xC00CBF50u, 0x01E74228u }, { 0xC00BB168u, 0x1021BC13u },
-        { 0xC00BB16Cu, 0x0200A46Du }, { 0xC00DD818u, 0x077BA42Au }, { 0xC00DD81Cu, 0x0760076Au },
-        { 0xC00BADA8u, 0x033CFFA9u } },
+    { 0xC00CBF40u, { 0x02E7442Bu, 0x01E74228u, 0x1021BC13u, 0x0200A46Du,
+        0x077BA42Au, 0x0760076Au, 0x033CFFA9u },
+      { 0xC00BB168u, 0xC00BB16Cu, 0xC00DD818u, 0xC00DD81Cu, 0xC00BADA8u },
       0xC00EF9D8u,
       { 0xC00EF888u, 0xC00EF9A8u, 0xC009D398u }, 0xC00EF894u, 0xC009D8F8u, 0xC009C064u, 0xC00EE748u,
       0xC009BF58u, 0xC009C1A0u, 0xC00EF88Cu, 6u, 24u },
     /* G1on family (G1on / G1Xon 1.21, B1on / B1Xon 1.30, one OS image).
      * HW (B1Xon 1.30): rows, jumps, Floppy storage (MenuPrb stages 2-14). */
-    { { { 0xC00B05C0u, 0x27773577u }, { 0xC00B05C4u, 0x85778677u }, { 0xC00B05C8u, 0xB64631F7u },
-        { 0xC00B05CCu, 0x02C53A2Bu }, { 0xC00B05D0u, 0x01C50628u }, { 0xC009B278u, 0x0200736Du },
-        { 0xC009B280u, 0x10089013u }, { 0xC008B318u, 0x02C65A28u }, { 0xC008B320u, 0x02104CA0u },
-        { 0u, 0u } },
+    { 0xC00B05C0u, { 0x02C53A2Bu, 0x01C50628u, 0x0200736Du, 0x10089013u,
+        0x02C65A28u, 0x02104CA0u, 0u },
+      { 0xC009B278u, 0xC009B280u, 0xC008B318u, 0xC008B320u, 0u },
       0xC00DEBCCu,
       { 0u, 0u, 0u }, 0u, 0u, 0xC0078CB4u, 0u,
       0x1181B160u, 0x1181B370u, 0xC00DEADCu, 5u, 0u },
@@ -131,21 +133,20 @@ static const ZmFw zm_fws[ZM_NFW] = {
      * 0xC00EFCC0 / 0xC00DFCF0). The MS-50G keeps the MS-70CDR's rows, cursor,
      * page and map stride; the MS-60B has 4 slots and 16 B per map page.
      * UNTESTED on both pedals. */
-    { { { 0xC00CC680u, 0x27773577u }, { 0xC00CC684u, 0x85778677u }, { 0xC00CC688u, 0xB64631F7u },
-        { 0xC00CC68Cu, 0x02E9C02Bu }, { 0xC00CC690u, 0x01E9BE28u }, { 0xC00AB784u, 0x1041E013u },
-        { 0xC00AB788u, 0x0200A96Cu }, { 0xC00DDCD8u, 0x077E602Au }, { 0xC00DDCDCu, 0x0760076Au },
-        { 0xC00BA650u, 0x033CFFA9u } },
+    { 0xC00CC680u, { 0x02E9C02Bu, 0x01E9BE28u, 0x1041E013u, 0x0200A96Cu,
+        0x077E602Au, 0x0760076Au, 0x033CFFA9u },
+      { 0xC00AB784u, 0xC00AB788u, 0xC00DDCD8u, 0xC00DDCDCu, 0xC00BA650u },
       0xC00EFF64u,
       { 0xC00EFE08u, 0xC00EFF2Cu, 0xC009D398u }, 0xC00EFE14u, 0xC009D8F8u, 0xC009C064u, 0xC00EECB0u,
       0xC009BF58u, 0xC009C1A0u, 0xC00EFE0Cu, 6u, 24u },
-    { { { 0xC00BC500u, 0x27773577u }, { 0xC00BC504u, 0x85778677u }, { 0xC00BC508u, 0xB64631F7u },
-        { 0xC00BC50Cu, 0x02EA982Bu }, { 0xC00BC510u, 0x01EA9628u }, { 0xC009B5E4u, 0x1041E413u },
-        { 0xC009B5E8u, 0x0200A66Cu }, { 0xC00CDEB8u, 0x077E782Au }, { 0xC00CDEBCu, 0x076006EAu },
-        { 0xC00AA664u, 0x033CFFA9u } },
+    { 0xC00BC500u, { 0x02EA982Bu, 0x01EA9628u, 0x1041E413u, 0x0200A66Cu,
+        0x077E782Au, 0x076006EAu, 0x033CFFA9u },
+      { 0xC009B5E4u, 0xC009B5E8u, 0xC00CDEB8u, 0xC00CDEBCu, 0xC00AA664u },
       0xC00DFF88u,
       { 0xC00DFE38u, 0xC00DFF54u, 0xC008D230u }, 0xC00DFE44u, 0xC008D644u, 0xC008C754u, 0xC00DEE58u,
       0xC008C6A0u, 0xC008C838u, 0xC00DFE3Cu, 4u, 16u },
-};
+} };
+#define zm_fws (zm_fwt.row)
 
 #if !ZM_IS_STREAM
 /* Layout, from the generated header. A menu: selector knob `sel` (0-based),
@@ -197,15 +198,19 @@ static inline int zm_in_ram(uint32_t a)
 }
 
 /* Which known OS is this (ZM_FW_*, 0 = unknown)? Pure reads. */
-ZM_INLINE(zm_fw_ok)
+ZM_COLD(zm_fw_ok)
 static inline uint32_t zm_fw_ok(void)
 {
-    uint32_t k, i;
+    uint32_t k, i, a, v;
     for (k = 0u; k < ZM_NFW; ++k) {
-        const uint32_t *sig = &zm_fws[k].sig[0][0];
-        for (i = 0u; i < 20u && sig[i]; i += 2u)
-            if (!zm_in_ram(sig[i]) || (sig[i] & 3u) || ZM_U32(sig[i]) != sig[i + 1u]) break;
-        if (i > 0u && (i == 20u || !sig[i])) return k + 1u;
+        const ZmFw *t = &zm_fws[k];
+        for (i = 0u; i < 10u; ++i) {
+            a = i < 5u ? t->post + 4u * i : t->sig[i - 5u];  /* Event_post's first 5 words, */
+            if (!a) break;                                  /* then sig[] (0 ends) */
+            v = i < 3u ? zm_fwt.w[i] : t->val[i - 3u];
+            if (ZM_U32(a) != v) { i = 0u; break; }  /* (table addresses: aligned RAM) */
+        }
+        if (i) return k + 1u;
     }
     return 0u;
 }
@@ -454,7 +459,7 @@ static inline void zm_poll(ZmState *z, unsigned int *ctx)
             if (t && zm_visible(t, z->slot) && zm_in_ram(t->event) && !(t->event & 3u)) {
                 uint32_t ev = ZM_U32(t->event);
                 if (zm_in_ram(ev) && !(ev & 3u))
-                    ((zm_post_fn)t->sig[0][0])((void *)(uintptr_t)ev, 0x01u);
+                    ((zm_post_fn)t->post)((void *)(uintptr_t)ev, 0x01u);
             }
         }
     }
@@ -510,7 +515,9 @@ static int zm_text(uint32_t m, uint32_t f, uint32_t v, char *s)
 #define ZM_S_BITS 106u                  /* 13,13,13,8,8,8,8,27,8 (G1on; MS assumed) */
 #define ZM_S_PARTS 4u                   /* Floppies: part 1 + 3 marked copies */
 #define ZM_S_MARK  11u                  /* marker of part q (0-based, >= 1) = 11 + q */
-static const uint8_t zm_s_wid[9] = { 13u, 13u, 13u, 8u, 8u, 8u, 8u, 27u, 8u };
+/* in a byte struct: no 8-byte alignment (and padding) as a char array gets */
+static const struct { uint8_t w[9]; } zm_s_widt = { { 13u, 13u, 13u, 8u, 8u, 8u, 8u, 27u, 8u } };
+#define zm_s_wid (zm_s_widt.w)
 
 typedef struct {
     uint32_t magic;
@@ -691,7 +698,7 @@ static inline void zm_s_post(ZmStream *z)
     if (t && zm_visible(t, z->slot) && zm_in_ram(t->event) && !(t->event & 3u)) {
         uint32_t ev = ZM_U32(t->event);
         if (zm_in_ram(ev) && !(ev & 3u))
-            ((zm_post_fn)t->sig[0][0])((void *)(uintptr_t)ev, 0x01u);
+            ((zm_post_fn)t->post)((void *)(uintptr_t)ev, 0x01u);
     }
 }
 
