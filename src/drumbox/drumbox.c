@@ -83,7 +83,7 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
  * play once rendered, nothing until the cache check after a patch switch has
  * passed). Not driven, DrumBox plays as without follow mode. */
 #undef DB_VERSION
-#define DB_VERSION 44u  /* 44: fSkip */
+#define DB_VERSION 45u  /* 45: kitSel, kitWait; 44: fSkip */
 /* LenA markers written by the driving effect (above the Len list, <= 100 so
  * raw = v / 100 survives db_param's clamp): song playing = 1 bar, song
  * stopped = Skip, count-in = 1 bar played as count bars (closed hat
@@ -138,6 +138,9 @@ static const uint32_t db_f_fw[DB_F_NFW * 8u] = {
  * (cache units, 1/16384 each). */
 #define DB_RENDER_CYC 8000u
 #define DB_RENDER_MAX 32
+/* The kit renders only once the Kit knob has stayed this many calls (~180 us
+ * each: ~145 ms), so turning the knob through kits costs no render time. */
+#define DB_KIT_SETTLE 800
 #define DB_QUIET    4410
 #define DB_LOUD     2.0f
 #define DB_CACHE_ONE 16384.0f
@@ -250,7 +253,8 @@ typedef struct DBState {
      * lane its start and length; rMask: ready lanes (bit per lane) */
     int32_t  cKit, rLane, rPos, rLast, rEnd;
     uint32_t rMask;
-    int32_t  countN;            /* count-in bars played - 1 (-1: none; smaller test code) */
+    int32_t  kitSel, kitWait;   /* Kit knob last seen (-1: none), calls it has stayed */
+    int32_t  countN;           /* count-in bars played - 1 (-1: none; smaller test code) */
     int32_t  rBLo, rBHi;        /* bands of the drum being rendered (none for synth drums) */
     float    synp[DB_SYN_NP];   /* params of the synth drum being rendered (from E->syn_pal) */
     int32_t  cOff[DB_NUM_LANES], cLen[DB_NUM_LANES];
@@ -421,6 +425,7 @@ static inline void db_init_state(DBState *st)
     st->swing = 0.0f;
     st->swMask = 1u;
     st->cKit = -1;              /* the first call renders the kit (and stops the players) */
+    st->kitSel = -1;
     st->cur[0] = st->cur[1] = st->cur[2] = st->cur[3] = st->cur[4] = 0u;
     st->fillRng = DB_FILL_RNG_SEED;
     st->lastFill = 0;
@@ -1088,12 +1093,19 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     int16_t *cache = (int16_t *)base;
     int32_t cacheCap = (int32_t)((stateBase - base) >> 1);
     int i;
+    if (kit != st->kitSel) {
+        st->kitWait = st->kitSel < 0 ? DB_KIT_SETTLE : 0;   /* the first kit needs no wait */
+        st->kitSel = kit;
+    } else if (st->kitWait < DB_KIT_SETTLE) {
+        st->kitWait++;
+    }
     if (kit != st->cKit) {
         st->cKit = kit;
 #ifndef DB_FOLLOW
         st->running = 0u;       /* follow: the song keeps its place, lanes join when rendered */
 #endif
-        st->rLane = st->rPos = st->rEnd = 0;
+        st->rLane = st->rEnd = 0;
+        st->rPos = -1;          /* the first lane's start is pending */
         st->rMask = 0u;
         st->ckOk = st->ckPos = st->ckWait = 0;
         st->ckAcc = 0u;
@@ -1104,11 +1116,13 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         }
     }
     for (i = 0; i < DB_RENDER_MAX && st->rLane < DB_NUM_LANES &&
+                st->kitWait >= DB_KIT_SETTLE &&
                 (uint32_t)(TSCL - t0) < DB_RENDER_CYC; i++) {
         int r = st->rLane, l = DB_RENDER_LANE(r), d = E->kit_drums[kit * DB_NUM_LANES + l];
         int32_t at = st->rEnd + st->rPos;
         float y;
-        if (st->rPos == 0) {
+        if (st->rPos < 0) {     /* a lane's start is a call of its own (no spike with samples) */
+            st->rPos = 0;
             db_reset_engine(st, l);
             st->rLast = -1;
             st->cOff[l] = st->rEnd;
@@ -1128,6 +1142,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
                     st->rBLo = DB_D_LO(d);
                     st->rBHi = DB_D_HI(d);
                 }
+                break;
             }
         }
         /* a drum ends when the engine is done, after DB_QUIET quiet
@@ -1139,7 +1154,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
             st->rEnd += st->rLast + 1;
             st->rLane = r + 1;
             st->rMask |= 1u << l;
-            st->rPos = 0;
+            st->rPos = -1;
             st->lane[l].active = 0;     /* stopped (it may still ring) */
             st->lane[l].syn.active = 0;
             continue;

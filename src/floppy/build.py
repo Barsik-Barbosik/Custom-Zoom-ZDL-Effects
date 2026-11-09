@@ -58,7 +58,7 @@ def build_floppy(out_zdl: Path, maxes: tuple[int, ...] | None = None, defines: l
         # frames) at slots the picture leaves light, as DrumBox does.
         knob_positions=[(i + 2, x, y) for i, (x, y) in enumerate(KNOB_SLOTS)],
         knob_bitmap=(1, 1, 11, bytes(11)),
-        dsp_cost=2.0,
+        dsp_cost=1.0,
         # 1 flash block (4,090 B): Floppy never reads params[] (zmenu reads
         # its patch columns), so no _init; its 9 knob handlers are 16-byte
         # stubs into one shared body; no TI bookkeeping symbols, .dynamic

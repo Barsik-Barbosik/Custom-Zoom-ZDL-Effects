@@ -46,6 +46,8 @@ from a measurement (DrumBox declares 60, SongBox 45; no crackle in a
 | **Spread one-off work over calls with a cycle budget:** render until TSCL shows `DB_RENDER_CYC` (8,000 cycles, ~25 %) used, at most 32 samples | kit change: peak ~135 % (crackle) → ~90 %, no crackle | works |
 | SongBox's song packer runs in steps (≤ 8 steps / ~6,000 cycles per call); its wavetables are built a few rows per call (~4,000 cycles) | no load spike on edits or at start | works |
 | Cache what can't change while running: the firmware fingerprint check once (with an inverted copy to notice an overwritten state), slot marks read once per call | call start A 19/9 → 18/6 | works |
+| **Wait for the knob to settle before the work:** DrumBox renders a kit only after the Kit knob has stayed put for 800 calls (~145 ms), so turning through kits costs no render time | kit-turn render stops; no start spike | staged, pedal test pending |
+| **One start per call:** a lane's first sample is its own call, and the render loop stops after each lane's sample | no spike at the start of a drum | staged, pedal test pending |
 | Knob names: write one name per call, in turn, and only bytes that differ | names N peak 19 → 12 % | works |
 | Rewrite knob names only when what they show changes (plus a slow refresh) | N mean 7 → 1 % | works |
 | A check pass over a big cache in slices (`DB_CHECK_N` samples per call), fast only right after a patch switch | | works |

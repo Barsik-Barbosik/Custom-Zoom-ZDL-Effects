@@ -283,7 +283,7 @@ def main() -> None:
         fxid_version=b"1.00",
         flags_byte=1,
         screen_image=make_screen(),
-        dsp_cost=45.0,                  # ~21 % mean per call (probe), chain budget 210 ~ the whole DSP
+        dsp_cost=71.0,                  # ~21 % mean per call (probe), chain budget 210 ~ the whole DSP
         # no firmware knobs on the picture: own blank 1x1 knob graphic (11 frames)
         knob_positions=[(i + 2, x, y) for i, (x, y) in enumerate(KNOB_SLOTS)],
         knob_bitmap=(1, 1, 11, bytes(11)),

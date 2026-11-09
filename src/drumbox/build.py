@@ -191,6 +191,10 @@ def main() -> None:
         # LineSel blob without its unused _init, Dll and push/pop_rts
         # (-160 B).
         trim_linesel_blob=True,
+        # no .c6xabi.attributes section (-123 B file)
+        drop_attributes=True,
+        # knob handler dynsyms without names (.dynstr 445 -> 214 B)
+        anon_edit_syms=True,
         # DSP cost the pedal adds up per patch (budget 210 on the G1Xon):
         # measured ~15 % of the DSP while playing, ~35 % for some seconds
         # after a kit change -> 60.
