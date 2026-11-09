@@ -36,7 +36,7 @@ DrumBox in the same patch, so the drums follow the song.
 - **Footswitch on:** the song plays from bar 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the instruments.
 
-Version 1.0.0. Status: works on the B1Xon 1.30 (G1on family). Untested on the MS pedals
+Version 1.0.0. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10; their addresses are read from
 the firmware, not tried): saving and DrumBox control assume the same patch
 layout as on the G1on. The MS-60B has 4 slots per patch.
@@ -347,4 +347,3 @@ G1on family; 30,136 B froze).
 - **Mono instruments.**
 - **One SongBox per patch:** a second copy stays silent (the first in the
   chain plays).
-- More than one Floppy copy is untested.

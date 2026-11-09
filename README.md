@@ -16,10 +16,10 @@ These pedals use the ZDL effect format (`.ZDL` files):
 
 | Pedal | Firmware | DrumBox | SongBox + Floppy |
 |---|----------|---|---|
-| Zoom G1Xon | 1.21     | **Works** (all features tested) | Untested (same OS as the B1Xon) |
+| Zoom G1Xon | 1.21     | **Works** (all features tested) | **Works** (all features tested) |
 | Zoom G1on | —        | Untested | Untested |
 | Zoom B1on | —        | Untested | Untested |
-| Zoom B1Xon | 1.30     | **Works** (all features tested) | **Works** (one Floppy; several copies untested) |
+| Zoom B1Xon | 1.30     | **Works** (all features tested) | **Works** (all features tested) |
 | Zoom MS-70CDR | 2.10     | Untested; the toolchain's main target (other custom ZDLs run on it) | Untested |
 | Zoom MS-50G | 3.10     | Untested | Untested |
 | Zoom MS-60B | 2.10     | Untested | Untested |

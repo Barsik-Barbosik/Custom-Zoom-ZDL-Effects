@@ -19,7 +19,7 @@ knob values.
 - **Don't turn its knobs:** that changes the stored data. Copying or saving
   the patch is safe.
 
-Version 1.0.0. Status: works on the B1Xon 1.30 (G1on family). Untested on the MS pedals
+Version 1.0.0. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10): please report if saved data
 comes back wrong there.
 
