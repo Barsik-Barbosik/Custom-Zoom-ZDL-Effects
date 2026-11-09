@@ -5,8 +5,8 @@ Custom effects (ZDL) for Zoom pedals of the MultiStomp / G1on / B1on family.
 | Effect | Screen | Category | What it is | Demo | Download |
 |---|---|---|---|---|---|
 | [DrumBox](src/drumbox/README.md) | <a href="src/drumbox/README.md"><img src="src/drumbox/screen.png" width="192" height="128" alt="DrumBox on the pedal's screen"></a> | SFX | Drum machine: 150 beats, 150 fills, 22 kits, songs of two sections | [Video](https://www.youtube.com/watch?v=9CBZu1qY9KA "DrumBox: a custom drum machine effect for Zoom pedals that load ZDL effects") | [Releases](../../releases) |
-| [SongBox](src/songbox/README.md) (0.7 beta) | <a href="src/songbox/README.md"><img src="src/songbox/screen.png" width="192" height="128" alt="SongBox on the pedal's screen"></a> | SFX | Chord song sequencer: songs of up to 128 bars written on the pedal, two organs, electric piano, marimba, kalimba, synth and pluck chords with five basses (48 kits), drives DrumBox. Needs Floppy | — | — |
-| [Floppy](src/floppy/README.md) | <a href="src/floppy/README.md"><img src="src/floppy/screen.png" width="192" height="128" alt="Floppy on the pedal's screen"></a> | SFX | Silent storage effect: saves SongBox's song in the patch | — | — |
+| [SongBox](src/songbox/README.md) | <a href="src/songbox/README.md"><img src="src/songbox/screen.png" width="192" height="128" alt="SongBox on the pedal's screen"></a> | SFX | Chord song sequencer: songs of up to 128 bars written on the pedal, two organs, electric piano, marimba, kalimba, synth and pluck chords with five basses (48 kits), drives DrumBox. Needs Floppy | — | [Releases](../../releases) |
+| [Floppy](src/floppy/README.md) | <a href="src/floppy/README.md"><img src="src/floppy/screen.png" width="192" height="128" alt="Floppy on the pedal's screen"></a> | SFX | Silent storage effect: saves SongBox's song in the patch | — | [Releases](../../releases) |
 
 More effects will follow.
 
@@ -40,7 +40,7 @@ pedal, firmware and what happened.
 ## Install
 
 Download an effect's `.ZDL` from the [Releases](../../releases) page
-(DrumBox is also in `dist/`). Each effect's README gives its category and how many free
+(also in `dist/`). Each effect's README gives its category and how many free
 flash blocks it needs.
 
 Install it like any other effect with

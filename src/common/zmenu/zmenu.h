@@ -581,16 +581,18 @@ static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
         /* marked copies first (a repeated marker: the first one), then the
          * unmarked ones: pass 1 the first non-empty is part 1, pass 2 the
          * first of the rest if still none; the others (and repeated
-         * markers) get a free marker */
+         * markers) get a free marker. The own slot is never a Floppy:
+         * while it is being replaced by one, the old code may still run
+         * with the new id in the record and its own knob values in the row */
         for (s = 0u, mk = 0u; s < t->slots; ++s) {     /* marks read once: nibble s (<= 8 slots) */
-            q = zm_s_mark(t, s);
+            q = zm_s_mark(t, s) | (s == z->slot) * ZM_S_PARTS;  /* own slot: >= ZM_S_PARTS */
             mk |= q << (4u * s);
             if (q - 1u < ZM_S_PARTS - 1u && z->pslot[q] == ZM_NOSLOT) z->pslot[q] = s;
         }
         for (pass = 1u; pass <= 2u; ++pass)
             for (s = 0u; s < t->slots; ++s) {
                 q = (mk >> (4u * s)) & 15u;
-                if (q == ZM_S_PARTS || (q && z->pslot[q] == s) || z->pslot[0] == s) continue;
+                if (q >= ZM_S_PARTS || (q && z->pslot[q] == s) || z->pslot[0] == s) continue;
                 if (q == 0u && z->pslot[0] == ZM_NOSLOT) {
                     w = pass - 1u;      /* pass 2: any */
                     for (i = 0u; i < 9u; ++i)

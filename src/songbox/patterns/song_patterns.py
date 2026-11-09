@@ -5,7 +5,7 @@ PATTERNS, DRUM_STYLES and DEFAULTS from here.
 
 patterns.json:
   {"format": "songbox-patterns", "version": 1,
-   "defaults": {"Rhy1": <screen>, "Rhy2": <screen>, "Rhy3": <screen>},
+   "defaults": {"Rhy1": <screen>, "Rhy2": <screen>, "Rhy3": <screen>}  (or "Randm"),
    "patterns": [{"screen", "name", "bass", "keys", "drums"}, ...]}
   screen  1..5 characters, unique (the Rhy knob text)
   bass    {"notes": 16 steps, "len": 16 steps}: one character per note
@@ -150,9 +150,9 @@ def load(path: Path = PATTERNS_JSON):
     dflt = data.get("defaults") or {}
     defaults = {}
     for k in KNOBS:
-        if dflt.get(k) not in seen:
-            raise PatternError(f"defaults: {k} must name a pattern's screen")
-        defaults[k] = [p["short"] for p in pats].index(dflt[k]) + 1     # knob value (0 = Randm)
+        if dflt.get(k) != "Randm" and dflt.get(k) not in seen:
+            raise PatternError(f"defaults: {k} must name a pattern's screen or Randm")
+        defaults[k] = 0 if dflt[k] == "Randm" else [p["short"] for p in pats].index(dflt[k]) + 1     # knob value (0 = Randm)
     return pats, styles, defaults
 
 
@@ -195,4 +195,4 @@ if __name__ == "__main__":
     for i, p in enumerate(PATTERNS):
         dr = "/".join(d for d in DRUM_STYLES[p["short"]] if d)
         print(f"{i + 1:3d} {p['short']:5s} {p['name']:16s} drums {dr}{'  norandom' if p['norandom'] else ''}")
-    print("defaults", ", ".join(f"{k} {PATTERNS[v - 1]['short']}" for k, v in DEFAULTS.items()))
+    print("defaults", ", ".join(f"{k} {PATTERNS[v - 1]['short'] if v else 'Randm'}" for k, v in DEFAULTS.items()))

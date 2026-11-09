@@ -2,9 +2,9 @@
 
 <img src="../../docs/images/songbox.png" width="538" height="358" alt="SongBox screen image">
 
-SongBox plays a chord song with bass and chords (electric piano or organ,
-precision bass)
-along with your guitar. You write the song on the pedal, bar by bar, and it can drive
+SongBox plays a chord song with bass and chords (organs, electric piano,
+marimba, kalimba, synth or pluck chords with five basses) along with your
+guitar. You write the song on the pedal, bar by bar, and it can drive
 DrumBox in the same patch, so the drums follow the song.
 
 - **Songs of up to 128 bars,** each with a chord and one of 3 rhythms.
@@ -19,7 +19,9 @@ DrumBox in the same patch, so the drums follow the song.
 - **Saved in the patch** through [Floppy](../floppy/README.md), a storage
   effect in another slot of the same patch. One Floppy holds 106 bits
   (repeated bars and sections cost little); up to 4 copies hold longer
-  songs (102 bits more each). Without Floppy the song is not saved.
+  songs (102 bits more each). Without Floppy the song is not saved; add an
+  empty Floppy to the same patch and the song you wrote is kept and saved
+  into it (Full if it doesn't fit).
 - **Drives DrumBox:** with [DrumBox](../drumbox/README.md) in the same
   patch, SongBox sets its beat, fills and tempo for each bar and starts and
   stops it with the song (MS pedals untested). After a patch change both
@@ -34,14 +36,15 @@ DrumBox in the same patch, so the drums follow the song.
 - **Footswitch on:** the song plays from bar 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the instruments.
 
-Version 0.7 (beta). Status: works on the B1Xon 1.30 (G1on family). Untested on the MS pedals
+Version 1.0.0. Status: works on the B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10; their addresses are read from
 the firmware, not tried): saving and DrumBox control assume the same patch
 layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SONGBOX.ZDL` (32,262 B) needs 8 free flash blocks; `FLOPPY.ZDL` 1 more.
+`SongBox.ZDL` (32,326 B, from the [Releases](../../../../releases) page or
+`../../dist/`) needs 8 free flash blocks; `Floppy.ZDL` 1 more.
 It is in the **SFX** category (gid 7, fxid 521). Install both as described
 in the [main README](../../README.md#install), then put SongBox, Floppy
 and (optionally) DrumBox into one patch.
@@ -57,7 +60,7 @@ and (optionally) DrumBox into one patch.
 | 2 | Rhy2 | as Rhy1 | Pattern played by rhythm 2 |
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
 | 3 | Tempo | 40–250 | Tempo in BPM |
-| 3 | Volume | 0–100 | Instrument level (50 = unchanged) |
+| 3 | Volume | 0–100 | Instrument level (50 = unchanged, default 70) |
 | 3 | Instr | Or1, Or1+BG, Or1+B2, Or1+BS, Or1+BT, Or1Ch, Or2, Or2+BG, Or2+B1, Or2+BS, Or2+BT, Or2Ch, EP+BG, EP+B1, EP+B2, EP+BS, EP+BT, EPCh, Mrm+BG, Mrm+B1, Mrm+B2, Mrm+BS, Mrm+BT, MrmCh, Klm+BG, Klm+B1, Klm+B2, Klm+BS, Klm+BT, KlmCh, Syn, Syn+BG, Syn+B1, Syn+B2, Syn+BT, SynCh, Plk+BG, Plk+B1, Plk+B2, Plk+BS, Plk+BT, PlkCh, BG, B1, B2, BS, BT, Mute | Instrument kit: a chords part and a bass part (default Or1+BG), grouped by chords sound. Chords: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay. Bass after the +: BG = bass guitar (precision bass), B1 = Organ1's bass, B2 = Organ2's bass, BS = the synth's bass, BT = triangle bass; a name alone (Or1, Or2, Syn) plays its own bass; Ch = the chords alone (no bass). BG, B1, B2, BS, BT alone = that bass alone |
 
 ### Writing a song
@@ -108,7 +111,7 @@ Each pattern is named after the DrumBox beat it plays (one for nearly
 every DrumBox style beat); a few variations play an existing beat with their own bass
 and chords (RkArp, Bald2, Funk3, Disc2, Bssa2, Blue2, and the arpeggios
 Arp8, Arp16, ArpSw). Defaults:
-Rhy1 Rock, Rhy2 Funk, Rhy3 Balld. Randm (knob value 0) picks any pattern. Notes are relative to each bar's chord: besides the
+Rhy1 Rock, Rhy2 Rk16b, Rhy3 Randm. Randm (knob value 0) picks any pattern. Notes are relative to each bar's chord: besides the
 triad, the bass can play the 3rd, 6th, 2nd and an approach note into the
 next chord, the keys sus4 / sus2 and the 9th, each only where it fits the
 song's key; the keys also play chords in root position, 1st or 2nd
@@ -324,7 +327,8 @@ Needs the TI C6000 Code Generation Tools (see the
 `../drumbox/patterns/`.
 
 ```
-python -B build.py --out PATH          # SONGBOX.ZDL to PATH
+python -B build.py                     # release build -> ../../dist/SongBox.ZDL
+python -B build.py --out PATH          # SongBox.ZDL to PATH
 python -B build.py --probe --out PATH  # with the CPU load meter in STATUS (development)
 python -B build.py --rhythms N --out PATH   # test build with only the first N rhythms
 python -B build.py --tests             # only regenerate songbox_tests.h (no TI needed)
@@ -333,8 +337,8 @@ python -B pbass_proto.py               # precision bass variants -> preview/pbas
 ```
 
 After building check: `.fardata: 4 bytes`, the `.obj` relocations each
-with a `.rela.dyn` entry, and the allocated size under ~30,096 B (the largest known to load on the
-G1on family).
+with a `.rela.dyn` entry, and the allocated size at most 30,104 B (the largest known to load on the
+G1on family; 30,136 B froze).
 
 ## Known limitations
 

@@ -74,7 +74,7 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
 #define DB_VERSION 43u  /* 43: state at the arena's end; 42: offset cache; 41: countN; 40: rMask, closed hat rendered first; 39: start gate (lastCall, ckWait); 38: cache check; 37: synp, synth params of the drum being rendered (bump when the state layout changes) */
 #ifdef DB_FOLLOW
 /* Follow mode (default; build.py --no-follow leaves it out): another effect
- * in the chain (a song sequencer) may drive the knobs by writing this slot's
+ * in the chain (SongBox) may drive the knobs by writing this slot's
  * state[31] table row. On a known OS (G1on family; MS-70CDR 2.10 untested)
  * the row is copied into params[] every call; LenA / LenB turning from both
  * Skip to a length (or back) restarts the song at once. While driven (LenA

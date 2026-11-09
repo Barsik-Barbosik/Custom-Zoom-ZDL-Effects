@@ -104,7 +104,7 @@
 ZM_EXPAND_PRAGMA(CODE_SECTION(SS_AUDIO_FUNC, ".audio"))
 ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 
-#define SS_MAGIC     0x53535541u        /* bump on a state layout change */
+#define SS_MAGIC     0x53535542u        /* bump on a state layout change */
 /* Patch change (a gap between audio calls, as DrumBox's DB_AWAY_CYC): the
  * song starts again at bar 1 after SS_AWAY_HOLD calls of silence, which also
  * gives DrumBox time for its cache check (else beat 1 would be dropped). */
@@ -297,7 +297,7 @@ typedef struct {
     uint32_t clr, clrd;                 /* Clear countdown (calls left); key of the MENU value shown */
     uint32_t cdone;                     /* CLEAR / TRIM finished: value shows DONE until touched */
     uint32_t blink;                     /* STATUS names: 0 "Can't save!", 1 "(no floppy)", 2 size */
-    uint32_t nkey, ntick;               /* what the knob names show (last written); calls */
+    uint32_t nkey, ntick;               /* what the knob names show (last written); (unused) */
     uint32_t nk, npend;                 /* next knob name to write; names left to write */
     uint32_t play, bar, step, fire, arp;  /* player: song bar / 16th of the drum bar, events due, arp voice */
     uint32_t alast;                     /* the last arpeggio tone (MIDI) */
@@ -323,6 +323,7 @@ typedef struct {
     uint32_t lastCall, hold;            /* TSCL at the previous call; calls left stopped */
     uint32_t wtn;                       /* wavetable rows built (SS_WT_ROWS: ready) */
     uint32_t patch;                     /* patch number last seen (G1on) */
+    uint32_t ramp;                      /* last edit: patch | Floppies << 16; ~0 after a load */
     uint32_t w[SP_NWORDS];
     uint8_t bars[SP_MAX_BARS], cand[SP_MAX_BARS];
     uint8_t tmp[SP_MAX_BARS], trh[SP_MAX_BARS];
@@ -475,6 +476,14 @@ static void ss_ms_set(SsState *st, uint32_t c)
     st->fset = c;
 }
 
+/* n bytes s -> d (bar lists; one copy loop for all). */
+SS_COLD(ss_bcpy)
+static void ss_bcpy(uint8_t *d, const uint8_t *s, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0u; i < n; ++i) d[i] = s[i];
+}
+
 /* Pack cand. */
 SS_COLD(ss_request_pack)
 static void ss_request_pack(SsState *st, uint32_t mode)
@@ -503,6 +512,7 @@ static inline void ss_fresh(SsState *st, unsigned int *ctx)
     for (i = 0u; i < 9u; ++i) st->last[i] = zm_knob(params[5u + i], 150u);
     st->sel = st->last[SS_K_BAR]; st->stat = 0u;
     st->opt = 0u;
+    st->npend = 3u;                     /* write the knob names once */
     st->n = 0u; st->cn = 0u; st->pn = 0u;
     st->sum = 0u; st->csum = 0u;        /* ss_sum of an empty list */
     st->used = SP_KEY_BITS; st->key = 0u;
@@ -525,7 +535,7 @@ static inline void ss_fresh(SsState *st, unsigned int *ctx)
 SS_COLD(ss_pack_done)
 static void ss_pack_done(SsState *st)
 {
-    uint32_t ok, i;
+    uint32_t ok;
     /* a song that needs a missing Floppy: only clearing it is saved */
     ok = st->packing == SS_PK_EDIT && st->need && st->cn;
     if (st->pk.fits && st->retry < 3u && !ok) {
@@ -533,7 +543,7 @@ static void ss_pack_done(SsState *st)
         return;
     }
     if (st->packing == SS_PK_EDIT && !st->zm.nparts) {     /* no Floppy: the edit stays in RAM */
-        for (i = 0u; i < st->cn; ++i) st->bars[i] = st->cand[i];
+        ss_bcpy(st->bars, st->cand, st->cn);
         st->n = st->cn;
         st->pn = st->spn;
         st->sum = st->csum;
@@ -541,7 +551,7 @@ static void ss_pack_done(SsState *st)
         st->key = st->pk.bkey;          /* the notes' key check (ss_key_mask) */
         st->used = SP_KEY_BITS + SP_BUDGET * SP_MAX_PARTS;     /* more than 4 Floppies hold: at least that */
     } else if (st->packing == SS_PK_EDIT) {     /* refused (doesn't fit, never verified, Floppy missing) */
-        for (i = 0u; i < st->n; ++i) st->cand[i] = st->bars[i];
+        ss_bcpy(st->cand, st->bars, st->n);
         st->cn = st->n;
         st->csum = st->sum;
         ss_ms_set(st, st->fset);        /* MENU values back to the Floppy's */
@@ -567,7 +577,8 @@ static void ss_unpack_job(SsState *st)
     set = n >> 16;
     n &= 255u;
     if (req == 1u) {      /* song from Floppy (patch load, Floppy added) */
-        for (i = 0u; i < n; ++i) { st->bars[i] = st->tmp[i]; st->cand[i] = st->tmp[i]; }
+        ss_bcpy(st->bars, st->tmp, n);
+        ss_bcpy(st->cand, st->tmp, n);
         st->n = n;
         st->cn = n;
         st->pn = n;
@@ -591,7 +602,7 @@ static void ss_unpack_job(SsState *st)
         st->used = st->pk.bits;
         st->key = st->pk.bkey;
         if (st->packing == SS_PK_EDIT) {
-            for (i = 0u; i < st->cn; ++i) st->bars[i] = st->cand[i];
+            ss_bcpy(st->bars, st->cand, st->cn);
             st->n = st->cn;             /* with the END and the bars after it */
             st->pn = st->spn;
             st->sum = st->csum;
@@ -1247,8 +1258,24 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     st->patch = i;
     st->lastCall = t0;
 
+    if (st->lreq) {                     /* this call's Floppy load */
+        i = st->ramp;
+        st->ramp = ~0u;
+        /* an empty Floppy added in the patch of the last edit, which had no
+         * Floppy, with no load since and a song in cand: the RAM song goes
+         * onto it as an edit ("Full" and back to RAM's bars if it doesn't
+         * fit) instead of the load; one test, all 0 */
+        if ((st->w[0] | st->w[1] | st->w[2] | st->w[3] | st->zm.gap | (i ^ st->patch)) == 0u && st->cn) {
+            st->lreq = 0u;
+            st->ereq = 1u;
+        }
+    }
     ss_edit(st, ctx);
-    if (st->ereq) { st->ereq = 0u; ss_request_pack(st, SS_PK_EDIT); }
+    if (st->ereq) {
+        st->ereq = 0u;
+        st->ramp = st->patch | st->zm.nparts << 16;
+        ss_request_pack(st, SS_PK_EDIT);
+    }
 
     if (st->sreq) {                     /* the one packer start */
         st->sreq = 0u;
@@ -1322,8 +1349,8 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
         if (st->zm.posts == 0u) { st->zm.posts = 1u; st->zm.postWait = 0u; }
     }
     /* page 1 names: Bar / Chord / Rhythm, on MENU the option's three words;
-     * STATUS: built below. One name per call, in turn; all three again
-     * every 16th call (the OS may restore them), at once when what they
+     * STATUS: built below. One name per call, in turn; all three after a
+     * fresh state, at once when what they
      * show changes (the redraw key, Bar, the MENU option; the redraw then
      * waits until all three are written) and while a redraw is due. */
     i ^= st->sel << 7 ^ st->opt << 26 ^ st->stat << 31;
@@ -1332,7 +1359,7 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
         st->npend = 3u;
         if (st->zm.posts && st->zm.postWait < 2u) st->zm.postWait = 2u;
     }
-    if (st->zm.posts || (++st->ntick & 15u) == 0u) st->npend = 3u;
+    if (st->zm.posts) st->npend = 3u;
     if (st->npend) {
         uint32_t k = st->nk > 2u ? 0u : st->nk;    /* (overwritten while lent out) */
         volatile unsigned char *nm = (volatile unsigned char *)&ZM_DESC[12u * (2u + SS_K_BAR + k)];

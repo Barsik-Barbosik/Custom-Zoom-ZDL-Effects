@@ -27,12 +27,12 @@ started and stopped with the footswitch.
 - The guitar passes through at full level, mixed with the drums.
 - **Follows [SongBox](../songbox/README.md)** in the same patch: SongBox
   then sets the beats, fills and tempo for each bar and starts and stops
-  the drums with its song.
+  the drums with its song ([Follow mode](#follow-mode-songbox)).
 
 ## Install
 
 `DrumBox.ZDL` (from the [Releases](../../../../releases) page or
-`../../dist/`) needs 8 free flash blocks (32,698 B). Install it as described
+`../../dist/`, version 1.1.1) needs 8 free flash blocks (32,666 B). Install it as described
 in the [main README](../../README.md#install). It is in the **SFX** category
 (gid 7, fxid 520 = 0x208). Pedals it was tested on: see the
 [main README](../../README.md#pedals).
@@ -118,6 +118,38 @@ Defaults: Rock4 for 8BarM with Sn1, then Funk for 8BarM with Randm.
 
 **Knob changes** take effect at the next bar line. A shorter Length that
 the section has already passed ends the section there.
+
+### Follow mode (SongBox)
+
+With [SongBox](../songbox/README.md) in the same patch, SongBox drives
+DrumBox: each bar it sets BeatA, FillA, LenA, LenB and Tempo to the drum
+part of the song bar it plays, and it starts and stops the drums with its
+song. Without SongBox, DrumBox plays as described above.
+
+- **Knobs:** all knobs but Volume and Kit show "Song" while SongBox
+  drives them; turning them changes nothing. Volume and Kit stay yours.
+- **Start and stop** come from SongBox's footswitch and song.
+- **Count-in:** after a patch change both start with 2 count-in bars
+  (closed hat quarters) while DrumBox loads its sounds; then the song
+  starts at bar 1.
+- **DrumBox's footswitch off** mutes the drums, but they keep the song's
+  place: on again, they come back in time with the song.
+- **A Kit change or a patch switch** doesn't stop the drums: the new
+  kit's drums come in one by one as they are rendered.
+- **Pedals:** the G1on family (G1on / G1Xon 1.21, B1on / B1Xon 1.30;
+  works on the B1Xon), MS-70CDR 2.10, MS-50G 3.10 and MS-60B 2.10 (the MS
+  pedals untested). On other firmware versions DrumBox doesn't follow and
+  plays on its own.
+
+How it works inside:
+
+- SongBox writes DrumBox's knob values into the patch's knob table in the
+  pedal's memory; DrumBox copies its row from there into its knob values
+  on every audio call (the addresses per firmware are in `drumbox.c`,
+  `db_f_fw`).
+- LenA carries the song's state in values above the Length list: 90 =
+  playing (one bar at a time), 91 = stopped, 92 = count-in bar.
+- `build.py --no-follow` builds DrumBox without follow mode.
 
 ### Beats
 

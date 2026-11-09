@@ -11,7 +11,7 @@ unless marked alloc.
 | Limit | What counts | Value |
 |---|---|---|
 | Flash | the whole `.ZDL` file | 4,090-byte blocks (8 blocks = 32,720 B) |
-| Load (G1on family) | alloc = `.text` + `.const` + `.fardata` | 30,096 B loaded, 30,216 B froze on selecting the effect |
+| Load (G1on family) | alloc = `.text` + `.const` + `.fardata` | 30,104 B loaded, 30,136 B froze on selecting the effect |
 
 The gap between the two is ELF bookkeeping: `.rela.dyn`, `.dynsym`,
 `.dynstr`, `.hash` and the headers. In SongBox it was 4,446 B at the
@@ -60,6 +60,7 @@ nothing for alloc, because alloc is their sum.
 | One generic engine driven by data records instead of code per instrument | SongBox −368 B file, −560 alloc; a new instrument ~120 B of data instead of ~900 B of code | works |
 | Pick a table index in each branch and copy the text once at the end, instead of a copy in every branch | a copy per return got inlined: +632 B and +24 relocations | works |
 | Send every text (words, instrument names, chord names with a prefix and a minor "m") through that one copy: branches only pick a string number | SongBox −224 B of code (three inlined copy loops → one) | works |
+| Byte copies (bar lists) through one small out-of-line copy routine instead of a copy loop at each site (cl6x software-pipelines each inlined loop, ~60 B apiece) | SongBox −128 B of code (four copy loops → one) | works (B1Xon 1.30) |
 | Look up a per-firmware table row once per call and keep the pointer, instead of indexing the table at every use | −352 B code, −16 relocations | works |
 | Formulas instead of compare chains or macros expanded per entry | ~7 B per entry per expansion | works |
 | Branch-free operations (`x \|= (a - b) >> 31`), small maps as nibble lists, offset counters | whole 32-byte packets | works |

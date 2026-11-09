@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build SONGBOX.ZDL: chord song sequencer with synth bass and chords (SFX + 521).
 
-  python -B build.py --out P        # SONGBOX.ZDL to P
+  python -B build.py                # release build -> ../../dist/SongBox.ZDL
+  python -B build.py --out P        # SongBox.ZDL to P
   python -B build.py --probe --out P   # load probe: STATUS shows CPU % (SS_PROBE)
   python -B build.py --rhythms N --out P   # test build: only the first N rhythms
   python -B build.py --tests        # only regenerate songbox_tests.h (no TI)
@@ -49,7 +50,7 @@ KNOBS = [  # name, max, default
     ("Chord", 26, 0), ("Rhythm", 2, 0),                  # Chord: END, 24 chords, Drums, Rest
     ("Rhy1", len(PATTERNS), DEFAULTS["Rhy1"]), ("Rhy2", len(PATTERNS), DEFAULTS["Rhy2"]),
     ("Rhy3", len(PATTERNS), DEFAULTS["Rhy3"]),           # 0 Randm, 1.. patterns (patterns.json)
-    ("Tempo", 210, 60), ("Volume", 100, 50), ("Instr", len(sets.INSTR) - 1, sets.INSTR_DEFAULT),  # 40..250 BPM (max 210: APanDLY law, unclamped); 50 = x1; Instr = sets.INSTR
+    ("Tempo", 210, 60), ("Volume", 100, 70), ("Instr", len(sets.INSTR) - 1, sets.INSTR_DEFAULT),  # 40..250 BPM (max 210: APanDLY law, unclamped); 50 = x1; Instr = sets.INSTR
 ]
 
 
@@ -252,9 +253,12 @@ def main() -> None:
     if "--tests" in sys.argv:                           # only songbox_tests.h (no TI)
         write_tests(HERE / "songbox_tests.h")
         return
-    if "--out" not in sys.argv:
-        sys.exit("[songbox] --out P required (SongBox builds never go to dist/)")
-    out_zdl = Path(sys.argv[sys.argv.index("--out") + 1]).resolve()
+    if "--out" in sys.argv:
+        out_zdl = Path(sys.argv[sys.argv.index("--out") + 1]).resolve()
+    elif "--probe" in sys.argv or "--rhythms" in sys.argv:
+        sys.exit("[songbox] --probe / --rhythms need --out P (test builds never go to dist/)")
+    else:
+        out_zdl = PROJECT / "dist" / "SongBox.ZDL"
     out_zdl.parent.mkdir(parents=True, exist_ok=True)
     from linker import LinkerConfig, link, params_from_manifest  # noqa: E402
 
@@ -263,7 +267,7 @@ def main() -> None:
     sets.c_header(HERE / "songbox_instr.h")              # all instrument sets, Instr table
     write_drums(HERE / "songbox_drums.h")                # DrumBox control
     obj = HERE / "songbox.obj"
-    defines = ["SS_PROBE=1"] if "--probe" in sys.argv else []   # never for dist/: --out is required
+    defines = ["SS_PROBE=1"] if "--probe" in sys.argv else []   # never for dist/: needs --out
     compile_c(HERE / "songbox.c", obj, include=[ZMENU, SONG], defines=defines, space=SPACE)
     params = [dict(name=n, type="knob", max=mx, default=d, scale="enum", audio_min=0.0,
                    audio_max=float(mx), audio_default=float(d), getstr=f"GetString_Ss{i + 1}")

@@ -4,7 +4,8 @@ Floppy is a plain effect with 9 knobs at the patch field maxes and no sound;
 zmenu.h (src/common/zmenu/) in another effect finds it in the chain and packs that
 effect's values into its knob columns, so they are saved in the patch.
 
-  python -B build.py --out P              # FLOPPY.ZDL to P
+  python -B build.py                      # release build -> ../../dist/Floppy.ZDL
+  python -B build.py --out P              # Floppy.ZDL to P
   python -B build.py --knob-text --out P  # knob pages show the raw values (2 blocks)
 
 build_floppy(maxes=...) builds test Floppies with other knob maxes.
@@ -76,9 +77,14 @@ def main() -> None:
     knob_text = "--knob-text" in args
     if knob_text:
         args.remove("--knob-text")
-    if len(args) != 2 or args[0] != "--out":
-        sys.exit("usage: python -B build.py [--knob-text] --out P")
-    build_floppy(Path(args[1]).resolve(), knob_text=knob_text)
+    if not args and not knob_text:                      # release build
+        out = PROJECT / "dist" / "Floppy.ZDL"
+    elif len(args) == 2 and args[0] == "--out":
+        out = Path(args[1]).resolve()
+    else:
+        sys.exit("usage: python -B build.py [[--knob-text] --out P]  (--knob-text builds never go to dist/)")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    build_floppy(out, knob_text=knob_text)
 
 
 if __name__ == "__main__":

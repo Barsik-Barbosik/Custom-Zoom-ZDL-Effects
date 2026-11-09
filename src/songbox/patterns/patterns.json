@@ -3,19 +3,19 @@
  "version": 1,
  "defaults": {
   "Rhy1": "Rock",
-  "Rhy2": "Funk",
-  "Rhy3": "Balld"
+  "Rhy2": "Rk16b",
+  "Rhy3": "Randm"
  },
  "patterns": [
   {
    "screen": "Rock",
    "name": "Rock",
    "bass": {
-    "notes": "R.R.R.R.R.R.R.A.",
+    "notes": "R.R.R.R.R.R.R.5.",
     "len": "2.2.2.2.2.2.2.2."
    },
    "keys": {
-    "notes": "C.......S...C...",
+    "notes": "C.......C...C...",
     "len": "7.......3...3..."
    },
    "drums": {
