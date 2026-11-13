@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 
 SR = 44100
-WT_BITS = 11
+WT_BITS = 9     # 512 words: a call's reads touch a quarter of the cache lines of 2048
 WT_N = 1 << WT_BITS   # wavetable words per cycle (instruments with TABLE; + 1 guard word)
 WT_OFS = 6464.0    # a word's high half + this: the word reads as a tiny float (silent)
 
@@ -69,6 +69,7 @@ class Voice:
         self.lp2 = 0.0
         self.bp = 0.0
         self.att = 1.0
+        self.bk = 0                                 # engine.py: sample in the block
 
     def trigger(self, f: float, length: int):
         self.on = True

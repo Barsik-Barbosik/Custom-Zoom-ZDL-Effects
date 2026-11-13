@@ -1,5 +1,84 @@
 # Changelog
 
+## DrumBox 1.1.2, SongBox 1.0.1, Floppy 1.0.1 (2026-11-13)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,511 B | 8 | 60 | `92b254f092d6cb3df7422f46fddc64d877660d6deab7673af1e16932c8f82287` |
+| `SongBox.ZDL` | 32,094 B | 8 | 52 | `8baf7f1653438f4a5040cc14ee9bd2400237553ed15bdb66e00ca90f7358b2e9` |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` |
+
+All three work on the B1Xon 1.30; the MS pedals are untested.
+
+### All effects
+
+- **No code from Zoom's effects in the ZDLs any more.** Own OnOff and knob
+  handlers (`build/own_handlers.asm`, with TI's call stub) and Leemuzhko's
+  40-byte `Dll_` replace the stock LineSel handlers and the NoiseGate
+  `Dll_`. The stock blobs are gone from the repository. Checked on the
+  B1Xon 1.30: load, knobs, footswitch, and knob values after save, patch
+  switch and power cycle.
+
+### DrumBox 1.1.2
+
+- **Kit knob:** a kit renders only once the Kit knob has rested ~145 ms,
+  so turning through kits costs no render time.
+- A drum lane's first sample is started in its own call (no spike when a
+  drum starts).
+- The 9 knob handlers are 16-byte stubs into one shared body (as SongBox
+  and Floppy): 31,511 B (was 32,666), alloc 28,740 (was 29,540), still 8
+  flash blocks.
+
+### SongBox 1.0.1
+
+- **Less CPU:** about 16 % of the DSP time per call on average (1.0.0
+  ~21 %), and lower peaks:
+  - the next step's notes are worked out mid-step (look-ahead), so the
+    call where they start does only a copy (note start ~10 % → ~1 %);
+  - faded voices run on silently, so their tables and code stay in the
+    cache (the worst call ~60 % → ~45 %);
+  - levels and LFOs once per 8-sample block, and a note starts at the
+    start of a call (at most 7 samples early);
+  - wavetables of 512 instead of 2,048 points, built 4x faster after
+    loading or a patch change (sounds the same);
+  - song checksums only after a patch change, a lighter packer and edit
+    path: fewer clicks while turning Chord.
+- **Instr knob:** the kit changes once the knob has rested ~145 ms, so
+  turning through the kits doesn't click.
+- Same sound as 1.0.0 (A/B tested on the pedal with the electric piano).
+- **Declared DSP cost 52** (1.0.0 declared 45, too low: a patch could be
+  accepted and then crackle). Measured in heavy patches: SongBox with
+  stock effects that leave it less room crackled sometimes, so the pedal
+  now refuses those patches.
+- Smaller (32,094 B, alloc 29,852 of the ~30,104 that load): the song
+  packer's small helpers are called instead of inlined, and the DrumBox
+  beat per rhythm is stored as a small code.
+- All 149 rhythms are still there.
+- Updating from 1.0.0: songs saved in Floppy load as before. A song that
+  was only in memory (not saved in a Floppy) is lost.
+
+### Floppy 1.0.1
+
+- Declared DSP cost 1 (was 2): Floppy does no audio work.
+- 3,499 B (was 3,691), still 1 flash block.
+- Songs saved with Floppy 1.0.0 load.
+
+### Tools
+
+- `tools/g1on_sysex.py` (renamed from `zoom1_files.py`) can also read the
+  current patch (`patch`), set a knob live (`knob`) and switch patches
+  (`program`); `tools/g1on_keepalive.py` (renamed from
+  `zoom1_keepalive.py`). New `tools/README.md`.
+- `build/linker.py`: the own handlers and the 40-byte `Dll_` are the only
+  path; the LineSel / divf / knob3 / attributes options are gone. It
+  refuses an object that needs the float-divide, push / pop or call-stub
+  helpers.
+- Docs: firmware math functions and why they aren't used yet
+  (`docs/HARDWARE-NOTES.md`), cache misses on rarely-run work and the
+  look-ahead (`docs/ZDL-CPU-TIPS.md`), new size tips.
+
 ## SongBox 1.0.0, Floppy 1.0.0, DrumBox 1.1.1 (2026-11-09)
 
 Files in `dist/` and on the Releases page:

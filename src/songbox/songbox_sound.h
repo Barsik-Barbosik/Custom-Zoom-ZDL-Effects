@@ -5,14 +5,14 @@
 #define SS_NRAND 149u                  /* Randm picks one of patterns 0..SS_NRAND - 1 */
 #define SS_BITS(m) _dotpu4(_bitc4(m), 0x01010101u)   /* popcount */
 #define SS_NNOTES 767u   /* 1314 note bytes shared */
-#define SS_PAT_INIT {   /* ss_pat[SS_NPAT * 4u]: bass mask, keys mask, bass ofs | bar2 << 12, keys ofs | swing << 14 */ \
+#define SS_PAT_INIT {   /* ss_pat[SS_NPAT * 4u]: bass mask, keys mask, bass ofs | bar2 << 12, keys ofs | beat code << 12 | swing << 14 */ \
     0x5555u, 0x1101u, 519u, 89u,   /* Rock */ \
     0x5141u, 0x1101u, 685u, 89u,   /* Rock2 */ \
     0x5505u, 0x1111u, 431u, 64u,   /* Rock3 */ \
     0x4481u, 0x1111u, 3u, 121u,   /* Rock4 */ \
-    0x5555u, 0x5555u, 548u, 125u,   /* RkArp */ \
-    0x0101u, 0x5555u, 691u, 639u,   /* Arp8 */ \
-    0x1111u, 0xFFFFu, 647u, 133u,   /* Arp16 */ \
+    0x5555u, 0x5555u, 548u, 4221u,   /* RkArp */ \
+    0x0101u, 0x5555u, 691u, 8831u,   /* Arp8 */ \
+    0x1111u, 0xFFFFu, 647u, 12421u,   /* Arp16 */ \
     0xD555u, 0x0501u, 520u, 683u,   /* Rk16 */ \
     0x5541u, 0x4545u, 605u, 503u,   /* Rk16b */ \
     0x5489u, 0x0489u, 30u, 113u,   /* SyncR */ \
@@ -24,18 +24,18 @@
     0x1111u, 0x0101u, 67u, 690u,   /* RdFlr */ \
     0x4501u, 0x5111u, 592u, 110u,   /* OHRk */ \
     0x0501u, 0x5555u, 710u, 151u,   /* Balld */ \
-    0x1101u, 0x1101u, 495u, 719u,   /* Bald2 */ \
-    0x1101u, 0x1111u, 715u, 159u,   /* SlowR */ \
-    0x0501u, 0x1101u, 163u, 694u,   /* RdBal */ \
-    0x0301u, 0x0101u, 99u, 693u,   /* PwrBd */ \
-    0x4509u, 0x0441u, 612u, 8u,   /* Pop2 */ \
-    0x1449u, 0x1441u, 667u, 14u,   /* Pop3 */ \
-    0x4541u, 0x5555u, 56u, 547u,   /* PopRk */ \
-    0x5441u, 0x5555u, 76u, 408u,   /* PopR2 */ \
-    0x5555u, 0x5041u, 166u, 697u,   /* PwrPp */ \
-    0x1181u, 0x5555u, 102u, 174u,   /* PBald */ \
-    0xA901u, 0x2444u, 116u, 182u,   /* Pop16 */ \
-    0xA901u, 0x2449u, 186u, 16884u,   /* PSw16 */ \
+    0x1101u, 0x1101u, 495u, 4815u,   /* Bald2 */ \
+    0x1101u, 0x1111u, 715u, 4255u,   /* SlowR */ \
+    0x0501u, 0x1101u, 163u, 4790u,   /* RdBal */ \
+    0x0301u, 0x0101u, 99u, 4789u,   /* PwrBd */ \
+    0x4509u, 0x0441u, 612u, 4104u,   /* Pop2 */ \
+    0x1449u, 0x1441u, 667u, 4110u,   /* Pop3 */ \
+    0x4541u, 0x5555u, 56u, 4643u,   /* PopRk */ \
+    0x5441u, 0x5555u, 76u, 4504u,   /* PopR2 */ \
+    0x5555u, 0x5041u, 166u, 4793u,   /* PwrPp */ \
+    0x1181u, 0x5555u, 102u, 4270u,   /* PBald */ \
+    0xA901u, 0x2444u, 116u, 4278u,   /* Pop16 */ \
+    0xA901u, 0x2449u, 186u, 20980u,   /* PSw16 */ \
     0x5555u, 0x4444u, 700u, 49655u,   /* PShuf */ \
     0x5555u, 0x2449u, 191u, 61u,   /* DncPp */ \
     0x5519u, 0x1010u, 569u, 46u,   /* Motwn */ \
@@ -82,79 +82,79 @@
     0x4485u, 0x2248u, 744u, 166u,   /* Funk */ \
     0x4485u, 0x1224u, 752u, 16550u,   /* SwFnk */ \
     0x2449u, 0x1010u, 740u, 53u,   /* Funk2 */ \
-    0x5449u, 0x2244u, 627u, 166u,   /* Funk3 */ \
-    0xA445u, 0x9090u, 449u, 567u,   /* FDrum */ \
-    0xA429u, 0x4104u, 585u, 543u,   /* Strut */ \
-    0x4441u, 0x2424u, 4378u, 503u,   /* GoGo */ \
-    0x4909u, 0x1448u, 426u, 503u,   /* NOLA */ \
-    0x5541u, 0x1111u, 286u, 49655u,   /* Purdy */ \
-    0xA209u, 0x1090u, 292u, 500u,   /* LinFk */ \
-    0x5555u, 0x4444u, 485u, 166u,   /* Disco */ \
-    0x5555u, 0x1111u, 487u, 46u,   /* Disc2 */ \
-    0x1441u, 0x0408u, 386u, 57u,   /* DeepH */ \
-    0x4444u, 0x2424u, 503u, 16887u,   /* SwHse */ \
-    0x0481u, 0x4040u, 502u, 53u,   /* Minml */ \
-    0x4444u, 0x2449u, 166u, 231u,   /* Techn */ \
-    0x0C05u, 0x0101u, 85u, 344u,   /* Break */ \
-    0x0C05u, 0x0281u, 16466u, 227u,   /* Amen */ \
-    0x1405u, 0x1010u, 576u, 57u,   /* Think */ \
-    0x0541u, 0x5101u, 56u, 749u,   /* Apach */ \
-    0x2481u, 0x9010u, 468u, 543u,   /* Impch */ \
-    0x0483u, 0x0101u, 53u, 690u,   /* Levee */ \
-    0x4581u, 0x1490u, 297u, 544u,   /* CSwet */ \
-    0x4405u, 0x1101u, 95u, 468u,   /* RollB */ \
-    0x2445u, 0x1290u, 582u, 624u,   /* BrkB2 */ \
-    0x0685u, 0x0001u, 757u, 279u,   /* HHBrk */ \
-    0x0C05u, 0x1101u, 302u, 71u,   /* BrkRd */ \
-    0x2401u, 0x4444u, 666u, 166u,   /* NuSkl */ \
-    0x2405u, 0x0001u, 665u, 279u,   /* HTBrk */ \
-    0x0445u, 0x4041u, 0u, 591u,   /* BigB1 */ \
-    0x4485u, 0x1090u, 306u, 108u,   /* BigB2 */ \
-    0x2441u, 0x4444u, 596u, 33271u,   /* BBShf */ \
-    0x4445u, 0x0101u, 311u, 690u,   /* BBTom */ \
-    0x0401u, 0x1010u, 316u, 61u,   /* DnB */ \
-    0x0401u, 0x1010u, 16391u, 61u,   /* Jungl */ \
-    0x0501u, 0x0001u, 81u, 279u,   /* Dubst */ \
-    0x0481u, 0x0484u, 603u, 204u,   /* 2Step */ \
-    0x0281u, 0x1111u, 318u, 321u,   /* BBap */ \
-    0x0485u, 0x1010u, 11u, 61u,   /* BBap2 */ \
-    0x4485u, 0x1111u, 325u, 16714u,   /* BBpSw */ \
-    0x0241u, 0x1111u, 334u, 337u,   /* LoFi */ \
-    0x0241u, 0x0081u, 18u, 16404u,   /* LoFiS */ \
-    0x0481u, 0x0001u, 341u, 208u,   /* Half */ \
-    0x9041u, 0x0001u, 344u, 279u,   /* Drill */ \
-    0x0281u, 0x0101u, 22u, 690u,   /* Trap */ \
-    0x2449u, 0x9010u, 348u, 543u,   /* NJack */ \
-    0x2481u, 0x0441u, 24u, 353u,   /* NeoSl */ \
-    0x2481u, 0x0904u, 89u, 33379u,   /* Dilla */ \
-    0x2408u, 0x1449u, 28u, 503u,   /* Songo */ \
-    0x1101u, 0x5511u, 356u, 359u,   /* Bolro */ \
-    0x1111u, 0x4444u, 511u, 166u,   /* Cumbi */ \
-    0x0909u, 0x4848u, 36u, 503u,   /* Rgtn */ \
-    0x0909u, 0x1111u, 617u, 503u,   /* Baiao */ \
-    0x1149u, 0x1111u, 656u, 365u,   /* Tango */ \
-    0x4141u, 0x24A4u, 531u, 624u,   /* Calyp */ \
-    0x9999u, 0x2449u, 369u, 500u,   /* Samba */ \
-    0x0909u, 0x2449u, 617u, 553u,   /* Bossa */ \
-    0x0909u, 0x2449u, 377u, 381u,   /* Bssa2 */ \
-    0x1414u, 0x1010u, 578u, 53u,   /* 1Drop */ \
-    0x1191u, 0x4444u, 598u, 166u,   /* Rckrs */ \
-    0x5151u, 0x4444u, 386u, 166u,   /* Stepr */ \
-    0x1111u, 0x4444u, 392u, 166u,   /* Ska */ \
-    0x0141u, 0x1010u, 39u, 53u,   /* Dub */ \
-    0x0101u, 0x0041u, 691u, 49209u,   /* Swing */ \
-    0x1111u, 0x1040u, 496u, 49209u,   /* Bebop */ \
-    0x1111u, 0x1111u, 104u, 49655u,   /* Jazz4 */ \
-    0x1111u, 0x4444u, 513u, 49655u,   /* Texas */ \
-    0x5111u, 0x1101u, 728u, 49620u,   /* Blues */ \
-    0x5555u, 0x4444u, 396u, 49318u,   /* Blue2 */ \
-    0x1111u, 0x5555u, 659u, 49785u,   /* ArpSw */ \
-    0x1101u, 0x1010u, 650u, 57u,   /* Cntry */ \
-    0x1101u, 0x4444u, 404u, 49655u,   /* CnShf */ \
-    0x0101u, 0x1111u, 691u, 121u,   /* March */ \
-    0x4449u, 0x2424u, 42u, 166u,   /* Afro */ \
-    0x4949u, 0x4141u, 653u, 567u,   /* Bhang */ \
-    0x1101u, 0x1050u, 737u, 541u,   /* Maqsm */ \
+    0x5449u, 0x2244u, 627u, 4262u,   /* Funk3 */ \
+    0xA445u, 0x9090u, 449u, 4663u,   /* FDrum */ \
+    0xA429u, 0x4104u, 585u, 4639u,   /* Strut */ \
+    0x4441u, 0x2424u, 4378u, 4599u,   /* GoGo */ \
+    0x4909u, 0x1448u, 426u, 4599u,   /* NOLA */ \
+    0x5541u, 0x1111u, 286u, 53751u,   /* Purdy */ \
+    0xA209u, 0x1090u, 292u, 4596u,   /* LinFk */ \
+    0x5555u, 0x4444u, 485u, 4262u,   /* Disco */ \
+    0x5555u, 0x1111u, 487u, 8238u,   /* Disc2 */ \
+    0x1441u, 0x0408u, 386u, 8249u,   /* DeepH */ \
+    0x4444u, 0x2424u, 503u, 25079u,   /* SwHse */ \
+    0x0481u, 0x4040u, 502u, 8245u,   /* Minml */ \
+    0x4444u, 0x2449u, 166u, 8423u,   /* Techn */ \
+    0x0C05u, 0x0101u, 85u, 8536u,   /* Break */ \
+    0x0C05u, 0x0281u, 16466u, 8419u,   /* Amen */ \
+    0x1405u, 0x1010u, 576u, 8249u,   /* Think */ \
+    0x0541u, 0x5101u, 56u, 8941u,   /* Apach */ \
+    0x2481u, 0x9010u, 468u, 8735u,   /* Impch */ \
+    0x0483u, 0x0101u, 53u, 8882u,   /* Levee */ \
+    0x4581u, 0x1490u, 297u, 8736u,   /* CSwet */ \
+    0x4405u, 0x1101u, 95u, 8660u,   /* RollB */ \
+    0x2445u, 0x1290u, 582u, 8816u,   /* BrkB2 */ \
+    0x0685u, 0x0001u, 757u, 8471u,   /* HHBrk */ \
+    0x0C05u, 0x1101u, 302u, 8263u,   /* BrkRd */ \
+    0x2401u, 0x4444u, 666u, 8358u,   /* NuSkl */ \
+    0x2405u, 0x0001u, 665u, 8471u,   /* HTBrk */ \
+    0x0445u, 0x4041u, 0u, 8783u,   /* BigB1 */ \
+    0x4485u, 0x1090u, 306u, 8300u,   /* BigB2 */ \
+    0x2441u, 0x4444u, 596u, 41463u,   /* BBShf */ \
+    0x4445u, 0x0101u, 311u, 8882u,   /* BBTom */ \
+    0x0401u, 0x1010u, 316u, 8253u,   /* DnB */ \
+    0x0401u, 0x1010u, 16391u, 8253u,   /* Jungl */ \
+    0x0501u, 0x0001u, 81u, 8471u,   /* Dubst */ \
+    0x0481u, 0x0484u, 603u, 8396u,   /* 2Step */ \
+    0x0281u, 0x1111u, 318u, 4417u,   /* BBap */ \
+    0x0485u, 0x1010u, 11u, 4157u,   /* BBap2 */ \
+    0x4485u, 0x1111u, 325u, 20810u,   /* BBpSw */ \
+    0x0241u, 0x1111u, 334u, 4433u,   /* LoFi */ \
+    0x0241u, 0x0081u, 18u, 20500u,   /* LoFiS */ \
+    0x0481u, 0x0001u, 341u, 4304u,   /* Half */ \
+    0x9041u, 0x0001u, 344u, 4375u,   /* Drill */ \
+    0x0281u, 0x0101u, 22u, 4786u,   /* Trap */ \
+    0x2449u, 0x9010u, 348u, 4639u,   /* NJack */ \
+    0x2481u, 0x0441u, 24u, 4449u,   /* NeoSl */ \
+    0x2481u, 0x0904u, 89u, 37475u,   /* Dilla */ \
+    0x2408u, 0x1449u, 28u, 4599u,   /* Songo */ \
+    0x1101u, 0x5511u, 356u, 4455u,   /* Bolro */ \
+    0x1111u, 0x4444u, 511u, 4262u,   /* Cumbi */ \
+    0x0909u, 0x4848u, 36u, 4599u,   /* Rgtn */ \
+    0x0909u, 0x1111u, 617u, 4599u,   /* Baiao */ \
+    0x1149u, 0x1111u, 656u, 4461u,   /* Tango */ \
+    0x4141u, 0x24A4u, 531u, 4720u,   /* Calyp */ \
+    0x9999u, 0x2449u, 369u, 4596u,   /* Samba */ \
+    0x0909u, 0x2449u, 617u, 4649u,   /* Bossa */ \
+    0x0909u, 0x2449u, 377u, 8573u,   /* Bssa2 */ \
+    0x1414u, 0x1010u, 578u, 8245u,   /* 1Drop */ \
+    0x1191u, 0x4444u, 598u, 8358u,   /* Rckrs */ \
+    0x5151u, 0x4444u, 386u, 8358u,   /* Stepr */ \
+    0x1111u, 0x4444u, 392u, 8358u,   /* Ska */ \
+    0x0141u, 0x1010u, 39u, 8245u,   /* Dub */ \
+    0x0101u, 0x0041u, 691u, 57401u,   /* Swing */ \
+    0x1111u, 0x1040u, 496u, 57401u,   /* Bebop */ \
+    0x1111u, 0x1111u, 104u, 57847u,   /* Jazz4 */ \
+    0x1111u, 0x4444u, 513u, 57847u,   /* Texas */ \
+    0x5111u, 0x1101u, 728u, 57812u,   /* Blues */ \
+    0x5555u, 0x4444u, 396u, 53414u,   /* Blue2 */ \
+    0x1111u, 0x5555u, 659u, 62073u,   /* ArpSw */ \
+    0x1101u, 0x1010u, 650u, 12345u,   /* Cntry */ \
+    0x1101u, 0x4444u, 404u, 61943u,   /* CnShf */ \
+    0x0101u, 0x1111u, 691u, 12409u,   /* March */ \
+    0x4449u, 0x2424u, 42u, 12454u,   /* Afro */ \
+    0x4949u, 0x4141u, 653u, 12855u,   /* Bhang */ \
+    0x1101u, 0x1050u, 737u, 12829u,   /* Maqsm */ \
 }
 #define SS_PAT_NOTES_INIT {   /* ss_pat_notes[SS_NNOTES] */ \
     0x20u, 0x40u, 0x40u, 0x60u, 0x30u, 0x40u, 0x28u, 0xA0u, 0x60u, 0x48u, 0x69u, 0x20u, \
@@ -222,32 +222,32 @@
     0x20u, 0x12u, 0x20u, 0x21u, 0x12u, 0x60u, 0x40u, 0x24u, 0x20u, 0x12u, 0x20u, 0x20u, \
     0x18u, 0x20u, 0x50u, 0x20u, 0x10u, 0x40u, 0x40u, 0x40u, 0x40u, 0x21u, 0x28u, \
 }
-#define SS_PAT_NAMES_INIT {   /* ss_pat_names[SS_NPAT + 1u]: Randm, the patterns, 6 bits a character */ \
+#define SS_PAT_NAMES_INIT {   /* ss_pat_names[SS_NPAT + 1u]: Randm, the patterns, 6 bits a character, the beat code's high bits << 30 */ \
     0x31A3295Cu, 0x00BE7CDCu, 0x03BE7CDCu, 0x04BE7CDCu, 0x05BE7CDCu, 0x34D8BBDCu, \
-    0x00274D8Bu, 0x070B4D8Bu, 0x001C2BDCu, 0x261C2BDCu, 0x1C9F2F5Du, 0x00DB0405u, \
-    0x29EADD8Eu, 0x2F9F3712u, 0x000EF712u, 0x2F9F371Cu, 0x36C10A1Cu, 0x00BDC499u, \
-    0x28C3094Cu, 0x03A3094Cu, 0x1CEF3C1Du, 0x3094CA1Cu, 0x28336EDAu, 0x000F4CDAu, \
+    0x00274D8Bu, 0x070B4D8Bu, 0x401C2BDCu, 0x661C2BDCu, 0x5C9F2F5Du, 0x40DB0405u, \
+    0x69EADD8Eu, 0x6F9F3712u, 0x400EF712u, 0x6F9F371Cu, 0x76C10A1Cu, 0x40BDC499u, \
+    0x68C3094Cu, 0x03A3094Cu, 0x1CEF3C1Du, 0x3094CA1Cu, 0x28336EDAu, 0x000F4CDAu, \
     0x00134CDAu, 0x2F734CDAu, 0x03734CDAu, 0x346B6EDAu, 0x28C2531Au, 0x070B4CDAu, \
-    0x070BB75Au, 0x2AE6C75Au, 0x346A7C8Eu, 0x32EF8CD7u, 0x1CE2ACDDu, 0x1CBF0CD0u, \
-    0x34C78750u, 0x00BDCC0Du, 0x2F737049u, 0x2CE39CDDu, 0x29B68C93u, 0x2F738C0Bu, \
-    0x2B976951u, 0x00C65C11u, 0x34C73E1Du, 0x00BDC792u, 0x2AB1D792u, 0x1CE37950u, \
-    0x00AF3D9Au, 0x00BF2E5Au, 0x3896930Eu, 0x2F6B4CDAu, 0x29DB3352u, 0x1AE37CDAu, \
-    0x29EA5858u, 0x2BCB9D91u, 0x30AB9B1Du, 0x2DAF3CCCu, 0x3DC26BDCu, 0x00AB6E5Du, \
-    0x28B4ECCCu, 0x36471CDEu, 0x31CDEC10u, 0x38952C10u, 0x32B65D9Eu, 0x2BEDDD9Eu, \
-    0x36CF8CD7u, 0x30978A57u, 0x2CDF6B1Eu, 0x38DE5C0Cu, 0x34CF0951u, 0x38CA9B8Eu, \
-    0x30E17792u, 0x32A2FD8Cu, 0x00BF2E50u, 0x2FC90EDDu, 0x03BF2E50u, 0x04BF2E50u, \
+    0x070BB75Au, 0x6AE6C75Au, 0x746A7C8Eu, 0x72EF8CD7u, 0x5CE2ACDDu, 0x5CBF0CD0u, \
+    0x74C78750u, 0x40BDCC0Du, 0x6F737049u, 0x6CE39CDDu, 0x69B68C93u, 0x6F738C0Bu, \
+    0x6B976951u, 0x40C65C11u, 0x74C73E1Du, 0x40BDC792u, 0x6AB1D792u, 0x5CE37950u, \
+    0x40AF3D9Au, 0x40BF2E5Au, 0x7896930Eu, 0x6F6B4CDAu, 0x69DB3352u, 0x5AE37CDAu, \
+    0x69EA5858u, 0x6BCB9D91u, 0x70AB9B1Du, 0x6DAF3CCCu, 0x7DC26BDCu, 0x40AB6E5Du, \
+    0x68B4ECCCu, 0x76471CDEu, 0x71CDEC10u, 0x78952C10u, 0x72B65D9Eu, 0x6BEDDD9Eu, \
+    0x76CF8CD7u, 0x70978A57u, 0x6CDF6B1Eu, 0x78DE5C0Cu, 0x74CF0951u, 0x78CA9B8Eu, \
+    0x70E17792u, 0x72A2FD8Cu, 0x40BF2E50u, 0x6FC90EDDu, 0x43BF2E50u, 0x44BF2E50u, \
     0x31E76390u, 0x38E76E1Du, 0x00CD1CD1u, 0x002D6658u, 0x3DA36E5Au, 0x2F432B56u, \
-    0x339F7B4Eu, 0x039F7B4Eu, 0x12D29A4Eu, 0x29DD2EDDu, 0x30C72B57u, 0x32B27A5Eu, \
-    0x2F969D8Cu, 0x00CA9C4Bu, 0x2FCADB1Eu, 0x2C9E5D0Bu, 0x2C9F4C53u, 0x29A7AA56u, \
-    0x38A7B74Du, 0x0CC30CDCu, 0x0332FD8Cu, 0x2FD8C492u, 0x2872FD8Cu, 0x30BDDE58u, \
-    0x2FD8C792u, 0x0232BB4Cu, 0x0332BB4Cu, 0x2AB1D30Cu, 0x31CDE30Cu, 0x0000CC8Eu, \
-    0x30AF2E54u, 0x38DE6E4Eu, 0x34A78743u, 0x00D2530Cu, 0x03D2530Cu, 0x3B77430Cu, \
+    0x339F7B4Eu, 0x439F7B4Eu, 0x52D29A4Eu, 0x69DD2EDDu, 0x70C72B57u, 0x72B27A5Eu, \
+    0x6F969D8Cu, 0x40CA9C4Bu, 0x6FCADB1Eu, 0x6C9E5D0Bu, 0x6C9F4C53u, 0x69A7AA56u, \
+    0x78A7B74Du, 0x4CC30CDCu, 0x4332FD8Cu, 0x6FD8C492u, 0x6872FD8Cu, 0x70BDDE58u, \
+    0x6FD8C792u, 0x4232BB4Cu, 0x4332BB4Cu, 0x6AB1D30Cu, 0x71CDE30Cu, 0x4000CC8Eu, \
+    0x70AF2E54u, 0x78DE6E4Eu, 0x74A78743u, 0x00D2530Cu, 0x03D2530Cu, 0x3B77430Cu, \
     0x00B50CD6u, 0x1DB50CD6u, 0x00AB0952u, 0x30C2DD8Eu, 0x00D25D9Eu, 0x2F9E5518u, \
     0x30773A58u, 0x25C30B4Eu, 0x33AF2CDDu, 0x33DB0CCCu, 0x2D9B1E4Du, 0x00CB8ADCu, \
-    0x3396D94Cu, 0x33AF295Eu, 0x34F7094Du, 0x259B195Du, 0x25DF7CCCu, 0x03977DCCu, \
-    0x34CF6382u, 0x37DAF9DCu, 0x36D29E1Du, 0x00025BDDu, 0x00026E4Eu, 0x2BCADEDDu, \
-    0x34CE6A4Cu, 0x05FBE954u, 0x3797CA5Eu, 0x37A79C0Cu, 0x03A79C0Cu, 0x3B774D8Bu, \
-    0x3DDB8C8Du, 0x2AB1DC8Du, 0x2C9F6957u, 0x00CF6A8Bu, 0x2BCA5B0Cu, 0x31DF5957u, \
+    0x3396D94Cu, 0x33AF295Eu, 0x34F7094Du, 0x259B195Du, 0x25DF7CCCu, 0x43977DCCu, \
+    0x74CF6382u, 0x77DAF9DCu, 0x76D29E1Du, 0x40025BDDu, 0x40026E4Eu, 0x6BCADEDDu, \
+    0x74CE6A4Cu, 0x45FBE954u, 0x7797CA5Eu, 0x77A79C0Cu, 0x43A79C0Cu, 0x7B774D8Bu, \
+    0x7DDB8C8Du, 0x6AB1DC8Du, 0x6C9F6957u, 0x40CF6A8Bu, 0x6BCA5B0Cu, 0x71DF5957u, \
 }
 #define SS_INC0 0.000185392266f   /* note 0's phase step per sample */
 #define SS_SEMI 1.05946309f   /* one semitone up */

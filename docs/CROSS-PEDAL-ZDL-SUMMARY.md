@@ -11,8 +11,8 @@ G1on-family findings were tested on a B1Xon pedal with both G1Xon firmware 1.21 
 | `--mem_model:data=far`, `.fardata` ~0, no `.bss`, no libm / `double` / integer `/` `%` | Same firmware loader on both families |
 | `static const` tables need `.rela.dyn` entries (our linker adds them) | Without them, table addresses point to the wrong place |
 | `_init` calls `ctx[34](params, zeros, n)` before the knob handlers | Every stock `_init` makes this call on both families. DrumBox (9 knobs) froze or had dead knobs on G1Xon 1.21 without it; Skull (4 knobs) works without it on B1Xon 1.30. When it is needed is not known yet, so make the call |
-| Declared DSP cost (descriptor +0x28) honest and within the G1on budget of **210** | MS-70CDR is ~228, MS-60B 225 |
-| Allocated size (`.text` + `.const` + `.fardata`) **≤ ~30,096 B** | The G1Xon freezes on select above this (30,096 B loaded, 30,216 B froze); the MS limit is unknown. If the effect never divides floats, leave out the 640-byte `__c6xabi_divf` routine the linkers always add: that alone brought Skull with both firmwares back under the limit |
+| Declared DSP cost (descriptor +0x28) honest and within the G1on budget of **210** | MS-70CDR is ~228, MS-60B 225. Stock effects' declared costs don't match their real load: try the cost in heavy patches on the pedal |
+| Allocated size (`.text` + `.const` + `.fardata`) **≤ 30,104 B** | The G1on family freezes on select above this (30,104 B loaded, 30,136 B froze); the MS limit is unknown. If the effect never divides floats, leave out the 640-byte `__c6xabi_divf` routine repeat98's linker always adds (this repository's linker never adds it): that alone brought Skull with both firmwares back under the limit |
 | Effect name ≤ 8 characters, fxid ≤ 1023, gid matches the SONAME prefix | Patch format on the MS pedals |
 | Expect fewer instances per patch: G1on 5, MS-70CDR / MS-50G 6, MS-60B 4 | Slots per patch |
 | Large state goes in `ctx[3]`. Audio data stored there must be harmless if played as float, other data at the arena's end. Checksum anything you need to trust. | The next effect gets the memory as it is; patch switches lend it out |

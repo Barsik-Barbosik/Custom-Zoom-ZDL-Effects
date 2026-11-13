@@ -9,18 +9,23 @@ the HIGH terms + WT_OFS (so the word reads as a tiny float). A term (h, amp,
 parabolic sine psin (the table's harmonic 1 is the note). The build scales
 LOW to a peak of TSO_PEAK and HIGH to TSC_PEAK (table units).
 
-One sample (C: three loops over a piece, see engine.c):
-  ip3 += rot                                  LFO phase (2^32 = a cycle)
-  tf = |ip3 / 2 - 2^30|                       triangle 0..2^30
-  ip += inc (pa + pb tf), ip2 += inc (pc + pb tf)
-  lp2 *= dec;  env = env (rel + k (1 - att - rel)) + k att lp2   (k = gate open)
+Levels step once per block of BLK samples (C: one block per audio call;
+here a new note starts a block), as BLK samples of these recurrences:
+  lp2 *= dec;  env = env (rel + k (1 - att - rel)) + k att lp2   (k = gate open
+                                              at the block's start)
   bp *= bdec;  menv = menv ma + bp mb
-  s0 = env (g0 + g1 menv)
-  x = s0 low(ip) + s0 (r2 + q2 menv + b2 bp) high(ip2) + s0 b3 bp high(ip << sh)
+  s0 = env (g0 + g1 menv), s1 = s0 (r2 + q2 menv + b2 bp), s2 = s0 b3 bp
+  (block_steps(): the powers and sums that do BLK steps at once). At the
+  block's start: tf = |ip3 / 2 - 2^30| (triangle 0..2^30), ip3 += BLK rot;
+  the phase steps inc (pa + pb tf), inc (pc + pb tf).
+One sample (C: two loops over the block, see engine.c):
+  ip, ip2 += their steps; s0, s1, s2 one BLK-th of the way from the
+  block's start to its end values (the last sample: the end values)
+  x = s0 low(ip) + s1 high(ip2) + s2 high(ip << sh)
       (low, high(ip2): linear between words; high(ip << sh): nearest word)
   c = 2 clamp1(x);  y = 0.75 c + c^2 (e - 0.0625 c)   soft clip (+ even part)
   out = (y - lp) p3;  lp = lp la + y dc               DC blocker (la = 0: off)
-  p3 = (t0 + ts sin(ip3) + tt tri(ip3)) post x level  (C: once per piece)
+  p3 = (t0 + ts sin(ip3) + tt tri(ip3)) post x level  (C: once per block)
 A new note: lp2 = 1, bp = bp0, menv = menv mk + m0, ip2 = ip2 r0 + ip m2.
 
 REC fields are in signal units: g0, g1 per unit of LOW's sum, r2 / q2 / b2 /
@@ -33,6 +38,7 @@ from __future__ import annotations
 from inst_lib import WT_BITS, WT_N, WT_OFS, coef, psin, rise
 
 TWO32 = 4294967296.0
+BLK = 8                     # samples per block (C SS_BLK = one audio call)
 MASK = 0xFFFFFFFF
 TSO_PEAK = 30000.0          # LOW's peak in table units (int16)
 TSC_PEAK = 6400.0           # HIGH's peak (+ WT_OFS 6464: 64..12864, a tiny float)
@@ -94,6 +100,21 @@ def table(lw: list, hw: list) -> list:
     return out
 
 
+def block_steps(r: dict) -> dict:
+    """C SsBlk (ss_wt_build): BLK samples of the level recurrences at once."""
+    l = p = ma = rl = at = 1.0
+    se = sm = 0.0
+    for _ in range(BLK):
+        l *= r["dec"]
+        p *= r["bdec"]
+        se = se * (1.0 - r["att"]) + l
+        sm = sm * r["ma"] + p
+        ma *= r["ma"]
+        rl *= r["rel"]
+        at *= 1.0 - r["att"]
+    return dict(dec8=l, bdec8=p, ma8=ma, rel8=rl, at8=at, se=se * r["att"], sm=sm * r["mb"])
+
+
 class Instrument:
     """A record (mod's REC) + a table (tab's LOW / HIGH; tab None = mod's own),
     ready for render() and the C header. A record on another file's table
@@ -118,6 +139,7 @@ class Instrument:
         for k in INTS:
             rec[k] = int(rec[k]) & MASK
         self.rec = rec
+        self.blk = block_steps(rec)
         self._t = None
 
     def t(self) -> list:
@@ -125,27 +147,40 @@ class Instrument:
             self._t = table(self.low, self.high)
         return self._t
 
+    def levels(self, v) -> tuple:
+        """The three read levels s0, s1, s2 of voice v now."""
+        r = self.rec
+        s0 = v.env * (r["g0"] + r["g1"] * v.menv)
+        return s0, s0 * (r["r2"] + r["q2"] * v.menv + r["b2"] * v.bp), s0 * r["b3"] * v.bp
+
     def render(self, v) -> float:
         """One sample of voice v (inst_lib.Voice; v.att < 1: a new note)."""
-        r, t = self.rec, self.t()
+        r, t, bk = self.rec, self.t(), self.blk
         if v.att < 1.0:
             v.att = 1.0
             v.lp2 = 1.0
             v.bp = r["bp0"]
             v.menv = v.menv * r["mk"] + r["m0"]
             v.ip2 = (v.ip2 * r["r0"] + v.ip * r["m2"]) & MASK
-        v.ip3 = (v.ip3 + r["rot"]) & MASK
-        tf = float(abs((v.ip3 >> 1) - 0x40000000))
-        v.ip = (v.ip + int(v.f * (r["pa"] + r["pb"] * tf))) & MASK
-        v.ip2 = (v.ip2 + int(v.f * (r["pc"] + r["pb"] * tf))) & MASK
-        k = 1.0 if v.gate > 0 else 0.0
-        v.lp2 *= r["dec"]
-        v.env = v.env * (r["rel"] + k * (1.0 - r["att"] - r["rel"])) + k * r["att"] * v.lp2
-        v.bp *= r["bdec"]
-        v.menv = v.menv * r["ma"] + v.bp * r["mb"]
-        s0 = v.env * (r["g0"] + r["g1"] * v.menv)
-        s1 = s0 * (r["r2"] + r["q2"] * v.menv + r["b2"] * v.bp)
-        s2 = s0 * r["b3"] * v.bp
+            v.bk = 0
+        if v.bk == 0:                   # a block's start (C ss_run)
+            tf = float(abs((v.ip3 >> 1) - 0x40000000))
+            v.ip3 = (v.ip3 + BLK * r["rot"]) & MASK
+            v.d1 = int(v.f * (r["pa"] + r["pb"] * tf))
+            v.d2 = int(v.f * (r["pc"] + r["pb"] * tf))
+            a = self.levels(v)
+            k = 1.0 if v.gate > 0 else 0.0
+            v.env = v.env * (bk["rel8"] + k * (bk["at8"] - bk["rel8"])) + k * bk["se"] * v.lp2
+            v.lp2 *= bk["dec8"]
+            v.menv = v.menv * bk["ma8"] + bk["sm"] * v.bp
+            v.bp *= bk["bdec8"]
+            v.lv = list(a)
+            v.dl = [(z - y) * (1.0 / BLK) for y, z in zip(a, self.levels(v))]
+        v.bk = (v.bk + 1) % BLK
+        v.ip = (v.ip + v.d1) & MASK
+        v.ip2 = (v.ip2 + v.d2) & MASK
+        v.lv = [y + d for y, d in zip(v.lv, v.dl)]
+        s0, s1, s2 = v.lv
         sh = 32 - WT_BITS
         fm = (1 << sh) - 1
         j, f = v.ip >> sh, (v.ip & fm) * (1.0 / (1 << sh))

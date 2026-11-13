@@ -55,17 +55,10 @@ def compile_c(src: Path, obj: Path, include: list[Path] = (), defines: list[str]
 
 
 def link_common() -> dict:
-    """Linker options for the zmenu effects (ctx[34] _init, trimmed blobs)."""
+    """Linker options for the zmenu effects (ctx[34] _init)."""
     return dict(
-        use_object_edit_handlers=False,
-        synthesize_linesel_edit_handlers=True,
-        synth_edit_start_index=2,
-        knob3_blob_path=str(HERE / "__nonexistent__"),
         materialize_init=True,
         init_param_setup=True,
-        drop_unused_divf=True,
-        compact_linesel_clones=True,
-        trim_linesel_blob=True,
     )
 
 README_IMAGES = {                                         # effect folder -> README picture

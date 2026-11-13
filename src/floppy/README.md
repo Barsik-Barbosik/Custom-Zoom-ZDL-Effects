@@ -19,15 +19,15 @@ knob values.
 - **Don't turn its knobs:** that changes the stored data. Copying or saving
   the patch is safe.
 
-Version 1.0.0. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
+Version 1.0.1. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10): please report if saved data
 comes back wrong there.
 
 ## Install
 
-`Floppy.ZDL` (3,691 B, from the [Releases](../../../../releases) page or
+`Floppy.ZDL` (3,499 B, from the [Releases](../../../../releases) page or
 `../../dist/`) needs 1 free flash block. It is in the **SFX**
-category (gid 7, fxid 522). Install it as described in the
+category (gid 7, fxid 522) and declares a DSP cost of 1. Install it as described in the
 [main README](../../README.md#install) and add it to the patch next to the
 effect that uses it.
 
@@ -52,4 +52,4 @@ python -B build.py --out PATH              # Floppy.ZDL to PATH
 python -B build.py --knob-text --out PATH  # knob pages show the stored numbers (2 blocks)
 ```
 
-The linker log should show 1 flash block (3,691 B) for the normal build.
+The linker log should show 1 flash block (3,499 B) for the normal build.

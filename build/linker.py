@@ -3,8 +3,11 @@
 Based on repeat98's linker (github.com/repeat98/ZoomMultistompZDL,
 build/linker.py, MIT). Changes vs. that file (each off by default, and off
 means byte-identical output to repeat98's):
-  * Binary blobs (divf_rts.bin, linesel_handlers.bin, air_knob3_edit.bin,
-    c6xabi_attributes.bin) are vendored next to this file (REPEAT98_BUILD).
+  * No code or data from Zoom's effects: the OnOff / knob edit handlers
+    come from build/own_handlers.asm, Dll_<name> is Leemuzhko's dll.asm,
+    there is no float-divide helper and no .c6xabi.attributes section (see
+    "Own handlers" below). repeat98's stock blobs (LineSel handlers, AIR
+    knob 3, divf, attributes, NoiseGate Dll_) and their code paths are gone.
   * Param.getstr: optional name of a `.text` value-to-string function
     (`int f(unsigned v, char *out)`, returns length). Its VA goes into the
     descriptor entry's getstr_ptr (+0x24) with an ABS32 .rela.dyn entry, as in
@@ -23,8 +26,8 @@ means byte-identical output to repeat98's):
   * LinkerConfig.init_extra_calls: names of `.obj` functions the
     materializing _init calls after the knob handlers (same call block).
   * Param.store (manifest "store": true): a knob the DSP never reads through
-    params[] (it reads the patch column itself), so its cloned handler keeps
-    LineSel's 0..150 law and any max is allowed (stock knobs go up to 4022).
+    params[] (it reads the patch column itself), so it doesn't pick the
+    knob body's range law and any max is allowed (stock knobs go up to 4022).
   * LinkerConfig.knob_bitmap = (width, height, frames, data): the effect's
     own knob graphic, as stock Ice Delay / Corona Tri do. The knob info in
     .fardata becomes {w, h, frames, 0, 255, -> bitmap} (ABS32 .rela.dyn on
@@ -47,12 +50,11 @@ means byte-identical output to repeat98's):
     everywhere, 1 on the four GEQs (knob pages 1..8 draw the slider on the
     B1Xon 1.30, knob 9 the default knob; smooth over 0..255),
     2 on LineSel and its clones (looks like 0 on the B1Xon 1.30).
-  * Knob max 200: a LineSel-cloned edit handler for a param with max 200
-    gets the range constants of stock APanDLY's outLv_edit (0..200):
-    state[21](2.0f, 0, 201, 0, v) instead of LineSel's (1.5f, 0, 151, 0, v),
-    which stops at 150. Raw stays v / 100. Max 210 gets the same pair
-    (2.1f doesn't fit the compact MVK; the law is linear and not clamped
-    on the B1Xon 1.30, so v 201..210 give raw 2.01..2.10).
+  * Knob max 200: the knob body's range law (the firmware's
+    state[21](top, 0, steps, 0, v)) is 2.0f / 201 as stock APanDLY's
+    outLv_edit (0..200) instead of 1.5f / 151 (stock LineSel), which stops
+    at 150. Raw stays v / 100. Max 210 gets the same pair (the law is linear
+    and not clamped on the B1Xon 1.30, so v 201..210 give raw 2.01..2.10).
   * Load-time relocation of the .obj's absolute addresses: each .obj
     ABS_L16/H16 (MVKL/MVKH of a .const table, e.g. a `static const` array)
     also gets a .rela.dyn entry, as in every stock ZDL. Patched at link time
@@ -61,40 +63,17 @@ means byte-identical output to repeat98's):
     to effectTypeImageInfo (from themanro's linker), for effects that point
     the cover pointer (word 5) at pictures they draw. Likewise
     `_<audio>_Desc[]` resolves to the descriptor table.
-  * LinkerConfig.drop_unused_divf: leaves the 640-byte __c6xabi_divf RTS
-    out of .text when the .obj doesn't reference it. Nothing else branches
-    into it (the handler blob carries its own RTS helpers).
-  * LinkerConfig.compact_linesel_clones: a cloned knob handler is only the
-    3 fetch packets of LineSel's knob1 handler (blob +0x60..+0xBF, 96 B; the
-    last packet's tail is the unused start of knob2's handler) instead of
-    the whole 480-byte blob, and its two CALLPs are re-aimed at the real
-    blob's call_stub (+0x140).
-  * LinkerConfig.trim_linesel_blob (needs compact clones): the LineSel blob
-    keeps only onf, knob1/knob2 edit (+0x000..+0x0FF, whole fetch packets)
-    and call_stub (moved from +0x140 to +0x100); its unused _init (+0xF8),
-    dead Dll_LineSel (+0x180) and push/pop_rts (+0x1A0) go, and the 5 CALLPs
-    to call_stub are re-aimed. 480 -> 320 B. Refused if the .obj needs
-    push/pop_rts.
   * LinkerConfig.dsp_cost (as in themanro's linker): the float at the name
     entry's +0x28, the effect's DSP cost. The firmware sums it over the
     patch and refuses a chain past its budget (G1on OS: 210; MS-70CDR
     ~228). 20.0 is the default placeholder; a heavy effect declaring 20
     lets the pedal build chains that crackle.
-  * LinkerConfig.compact_edit_stubs (needs synthesize + compact clones +
-    trim, synth_edit_start_index 0): one shared copy of LineSel's knob1
-    handler that takes the knob id in B4 and the params[] offset in B7, and
-    a 16-byte entry stub per knob; a lone NOP_RETURN (8 B) goes into the
-    stubs' padding. Floppy: 9 handlers 992 -> 416 B (works). A knob max
-    over 150 (in _COMPACT_RANGE_LAW) gives the shared body that law for
-    every knob (raw = v / 100 either way); SongBox (Tempo 210): works.
   * LinkerConfig.drop_ti_abs_symbols / dynamic_entries: leave out the four
     SHN_ABS __TI_* dynsyms and the DT_NULL padding of .dynamic (17 entries
     instead of Exciter's 21). Untested on hardware.
   * LinkerConfig.rela_const_base: the MVKL/MVKH .rela.dyn entries into
     .const share one dynsym with nonzero addends (stock shape, 82 of 265
     stock ZDLs use such addends), one dynsym per table less. Works (SongBox, B1Xon 1.30).
-  * LinkerConfig.drop_attributes: no .c6xabi.attributes section (every
-    stock effect has one; 12 sections instead of 13). Works (SongBox, B1Xon 1.30).
   * LinkerConfig.anon_edit_syms: the knob edit handlers' dynsym entries
     without names (as the getstr targets already are); stock effects name
     them <audio>_<knob>_edit. Saves their .dynstr bytes. Works (SongBox,
@@ -114,11 +93,18 @@ means byte-identical output to repeat98's):
     pictures, audio / _init / _onf, effectTypeImageInfo, SonicStomp)
     without names; Dll_<name> and the SONAME stay. Works (SongBox,
     B1Xon 1.30; MS pedals untested).
-  * LinkerConfig.init_call_loop (with materialize_init + compact clones):
-    the _init calls the cloned knob handlers (a run at a fixed stride) from
-    one 160-B loop block (_INIT_LOOP, source build/init_call_loop.asm)
-    instead of one 64-B call block each: DrumBox 9 knobs 864 -> 576 B.
-    Untested on hardware.
+  * LinkerConfig.init_call_loop (with materialize_init): the _init calls
+    the knob entry stubs (a run at a fixed stride) from one 160-B loop
+    block (_INIT_LOOP, source build/init_call_loop.asm) instead of one 64-B
+    call block each. Works (DrumBox, SongBox, B1Xon 1.30).
+  * Own handlers (always): build/own_handlers.asm (written from the
+    edit-handler ABI in the shape of Leemuzhko's zui.asm, with TI's
+    call_stub) gives the OnOff handler, one shared knob body and the call
+    stub, assembled at link time with the range law (150 or 200). Each
+    knob is a 16-byte entry stub (B body; MVK id,B4; MVK off,B7; NOP 3);
+    a lone NOP_RETURN (8 B) goes into the stubs' padding. Dll_<name> is
+    Leemuzhko's 40-byte dll.asm (repeat98 build/runtime/, own_runtime).
+    Works (SongBox, DrumBox, Floppy; B1Xon 1.30).
 
 This is a near-verbatim port of v1's `airwindowsZoom/build/link_zdl.py`,
 parameterised so the same code can build any plugin instead of being
@@ -129,8 +115,8 @@ without hardware proof**.
 The linker:
   1. Parses a TI C6000 relocatable ELF (`.obj`).
   2. Lays out a complete ZDL ELF in memory:
-       .text  @ 0x00000000   audio func + .text from .obj + divf RTS +
-                             NOP_RETURN stub + Dll_<Name> entry
+       .text  @ 0x00000000   audio func + .text from .obj + handlers +
+                             knob entry stubs + _init + Dll_<Name> entry
        .const @ 0x80000000   picture + descriptor table + effectTypeImageInfo
        .fardata immediately after .const   KNOB_INFO + plugin's far statics
   3. Resolves all symbol relocations from the .obj.
@@ -160,8 +146,6 @@ from pathlib import Path
 from typing import Optional
 
 from screen_image import make_text_screen
-
-REPEAT98_BUILD = Path(__file__).resolve().parent   # blobs vendored from repeat98
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -387,60 +371,11 @@ class LinkerConfig:
     max_fardata_bytes: int = 512
     allow_large_fardata: bool = False
 
-    # Path to extracted __c6xabi_divf RTS code (640 bytes).
-    divf_rts_path: Optional[str | os.PathLike] = None
-    # Leave divf out when the .obj has no __c6xabi_divf reference.
-    drop_unused_divf: bool = False
-
-    # Path to LineSel handler blob (480 bytes: onf + edit_a + edit_b + init
-    # + __call_stub + RTS helpers, copied verbatim from LineSel's .text).
-    # The blob provides real edit/onf handlers that read knob values from
-    # the host runtime and write into params[5], params[6], params[0].
-    # Without this, NOP_RETURN handlers are used and params[] stays
-    # uninitialised. When set, handler_funcs maps logical names to byte
-    # offsets within the blob: defaults match LineSel's layout.
-    handler_blob_path: Optional[str | os.PathLike] = None
-    handler_funcs: dict[str, int] = field(default_factory=lambda: {
-        "onf":        0x000,   # OnOff toggle: writes params[0]
-        "knob1_edit": 0x060,   # writes params[5] (knob_id=2)
-        "knob2_edit": 0x0AC,   # writes params[6] (knob_id=3)
-        "init":       0x0F8,   # has unresolved Coe-table refs; do NOT use
-        "call_stub":  0x140,   # __c6xabi_call_stub — cl6x emits indirect
-                               # calls through this when a function-pointer
-                               # call needs register-bank switching, e.g.
-                               # the Taylor-expansion thunks in TapeHack
-        # 0x180  Dll_LineSel  — DEAD code, has stale relocs; never called
-        "pop_rts":    0x1A0,   # __c6xabi_pop_rts (32 bytes)
-        "push_rts":   0x1C0,   # __c6xabi_push_rts (32 bytes)
-    })
-
-    # Path to AIR knob3-edit blob (76 bytes, self-contained, 0 relocs).
-    # Extracted from MS-70CDR_AIR.ZDL's `Fx_REV_Air_mix_edit` — the third
-    # of three knobs in AIR. Hardcodes knob_id=4 and writes params[7].
-    # Used when a plugin has a 3rd parameter. Knobs 4..9 fall back to
-    # NOP_RETURN: no stock effect with >3 knobs has self-contained edit
-    # handlers (LO-FI Dly's all reference effect-specific lookup tables),
-    # so whether they update params[] is the open hardware question
-    # tracked in ABI.md §5.3.b.
-    knob3_blob_path: Optional[str | os.PathLike] = None
-
     # Audio-NOP override. When True, the audio function's first 32 bytes
     # are replaced with a canonical B B3 + delay-slot NOP sequence after
     # linking. Useful as a smoke test: lets the firmware exercise the UI
     # without running the plugin's DSP.
     audio_nop: bool = False
-
-    # Diagnostic override. Normal builds prefer object-defined edit
-    # handlers when present, because those are the only way knobs 3..9
-    # can write real params. Set False to force blob/NOP handlers and
-    # isolate whether a custom handler freezes during firmware init.
-    use_object_edit_handlers: bool = True
-
-    # Zero-based first parameter index allowed to use object-defined edit
-    # handlers. This lets a plugin use the stock-proven LineSel/AIR
-    # handlers for knobs 1-3 and custom generated handlers only for later
-    # pages while we harden handler synthesis.
-    object_edit_start_index: int = 0
 
     # Experimental init path. Stock init handlers appear to materialize
     # on/off + knob values at load by invoking the same handlers used for
@@ -448,22 +383,6 @@ class LinkerConfig:
     # shim and needs load/reload parameter materialization.
     use_object_init_handler: bool = False
 
-    # Hardware-safe handler synthesis. Instead of compiling inline asm,
-    # clone the complete LineSel handler blob for each requested knob so
-    # the handler's relative calls to its local __c6xabi_call_stub remain
-    # exactly stock-shaped. Only two compact MVK immediates are patched:
-    # the host knob id and params[] byte offset.
-    synthesize_linesel_edit_handlers: bool = False
-    synth_edit_start_index: int = 2
-    # Clones = knob1's 3 fetch packets only, calling the shared call_stub.
-    compact_linesel_clones: bool = False
-    # LineSel blob without its unused parts (needs compact_linesel_clones).
-    trim_linesel_blob: bool = False
-    # Edit stubs (needs synthesize + compact clones + trim, synth start 0):
-    # one shared copy of LineSel's knob1 handler that takes the knob id in
-    # B4 and the params[] byte offset in B7, plus a 16-byte entry stub per
-    # knob (B body; MVK id,B4; MVK off,B7; NOP 3). See _EDIT_STUB_*.
-    compact_edit_stubs: bool = False
     # Leave out the four SHN_ABS bookkeeping dynsyms (__TI_STATIC_BASE,
     # __TI_pprof_out_hndl, __TI_prof_data_size, __TI_prof_data_start) that
     # stock files carry. Untested on hardware.
@@ -474,9 +393,6 @@ class LinkerConfig:
     # target), each with addend = target - it, as stock effects do (e.g.
     # ALIEN: AmpEqSetting + 0xC). Works (SongBox, B1Xon 1.30).
     rela_const_base: bool = False
-    # Leave out .c6xabi.attributes (62 B + its section header and name).
-    # Every stock effect has one. Works without (SongBox, B1Xon 1.30).
-    drop_attributes: bool = False
     # Knob edit handler dynsyms without names (stock: <audio>_<knob>_edit).
     anon_edit_syms: bool = False
     # .text ABS32 targets (getstr) share one dynsym + addends. Untested.
@@ -501,9 +417,9 @@ class LinkerConfig:
     # With materialize_init: .obj functions (`void f(void)`, in .text) the
     # _init also calls, after the knob handlers, in the same guarded block.
     init_extra_calls: list[str] = field(default_factory=list)
-    # With materialize_init and compact_linesel_clones: call the cloned knob
-    # handlers (a run at a fixed stride) from one loop block (_INIT_LOOP,
-    # 160 B) instead of one 64-B call block each (knobs 3..9: -288 B).
+    # With materialize_init: call the knob entry stubs (a run at a fixed
+    # stride) from one loop block (_INIT_LOOP, 160 B) instead of one 64-B
+    # call block each.
     init_call_loop: bool = False
 
     def __post_init__(self) -> None:
@@ -546,12 +462,6 @@ class LinkerConfig:
                 f"knob_positions has {len(self.knob_positions)} entries; "
                 f"need {n_visible} (= min(3, n_params))"
             )
-        if self.divf_rts_path is None:
-            self.divf_rts_path = REPEAT98_BUILD / "divf_rts.bin"
-        if self.handler_blob_path is None:
-            self.handler_blob_path = REPEAT98_BUILD / "linesel_handlers.bin"
-        if self.knob3_blob_path is None:
-            self.knob3_blob_path = REPEAT98_BUILD / "air_knob3_edit.bin"
 
 
 # ---------------------------------------------------------------------------
@@ -923,106 +833,10 @@ KNOB_STYLES: dict[int, tuple[int, int, int, int]] = {
 }
 
 
-_COMPACT_MVK_S1_A4 = {
-    20: 0x9212,
-    24: 0x1A12,
-    28: 0x9A12,
-    32: 0x0232,
-    36: 0x8232,
-    40: 0x0A32,
-    44: 0x8A32,
-    48: 0x1232,
-    52: 0x9232,
-}
-
-_COMPACT_MVK_L2_B4 = {
-    2: 0x4627,
-    3: 0x6627,
-    4: 0x8627,
-    5: 0xA627,
-    6: 0xC627,
-    7: 0xE627,
-    8: 0x0E27,
-    9: 0x2E27,
-    10: 0x4E27,
-}
-
-
-# Knob range law of the clone: the handler calls state[21](top, 0, max + 1,
-# 0, v) and gets v * top / max (stock: Air 1.0f/101, LineSel 1.5f/151,
-# APanDLY outLv 2.0f/201; all give raw = v / 100). LineSel's 151 caps the
-# knob at 150, so a bigger max needs its own pair. Compact encodings (asm6x):
-# max -> (MVK.S1 max+1,A6 at +0x12, MVK.S1 k,A4 at +0x16, SHL.S1 A4,s,A4 at
-# +0x24), top = k << s. k and max+1 are 8-bit (ucst8), so top/max = 0.01
-# only for powers of two; max 210 reuses the 200 pair and relies on the
-# law not clamping v at max (linear; DrumBox / SongBox 250 BPM work on
-# the B1Xon 1.30).
-_LINESEL_RANGE_MAX = 150
-_COMPACT_RANGE_LAW = {
-    200: (0x2F52, 0x0612, 0xF602),   # 201,A6; 128,A4; SHL 23 -> 2.0f
-    210: (0x2F52, 0x0612, 0xF602),   # the same: raw = v / 100 past 200
-}
-_COMPACT_RANGE_LAW_NAME = {(0x2F52, 0x0612, 0xF602): 200}
-
-
-def _patch_linesel_knob_clone(blob: bytes, knob_id: int, param_byte_off: int,
-                              knob_max: int = _LINESEL_RANGE_MAX) -> bytes:
-    """Clone LineSel's known-good knob1 handler block and retarget it.
-
-    The returned blob is a full linesel_handlers.bin-sized block. Its
-    handler lives at +0x60 and calls the cloned call_stub at +0x140, so no
-    branch relocation/encoding changes are needed. knob_max > 150 also
-    patches the range law (see _COMPACT_RANGE_LAW).
-    """
-    if param_byte_off not in _COMPACT_MVK_S1_A4:
-        raise ValueError(f"no compact MVK.S1 A4 encoding for byte offset {param_byte_off}")
-    if knob_id not in _COMPACT_MVK_L2_B4:
-        raise ValueError(f"no compact MVK.L2 B4 encoding for knob id {knob_id}")
-    out = bytearray(blob)
-    # LineSel knob1 handler starts at +0x60. At +0x10 it has:
-    #   MVK.L2 <knob_id>,B4
-    _p16(out, 0x60 + 0x10, _COMPACT_MVK_L2_B4[knob_id])
-    # At +0x44 it has:
-    #   MVK.S1 <param_byte_off>,A4
-    _p16(out, 0x60 + 0x44, _COMPACT_MVK_S1_A4[param_byte_off])
-    if knob_max > _LINESEL_RANGE_MAX:
-        if knob_max not in _COMPACT_RANGE_LAW:
-            raise ValueError(f"no handler range law for knob max {knob_max} "
-                             f"(have <= {_LINESEL_RANGE_MAX}, "
-                             f"{sorted(_COMPACT_RANGE_LAW)})")
-        steps, top_k, top_shl = _COMPACT_RANGE_LAW[knob_max]
-        _p16(out, 0x60 + 0x12, steps)
-        _p16(out, 0x60 + 0x16, top_k)
-        _p16(out, 0x60 + 0x24, top_shl)
-    return bytes(out)
-
-# Compact clone (compact_linesel_clones): blob bytes +0x60..+0xBF, the
-# knob1 handler's 3 fetch packets (compact instructions: each packet keeps
-# its .fphead word, so whole 32-byte packets at 32-byte alignment). Its two
-# CALLP.S2 to __c6xabi_call_stub sit at +0x0C and +0x18 (first packet).
-_CLONE_START, _CLONE_SIZE = 0x60, 0x60
-_CLONE_CALLPS = (0x0C, 0x18)
-_CALLP_ENC = 0x10001C13      # CALLP.S2 +0xE0 from the packet,B3 (stock)
-
-# trim_linesel_blob: kept ranges of the 480-byte blob (call_stub moves to
-# +0x100) and the CALLPs to call_stub in onf / knob1 / knob2 (blob offsets).
-_TRIM_KEEP = ((0x000, 0x100), (0x140, 0x180))
-_TRIM_STUB = 0x100
-_TRIM_CALLPS = (0x0C, 0x6C, 0x78, 0xB8, 0xC8)
-
-
-# compact_edit_stubs: the blob keeps onf + knob1 (+0x000..+0x0BF) and
-# call_stub (moved to +0x0C0). knob1 becomes the shared body: its
-# MVK.L2 <id>,B4 (+0x10) turns into MV.L2 B4,B4 and its MVK.S1 <off>,A4
-# (+0x44) into MV.L1X B7,A4 (compact encodings from asm6x 8.3.15). B4 and
-# B7 come from the stub; call_stub saves and restores B5:B4 / B7:B6 around
-# both host calls, and the body never writes B7.
-_EDIT_STUB_KEEP = ((0x000, 0x0C0), (0x140, 0x180))
-_EDIT_STUB_CALL = 0x0C0
-_EDIT_STUB_CALLPS = (0x0C, 0x6C, 0x78, 0xB8)   # 0xB8: knob2's dead head, aimed anyway
-_EDIT_STUB_BODY = 0x060
-_EDIT_STUB_ID_PATCH = (0x10, 0x4627, 0x8247)     # (body offset, LineSel knob1, new)
-_EDIT_STUB_OFF_PATCH = (0x44, 0x9212, 0x93C6)
+# Knob entry stubs (16 B each) into the shared knob body of
+# build/own_handlers.asm; it takes the knob id in B4 and the params[] byte
+# offset in B7 (kept across both host calls by the call stub).
+_BASE_RANGE_MAX = 150            # the 1.5f / 151 law serves every max up to 150
 _EDIT_STUB_SIZE = 16
 
 
@@ -1038,18 +852,6 @@ def _edit_stub(stub_va: int, body_va: int, knob_id: int, param_off: int) -> byte
                        mvk_s2(knob_id, 4),                        # MVK.S2 id,B4
                        mvk_s2(param_off, 7),                      # MVK.S2 off,B7
                        0x00004000)                                # NOP 3
-
-
-def _aim_callp(buf: bytearray, off: int, va: int, target_va: int) -> None:
-    """Re-encode the CALLP.S2 at buf[off] (at address va) to call target_va:
-    cst21 (bits 7..27) = words from the instruction's fetch packet."""
-    w = struct.unpack_from('<I', buf, off)[0]
-    if w & ~(0x1FFFFF << 7) != _CALLP_ENC & ~(0x1FFFFF << 7):
-        raise ValueError(f"no CALLP.S2 at clone +0x{off:X}: 0x{w:08X}")
-    disp = target_va - (va & ~31)
-    if disp % 4 or not -(1 << 22) <= disp < (1 << 22):
-        raise ValueError(f"CALLP target out of range: {disp}")
-    _p32(buf, off, (w & ~(0x1FFFFF << 7)) | (((disp >> 2) & 0x1FFFFF) << 7))
 
 
 # Stock 3-knob effects all export a local coefficient-table object before
@@ -1193,62 +995,88 @@ def _init_materialize_body(handler_vas: list[int], init_va: int,
 
 
 # ---------------------------------------------------------------------------
-# Dll_<Name> entry function  [v1-empirical]
-#
-# 200-byte copy of NoiseGate's Dll function with 4 reloc points repatched
-# to point at our descriptor table + effectTypeImageInfo. The first compact
-# MVK writes the descriptor entry count into the host output struct:
-#   OnOff + effect-name self-entry + user params.
-#
-# An earlier 32-byte attempt patterned after LOFIDLY's Dll caused
-# inconsistent FX-select freezes. NoiseGate boots cleanly. Why this body
-# specifically works isn't understood — leave it alone.
+# Dll_<Name> entry function
 # ---------------------------------------------------------------------------
 
-_DLL_WORDS = [
-    0x842621EF,
-    0x0001AC2A,  # +0x04: MVK.S2  lo(desc), B0    ← ABS_L16 reloc
-    0x0080DC29,  # +0x08: MVK.S1  lo(info), A1    ← ABS_L16 reloc
-    0x0040006B,  # +0x0C: MVKH.S2 hi(desc), B0    ← ABS_H16 reloc
-    0x30040204,
-    0x00C00068,  # +0x14: MVKH.S1 hi(info), A1    ← ABS_H16 reloc
-    0x00904274, 0xE2200202, 0x00903D5B, 0x00903D59, 0x19760032, 0x00909BF9,
-    0x00043D73, 0x51002040, 0x02100CE3, 0xE0800010, 0x40002943, 0x030018F0,
-    0x011099FB, 0xC5621836, 0x00000C12, 0x4100A35B, 0x608808F3, 0xE10000C0,
-    0x610829A1, 0x00000812, 0x621029A3, 0x52109B31, 0x00000810, 0x521029A3,
-    0x62109B31, 0x0100E8DB, 0x0080E9C3, 0x00000410, 0x6080A35B, 0x22109979,
-    0x200029C3, 0x00000413, 0x00000001, 0x00000000, 0x22109979, 0x200029C3,
-    0x4087E05B, 0x40000012,
-    0x000C0362,  # +0xB0: B B3 (canonical return)
-    0x92100CE1, 0x8200A358, 0x921009E0, 0x92104840, 0x00002000,
+# Dll_<name>: Leemuzhko's dll.asm (repeat98 build/runtime/dll.asm, from
+# the documented host contract: +0 row count byte, +4 descriptor, +8 image
+# info; every store in the delay slots of B B3), TI-assembled with
+# --no_compress; do not hand-edit. The row count is OR-ed into MVK.L1 0,A0
+# (+0x08) at bit 18 (signed 5 bits, rows <= 15).
+_COMPACT_DLL_WORDS = [
+    0x000C0363,  # +0x00: B.S2 B3
+    0x00800029,  # +0x04: || MVK.S1 lo(desc), A1   <- ABS_L16
+    0x0000A358,  # +0x08: || MVK.L1 rows, A0
+    0x00800069,  # +0x0C: MVKH.S1 hi(desc), A1     <- ABS_H16
+    0x0000002B,  # +0x10: || MVK.S2 lo(info), B0   <- ABS_L16
+    0x00100234,  # +0x14: || STB.D1T1 A0, *+A4[0]
+    0x0000006B,  # +0x18: MVKH.S2 hi(info), B0     <- ABS_H16
+    0x00902274,  # +0x1C: || STW.D1T1 A1, *+A4[1]
+    0x00104276,  # +0x20: STW.D1T2 B0, *+A4[2]
+    0x00002000,  # +0x24: NOP 2
 ]
-_DLL_RELA_OFFSETS = [
+_COMPACT_DLL_ROWS_OFF = 0x08
+_COMPACT_DLL_RELA_OFFSETS = [
     (0x04, RT_ABS_L16, 'desc'),
-    (0x08, RT_ABS_L16, 'info'),
     (0x0C, RT_ABS_H16, 'desc'),
-    (0x14, RT_ABS_H16, 'info'),
+    (0x10, RT_ABS_L16, 'info'),
+    (0x18, RT_ABS_H16, 'info'),
 ]
 
 
-def _encode_compact_mvk_l1_a0(value: int) -> int:
-    """Return compact `MVK.L1 value,A0` encoding for small non-negative ints."""
-    if value < 0 or value > 31:
-        raise ValueError(f"DLL descriptor count {value} out of compact MVK range")
-    # Observed stock encodings:
-    #   4 -> 0x8426 (NoiseGate, 2 user params)
-    #   5 -> 0xA426 (Exciter/OptComp, 3 user params)
-    #   9 -> 0x2C26 (GraphicEQ, 7 user params)
-    hi = ((value & 0x7) << 5) | ((value >> 3) << 3) | 0x04
-    return (hi << 8) | 0x26
+# build/own_handlers.asm with the knob body's range law (state[21](top, 0,
+# steps, 0, v), raw = v / 100): max <= 150 1.5f / 151 (as stock LineSel),
+# max 200 / 210 2.0f / 201 (as stock APanDLY's outLv).
+_OWN_HANDLERS_ASM = Path(__file__).resolve().parent / "own_handlers.asm"
+_OWN_RANGE_LAW = {150: (151, 0x3FC00000), 200: (201, 0x40000000), 210: (201, 0x40000000)}
 
 
-def _build_dll(desc_entry_count: int) -> bytes:
-    code = bytearray()
-    words = list(_DLL_WORDS)
-    words[0] = (words[0] & 0x0000FFFF) | (_encode_compact_mvk_l1_a0(desc_entry_count) << 16)
-    for w in words:
-        code.extend(struct.pack('<I', w))
-    assert len(code) == 200
+def _ti_root() -> Path:
+    env = os.environ.get("TI_CGT_ROOT")
+    if env and (Path(env) / "bin").is_dir():
+        return Path(env)
+    for p in sorted(Path("C:/ti").glob("ti-cgt-c6000_*"), reverse=True):
+        if (p / "bin").is_dir():
+            return p
+    raise RuntimeError("own_handlers: TI C6000 CGT not found (set TI_CGT_ROOT)")
+
+
+def _own_handlers(law: int, work: Path) -> tuple[bytes, dict[str, int]]:
+    """own_handlers.asm assembled with law's constants: the code (no
+    relocations allowed) and the offsets of own_onf, own_knob, own_stub."""
+    import subprocess
+    steps, top = _OWN_RANGE_LAW[law]
+    src = _OWN_HANDLERS_ASM.read_text(encoding="utf-8")
+    src = src.replace("OWN_STEPS", str(steps)).replace("OWN_TOP", f"0x{top:08X}")
+    work.mkdir(parents=True, exist_ok=True)
+    asm, obj_path = work / "own_handlers_law.asm", work / "own_handlers_law.obj"
+    asm.write_bytes(src.replace("\r\n", "\n").encode("utf-8"))
+    r = subprocess.run([str(_ti_root() / "bin" / "cl6x"), "-mv6740", "--abi=eabi", str(asm),
+                        f"--output_file={obj_path}"], cwd=work, capture_output=True, text=True)
+    if r.returncode or not obj_path.exists():
+        raise RuntimeError(f"own_handlers.asm: assembler failed:\n{r.stdout}{r.stderr}")
+    obj = ObjFile(obj_path)
+    text = [s for s in obj.sections if s['name'] == '.text' and s['size']]
+    if len(text) != 1:
+        raise RuntimeError("own_handlers.asm: expected one .text section")
+    idx = text[0]['idx']
+    # TI's layout markers (R_C6000_ALIGN, FPHEAD_BEGIN, NOCMP: 253..255) are no addresses
+    if any(rel['type'] < 253 for rel in obj.relocs.get(idx, [])):
+        raise RuntimeError("own_handlers.asm: a relocation in the code (branch targets must be local)")
+    offs = {s['name']: s['value'] for s in obj.symbols
+            if s['shndx'] == idx and s['name'] in ("own_onf", "own_knob", "own_stub")}
+    if len(offs) != 3 or offs["own_knob"] % 32 or offs["own_stub"] % 32:
+        raise RuntimeError(f"own_handlers.asm: symbols / alignment wrong: {offs}")
+    blob = bytes(text[0]['data'])
+    return blob + bytes(_align_up(len(blob), 32) - len(blob)), offs
+
+
+def _build_compact_dll(rows: int) -> bytes:
+    if not 0 < rows <= 15:
+        raise ValueError(f"Dll_: row count {rows} doesn't fit MVK.L1")
+    code = bytearray(b"".join(struct.pack('<I', w) for w in _COMPACT_DLL_WORDS))
+    w = struct.unpack_from('<I', code, _COMPACT_DLL_ROWS_OFF)[0]
+    struct.pack_into('<I', code, _COMPACT_DLL_ROWS_OFF, w | rows << 18)
     return bytes(code)
 
 
@@ -1282,114 +1110,30 @@ def link(cfg: LinkerConfig) -> None:
 
     object_symbol_names = {sym['name'] for sym in obj.symbols if sym['name']}
 
-    # ----- Load divf RTS -----
-    divf_code = Path(cfg.divf_rts_path).read_bytes()
-    if cfg.drop_unused_divf and '__c6xabi_divf' not in externals:
-        divf_code = b""
+    # ----- No helpers from TI's run-time library besides the call stub -----
+    need = externals & {'__c6xabi_divf', '__c6xabi_push_rts', '__c6xabi_pop_rts',
+                        '__c6xabi_call_stub'}
+    if need:
+        raise ValueError(f"the .obj needs {sorted(need)}: not provided (no float divide, "
+                         f"--disable_push_pop, no function-pointer calls)")
 
-    # ----- Load handler blob (or fall back to NOP_RETURN handlers) -----
-    handler_blob = b""
+    # ----- Own handlers (build/own_handlers.asm) + one entry stub per knob -----
+    import tempfile
+    maxes = [p.max_val for p in cfg.params if p.max_val > _BASE_RANGE_MAX and not p.store]
+    law = max(maxes) if maxes else _BASE_RANGE_MAX
+    if law not in _OWN_RANGE_LAW or any(_OWN_RANGE_LAW[m] != _OWN_RANGE_LAW[law] for m in maxes):
+        raise ValueError(f"no shared knob range law for knob maxes {sorted(set(maxes))} "
+                         f"(have {sorted(_OWN_RANGE_LAW)})")
+    handler_blob, own_offs = _own_handlers(law, Path(tempfile.mkdtemp(prefix="own_handlers_")))
     handler_va: dict[str, int] = {}                              # filled below
-    handler_path = Path(cfg.handler_blob_path) if cfg.handler_blob_path else None
-    use_real_handlers = handler_path is not None and handler_path.exists()
-    handler_funcs = dict(cfg.handler_funcs)
-    if use_real_handlers:
-        handler_blob = handler_path.read_bytes()
-        print(f"  handlers: {handler_path.name} ({len(handler_blob)} bytes)")
-        if cfg.trim_linesel_blob:
-            if not cfg.compact_linesel_clones:
-                raise ValueError("trim_linesel_blob needs compact_linesel_clones")
-            need = externals & {'__c6xabi_push_rts', '__c6xabi_pop_rts'}
-            if need:
-                raise ValueError(f"trim_linesel_blob drops {sorted(need)}")
-            if len(handler_blob) != 480 or handler_funcs.get("call_stub") != 0x140:
-                raise ValueError("trim_linesel_blob expects LineSel's 480-byte blob")
-            # Compact clones slice +0x60..+0xBF, kept as is (their CALLPs
-            # are re-aimed again where they are placed).
-            keep, callps, stub = ((_EDIT_STUB_KEEP, _EDIT_STUB_CALLPS, _EDIT_STUB_CALL)
-                                  if cfg.compact_edit_stubs else
-                                  (_TRIM_KEEP, _TRIM_CALLPS, _TRIM_STUB))
-            trimmed = bytearray(b"".join(handler_blob[a:b] for a, b in keep))
-            for o in callps:
-                _aim_callp(trimmed, o, o, stub)
-            if cfg.compact_edit_stubs:
-                for rel, old, new in (_EDIT_STUB_ID_PATCH, _EDIT_STUB_OFF_PATCH):
-                    o = _EDIT_STUB_BODY + rel
-                    if _u16(trimmed, o) != old:
-                        raise ValueError(f"edit stub body: 0x{_u16(trimmed, o):04X} at +0x{o:X}")
-                    _p16(trimmed, o, new)
-            handler_blob = bytes(trimmed)
-            handler_funcs = {k: v for k, v in handler_funcs.items()
-                             if k in (("onf",) if cfg.compact_edit_stubs else
-                                      ("onf", "knob1_edit", "knob2_edit"))}
-            handler_funcs["call_stub"] = stub
-            print(f"  handlers trimmed to {len(handler_blob)} bytes")
-
-    # ----- Build LineSel-cloned synthetic edit handlers -----
-    synth_handler_blob = b""
+    edit_body_off = own_offs["own_knob"]
+    print(f"  handlers: own_handlers.asm ({len(handler_blob)} bytes, range law of max {law})")
+    synth_specs = [(i, i + 2, 20 + i * 4) for i in range(len(cfg.params))]
     synth_handler_vas_by_param: dict[int, int] = {}
-    synth_specs: list[tuple[int, int, int]] = []
-    if cfg.synthesize_linesel_edit_handlers:
-        if not use_real_handlers:
-            raise RuntimeError("LineSel handler synthesis requires handler_blob_path")
-        for i in range(len(cfg.params)):
-            if i >= cfg.synth_edit_start_index:
-                synth_specs.append((i, i + 2, 20 + i * 4))
-            elif cfg.params[i].max_val > _LINESEL_RANGE_MAX and not cfg.params[i].store:
-                raise ValueError(f"param {i} max {cfg.params[i].max_val} > "
-                                 f"{_LINESEL_RANGE_MAX} needs a synthesized handler "
-                                 f"(synth_edit_start_index <= {i})")
-        if synth_specs and cfg.compact_edit_stubs:
-            if not (cfg.trim_linesel_blob and cfg.synth_edit_start_index == 0):
-                raise ValueError("compact_edit_stubs needs trim_linesel_blob and "
-                                 "synth_edit_start_index 0")
-            # One shared body = one range law for every knob. Any law gives
-            # raw = v / 100 (LineSel's 151 law serves every max <= 150), so a
-            # knob over 150 switches the whole body to its law (max 210:
-            # the 200 law, unclamped past 200).
-            laws = {_COMPACT_RANGE_LAW.get(cfg.params[i].max_val)
-                    for i, _k, _o in synth_specs
-                    if cfg.params[i].max_val > _LINESEL_RANGE_MAX and not cfg.params[i].store}
-            if None in laws or len(laws) > 1:
-                raise ValueError("compact_edit_stubs: knob maxes over "
-                                 f"{_LINESEL_RANGE_MAX} need one shared law in "
-                                 f"_COMPACT_RANGE_LAW (have {sorted(_COMPACT_RANGE_LAW)})")
-            if laws:
-                law = laws.pop()
-                body = bytearray(handler_blob)
-                for rel, enc in zip((0x12, 0x16, 0x24), law):
-                    _p16(body, _EDIT_STUB_BODY + rel, enc)
-                handler_blob = bytes(body)
-                print(f"  edit stub body: range law of max {_COMPACT_RANGE_LAW_NAME[law]} "
-                      f"for every knob (raw = v / 100)")
-            # Placeholder; the stubs are written once their VAs are known.
-            synth_handler_blob = bytes(_align_up(_EDIT_STUB_SIZE * len(synth_specs), 32))
-            print(f"  synth:   {len(synth_specs)} edit stub(s) -> shared knob1 body "
-                  f"({len(synth_handler_blob)} bytes)")
-        elif synth_specs:
-            synth_parts = [
-                _patch_linesel_knob_clone(handler_blob, knob_id, param_off,
-                                          _LINESEL_RANGE_MAX if cfg.params[i].store
-                                          else cfg.params[i].max_val)
-                for i, knob_id, param_off in synth_specs
-            ]
-            if cfg.compact_linesel_clones:
-                synth_parts = [p_[_CLONE_START:_CLONE_START + _CLONE_SIZE]
-                               for p_ in synth_parts]
-            synth_handler_blob = b"".join(synth_parts)
-            print(
-                f"  synth:   {len(synth_specs)} LineSel-cloned edit handler(s) "
-                f"({len(synth_handler_blob)} bytes)"
-            )
-
-    # ----- Load AIR knob3 blob (used when len(params) >= 3) -----
-    knob3_blob = b""
-    knob3_path = Path(cfg.knob3_blob_path) if cfg.knob3_blob_path else None
-    use_knob3 = (knob3_path is not None and knob3_path.exists()
-                 and len(cfg.params) >= 3)
-    if use_knob3:
-        knob3_blob = knob3_path.read_bytes()
-        print(f"  knob3:    {knob3_path.name} ({len(knob3_blob)} bytes)")
+    # Placeholder; the stubs are written once their VAs are known.
+    synth_handler_blob = bytes(_align_up(_EDIT_STUB_SIZE * len(synth_specs), 32))
+    print(f"  synth:   {len(synth_specs)} edit stub(s) -> shared knob body "
+          f"({len(synth_handler_blob)} bytes)")
 
     # ----- Screen image -----
     pic_data = bytearray(cfg.screen_image or make_text_screen(cfg.effect_name))
@@ -1426,10 +1170,6 @@ def link(cfg: LinkerConfig) -> None:
     HANDLER_SIZE    = len(handler_blob)
     SYNTH_OFF       = _align_up(HANDLER_OFF + HANDLER_SIZE, 32)
     SYNTH_SIZE      = len(synth_handler_blob)
-    KNOB3_OFF       = _align_up(SYNTH_OFF + SYNTH_SIZE, 32)
-    KNOB3_SIZE      = len(knob3_blob)
-    DIVF_OFF        = _align_up(KNOB3_OFF + KNOB3_SIZE, 32)
-    DIVF_SIZE       = len(divf_code)
 
     # NOP_RETURN stubs — we need one PER NOP'd-handler-role so each
     # named dynsym entry (Fx_FLT_<Name>_init, Fx_FLT_<Name>_KnobN_edit
@@ -1440,67 +1180,38 @@ def link(cfg: LinkerConfig) -> None:
     # affected entry from the edit-mode list (verified hardware test
     # 2026-05-11 with HELLO).
     #
-    # Pre-count NOP roles: init (always NOP), plus one per knob that
-    # falls back to NOP_RETURN.
-    use_real_knob1    = use_real_handlers and "knob1_edit" in handler_funcs and len(cfg.params) >= 1
-    use_real_knob2    = use_real_handlers and "knob2_edit" in handler_funcs and len(cfg.params) >= 2
-    use_real_knob3    = use_knob3       and len(cfg.params) >= 3
-    nop_knob_count    = sum(1 for i in range(len(cfg.params))
-                            if not (
-                                (
-                                    cfg.synthesize_linesel_edit_handlers
-                                    and i >= cfg.synth_edit_start_index
-                                ) or
-                                (
-                                    cfg.use_object_edit_handlers
-                                    and i >= cfg.object_edit_start_index
-                                    and f"{cfg.audio_func_name}_{cfg.params[i].name.replace(' ', '')}_edit"
-                                    in object_symbol_names
-                                ) or
-                                (i == 0 and use_real_knob1) or
-                                (i == 1 and use_real_knob2) or
-                                (i == 2 and use_real_knob3)
-                            ))
-
-    nop_onf_needed    = 1 if (not use_real_handlers or "onf" not in handler_funcs) else 0
+    # Every knob has an entry stub and the OnOff handler is real: the only
+    # NOP role left is the _init when there is no materializing one.
     object_init_name  = f"{cfg.audio_func_name}_init"
     use_object_init   = cfg.use_object_init_handler and object_init_name in object_symbol_names
-    NOP_RETURN_COUNT  = (0 if use_object_init else 1) + nop_knob_count + nop_onf_needed
-    if NOP_RETURN_COUNT == 0:
-        NOP_RETURN_COUNT = 1
-    NOP_RET_OFF       = _align_up(DIVF_OFF + DIVF_SIZE, 32)
+    NOP_RETURN_COUNT  = 1
+    NOP_RET_OFF       = _align_up(SYNTH_OFF + SYNTH_SIZE, 32)
     NOP_RET_STUB_SIZE = 32
     NOP_RET_SIZE      = NOP_RET_STUB_SIZE * NOP_RETURN_COUNT
     INIT_MAT_OFF      = NOP_RET_OFF + NOP_RET_SIZE
-    # compact_edit_stubs: a single NOP_RETURN (B B3; NOP 5, 8 bytes) fits in
-    # the stub packets' padding instead of its own 32-byte packet.
+    # A single NOP_RETURN (B B3; NOP 5, 8 bytes) fits in the stub packets'
+    # padding instead of its own 32-byte packet.
     stubs_end = SYNTH_OFF + _EDIT_STUB_SIZE * len(synth_specs)
-    if (cfg.compact_edit_stubs and synth_specs and NOP_RETURN_COUNT == 1
-            and SYNTH_OFF + SYNTH_SIZE - stubs_end >= 8):
+    if synth_specs and SYNTH_OFF + SYNTH_SIZE - stubs_end >= 8:
         INIT_MAT_OFF      = NOP_RET_OFF
         NOP_RET_OFF       = stubs_end
         NOP_RET_STUB_SIZE = 8
         NOP_RET_SIZE      = 8
     # Reserved before the handler VAs are known (size depends only on the
     # knob count); the body is written once the VAs exist.
-    # init_call_loop: the cloned handlers (compact clones, knobs
-    # synth_edit_start_index..) from one loop block (needs 2+ of them)
-    use_init_loop = (cfg.materialize_init and cfg.init_call_loop
-                     and cfg.compact_linesel_clones and cfg.synthesize_linesel_edit_handlers
-                     and len(cfg.params) - cfg.synth_edit_start_index >= 2)
+    # init_call_loop: the knob entry stubs from one loop block (needs 2+)
+    use_init_loop = cfg.materialize_init and cfg.init_call_loop and len(cfg.params) >= 2
     if cfg.init_call_loop and not use_init_loop:
-        raise ValueError("init_call_loop needs materialize_init, compact_linesel_clones "
-                         "and 2+ synthesized knob handlers")
+        raise ValueError("init_call_loop needs materialize_init and 2+ knobs")
     INIT_MAT_SIZE     = (len(_INIT_MAT_PROLOGUE)
                          + (len(_INIT_SETUP) if cfg.init_param_setup else 0)
-                         + (_INIT_MAT_STRIDE * (min(cfg.synth_edit_start_index, len(cfg.params))
-                                                + len(cfg.init_extra_calls)) + len(_INIT_LOOP)
+                         + (_INIT_MAT_STRIDE * len(cfg.init_extra_calls) + len(_INIT_LOOP)
                             if use_init_loop else
                             _INIT_MAT_STRIDE * (len(cfg.params) + len(cfg.init_extra_calls)))
                          + len(_INIT_MAT_EPILOGUE)
                          if cfg.materialize_init else 0)
     DLL_OFF           = INIT_MAT_OFF + INIT_MAT_SIZE
-    DLL_SIZE          = 200
+    DLL_SIZE          = len(_COMPACT_DLL_WORDS) * 4
     TEXT_TOTAL        = _align_up(DLL_OFF + DLL_SIZE, 32)
 
     print(f"\n  .text layout:")
@@ -1510,9 +1221,6 @@ def link(cfg: LinkerConfig) -> None:
         print(f"    handlers @ 0x{HANDLER_OFF:04X}  ({HANDLER_SIZE})")
     if SYNTH_SIZE:
         print(f"    synth    @ 0x{SYNTH_OFF:04X}  ({SYNTH_SIZE})")
-    if KNOB3_SIZE:
-        print(f"    knob3    @ 0x{KNOB3_OFF:04X}  ({KNOB3_SIZE})")
-    print(f"    divf     @ 0x{DIVF_OFF:04X}  ({DIVF_SIZE})")
     print(f"    nop_ret  @ 0x{NOP_RET_OFF:04X}  ({NOP_RETURN_COUNT} × 32-byte stubs)")
     if INIT_MAT_SIZE:
         print(f"    init_mat @ 0x{INIT_MAT_OFF:04X}  ({INIT_MAT_SIZE}) — materializes params on load")
@@ -1524,48 +1232,27 @@ def link(cfg: LinkerConfig) -> None:
     out_text[AUDIO_OFF:AUDIO_OFF + audio_sec['size']] = audio_sec['data']
     if text_sec and TEXT_ORIG_SIZE:
         out_text[TEXT_ORIG_OFF:TEXT_ORIG_OFF + TEXT_ORIG_SIZE] = text_sec['data']
-    if HANDLER_SIZE:
-        out_text[HANDLER_OFF:HANDLER_OFF + HANDLER_SIZE] = handler_blob
+    out_text[HANDLER_OFF:HANDLER_OFF + HANDLER_SIZE] = handler_blob
     if SYNTH_SIZE:
         out_text[SYNTH_OFF:SYNTH_OFF + SYNTH_SIZE] = synth_handler_blob
-        if cfg.compact_edit_stubs:
-            body_va = TEXT_VA + HANDLER_OFF + _EDIT_STUB_BODY
-            for k, (_i, knob_id, param_off) in enumerate(synth_specs):
-                o = SYNTH_OFF + k * _EDIT_STUB_SIZE
-                out_text[o:o + _EDIT_STUB_SIZE] = _edit_stub(TEXT_VA + o, body_va,
-                                                             knob_id, param_off)
-        elif cfg.compact_linesel_clones:
-            stub_off = HANDLER_OFF + handler_funcs["call_stub"]
-            for k in range(len(synth_specs)):
-                for c in _CLONE_CALLPS:
-                    o = SYNTH_OFF + k * _CLONE_SIZE + c
-                    _aim_callp(out_text, o, TEXT_VA + o, TEXT_VA + stub_off)
-    if KNOB3_SIZE:
-        out_text[KNOB3_OFF:KNOB3_OFF + KNOB3_SIZE] = knob3_blob
-    out_text[DIVF_OFF:DIVF_OFF + DIVF_SIZE] = divf_code
+        body_va = TEXT_VA + HANDLER_OFF + edit_body_off
+        for k, (_i, knob_id, param_off) in enumerate(synth_specs):
+            o = SYNTH_OFF + k * _EDIT_STUB_SIZE
+            out_text[o:o + _EDIT_STUB_SIZE] = _edit_stub(TEXT_VA + o, body_va,
+                                                         knob_id, param_off)
     # Emit NOP_RETURN_COUNT distinct 32-byte stubs (each is the same byte
     # sequence — `B B3` + delay-slot NOPs — but they live at distinct
     # VAs so different roles using NOP_RETURN don't collide in va_to_idx).
     for k in range(NOP_RETURN_COUNT):
         stub_off = NOP_RET_OFF + k * NOP_RET_STUB_SIZE
         out_text[stub_off:stub_off + NOP_RET_STUB_SIZE] = _NOP_RETURN[:NOP_RET_STUB_SIZE]
-    out_text[DLL_OFF:DLL_OFF + DLL_SIZE] = _build_dll(2 + len(cfg.params))
+    out_text[DLL_OFF:DLL_OFF + DLL_SIZE] = _build_compact_dll(2 + len(cfg.params))
 
     # Resolve handler VAs (one per logical name)
-    if use_real_handlers:
-        for name, off in handler_funcs.items():
-            handler_va[name] = TEXT_VA + HANDLER_OFF + off
-    if synth_specs:
-        for clone_idx, (param_idx, _knob_id, _param_off) in enumerate(synth_specs):
-            synth_handler_vas_by_param[param_idx] = (
-                TEXT_VA + SYNTH_OFF + clone_idx * _EDIT_STUB_SIZE
-                if cfg.compact_edit_stubs else
-                TEXT_VA + SYNTH_OFF + (clone_idx * _CLONE_SIZE
-                                       if cfg.compact_linesel_clones else
-                                       clone_idx * len(handler_blob) + 0x60)
-            )
-    if use_knob3:
-        handler_va["knob3_edit"] = TEXT_VA + KNOB3_OFF
+    handler_va["onf"] = TEXT_VA + HANDLER_OFF + own_offs["own_onf"]
+    handler_va["call_stub"] = TEXT_VA + HANDLER_OFF + own_offs["own_stub"]
+    for k, (param_idx, _knob_id, _param_off) in enumerate(synth_specs):
+        synth_handler_vas_by_param[param_idx] = TEXT_VA + SYNTH_OFF + k * _EDIT_STUB_SIZE
 
     # ----- Map .obj sections to VAs -----
     section_va: dict[int, int] = {
@@ -1613,38 +1300,8 @@ def link(cfg: LinkerConfig) -> None:
         else _alloc_nop_va()
     )
 
-    # Per-knob edit handlers.
-    #   knob 1 → LineSel knob1_edit (if blob present)
-    #   knob 2 → LineSel knob2_edit (if blob present)
-    #   knob 3 → AIR knob3 blob (legacy fallback only; it is not
-    #            portable to every plugin context)
-    #   synthesized LineSel clones / object-defined handlers can override
-    #   this before falling back to blob/NOP handlers.
-    edit_keys = ["knob1_edit", "knob2_edit", "knob3_edit"]
-    knob_edit_vas: list[int] = []
-    n_nop_handlers = 0
-    for i, param in enumerate(cfg.params):
-        p_name = param.name.replace(' ', '')
-        obj_edit_name = f"{cfg.audio_func_name}_{p_name}_edit"
-        key = edit_keys[i] if i < len(edit_keys) else None
-        real_va = synth_handler_vas_by_param.get(i)
-        if real_va is None:
-            real_va = (
-                obj_symbol_va.get(obj_edit_name)
-                if cfg.use_object_edit_handlers and i >= cfg.object_edit_start_index
-                else None
-            )
-        if real_va is None:
-            real_va = handler_va.get(key) if key else None
-
-        if real_va is not None:
-            knob_edit_vas.append(real_va)
-        else:
-            knob_edit_vas.append(_alloc_nop_va())
-            n_nop_handlers += 1
-    if n_nop_handlers:
-        print(f"  WARNING: {n_nop_handlers} knob(s) using NOP_RETURN edit "
-              f"handler (each gets a unique stub VA)")
+    # Per-knob edit handlers: the entry stubs.
+    knob_edit_vas: list[int] = [synth_handler_vas_by_param[i] for i in range(len(cfg.params))]
 
     # Now that every handler has an address, write the _init that calls them
     # and point the descriptor at it instead of a NOP_RETURN stub.
@@ -1669,9 +1326,9 @@ def link(cfg: LinkerConfig) -> None:
             print(f"  init:    ctx[34](params, zeros, {setup_bytes}) before the handler calls")
         loop = None
         if use_init_loop:
-            # the cloned handlers (knobs synth_edit_start_index..): one run at
-            # a fixed stride, called from the loop block after the others
-            k0 = cfg.synth_edit_start_index
+            # the knob entry stubs: one run at a fixed stride, called from
+            # the loop block after the other calls
+            k0 = 0
             run = knob_edit_vas[k0:]
             stride = run[1] - run[0]
             if (_max is not None or call_vas[:len(knob_edit_vas)] != knob_edit_vas
@@ -1881,8 +1538,6 @@ def link(cfg: LinkerConfig) -> None:
         elif sym['shndx'] < 0xFF00 and sym['shndx'] in section_va:
             sym_addr[sym['idx']] = section_va[sym['shndx']] + sym['value']
 
-    if '__c6xabi_divf' in undefined:
-        sym_addr[undefined['__c6xabi_divf']] = TEXT_VA + DIVF_OFF
 
     # Object-defined init shims can call the linker-selected stock/cloned
     # handlers by their ABI names. Resolve those undefined calls after the
@@ -1915,18 +1570,8 @@ def link(cfg: LinkerConfig) -> None:
     if desc_sym_name in undefined:
         sym_addr[undefined[desc_sym_name]] = DESC_VA
 
-    # Compiler-emitted register save/restore helpers — resolve to the
-    # spliced LineSel copies if present.  Without these, any moderately
-    # complex audio function (anything that spills to stack) would link
-    # as unresolved and crash at first call.
-    for ext_name, blob_key in [
-        ('__c6xabi_push_rts', 'push_rts'),
-        ('__c6xabi_pop_rts',  'pop_rts'),
-        ('__c6xabi_call_stub','call_stub'),
-    ]:
-        if ext_name in undefined and blob_key in handler_va:
-            sym_addr[undefined[ext_name]] = handler_va[blob_key]
-
+    # (TI run-time helpers are refused above: no divf, push / pop_rts or
+    # call stub for the .obj.)
     for name, idx in undefined.items():
         if idx not in sym_addr:
             print(f"  WARNING: unresolved external: {name}")
@@ -2008,7 +1653,7 @@ def link(cfg: LinkerConfig) -> None:
         coe_relocs.append((TEXT_VA + coe_reloc_off + 0x0C, RT_ABS_H16, COE_VA))
 
     DESC_TABLE_VA = DESC_VA
-    for off_in_dll, rtype, purpose in _DLL_RELA_OFFSETS:
+    for off_in_dll, rtype, purpose in _COMPACT_DLL_RELA_OFFSETS:
         file_off = DLL_OFF + off_in_dll
         target = DESC_TABLE_VA if purpose == 'desc' else INFO_VA
         if rtype == RT_ABS_L16:
@@ -2046,11 +1691,11 @@ def link(cfg: LinkerConfig) -> None:
     STV_HIDDEN = 2
     STV_PROTECTED = 3
 
+    # No .c6xabi.attributes section (every stock effect has one; works
+    # without on the B1Xon 1.30).
     sec_names = ['', '.rela.dyn', '.rela.plt', '.audio', '.text',
                  '.const', '.fardata', '.dynamic', '.dynsym', '.dynstr',
-                 '.hash', '.c6xabi.attributes', '.shstrtab']
-    if cfg.drop_attributes:
-        sec_names.remove('.c6xabi.attributes')
+                 '.hash', '.shstrtab']
     if cfg.drop_empty_shdrs:
         sec_names.remove('.rela.plt')
         sec_names.remove('.audio')
@@ -2194,13 +1839,7 @@ def link(cfg: LinkerConfig) -> None:
     NUM_PHDRS    = 4
     PHDR_TABLE   = NUM_PHDRS * PHDR_SIZE
 
-    # .c6xabi.attributes — required per SPRAB89B Ch.17. Stock effects
-    # all carry one. Without it, the loader can't tell what addressing
-    # model we use and falls back to a degraded path. We splice stock
-    # Exciter's 62-byte blob verbatim (Tag_ISA=C6740, ABI_DSBT/PID/PIC
-    # all matching the bare-metal-non-DSBT model we actually produce).
-    c6xabi_path = REPEAT98_BUILD / "c6xabi_attributes.bin"
-    c6xabi_attrs = b'' if cfg.drop_attributes else c6xabi_path.read_bytes()
+    c6xabi_attrs = b''                  # no .c6xabi.attributes section
 
     # Stock ZDL ELFs place .text at file offset 0x40 and put the program
     # header table near EOF, immediately before the section headers. Keep

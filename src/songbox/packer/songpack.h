@@ -27,8 +27,10 @@
 #define SP_DO_PRAGMA(x) _Pragma(#x)
 #define SP_EXPAND_PRAGMA(x) SP_DO_PRAGMA(x)
 #define SP_INLINE(f) SP_EXPAND_PRAGMA(FUNC_ALWAYS_INLINE(f))
-/* The packer step may be kept out of line (one copy, called): define
- * SP_COLD(f) before including songpack.h; inlined by default. */
+/* The packer step and the small helpers used at many sites (sp_put,
+ * sp_get_bits3, sp_append, sp_next_addr, sp_mod12) may be kept out of line
+ * (one copy each, called): define SP_COLD(f) before including songpack.h;
+ * inlined by default. sp_relax stays inline (sp_dp_row's copy loop). */
 #ifndef SP_COLD
 #define SP_COLD(f) SP_INLINE(f)
 #endif
@@ -106,7 +108,7 @@ typedef struct {
     uint8_t stack[SP_MAX_BARS + 1u];
 } SpPack;
 
-SP_INLINE(sp_mod12)
+SP_COLD(sp_mod12)
 static inline uint32_t sp_mod12(int x)
 {
     if (x < 0) x += 12;
@@ -116,7 +118,7 @@ static inline uint32_t sp_mod12(int x)
 
 /* Bit address of the token after the one at a (parts 128 bits apart,
  * tokens in bits 4..105 of each). */
-SP_INLINE(sp_next_addr)
+SP_COLD(sp_next_addr)
 static inline uint32_t sp_next_addr(uint32_t a)
 {
     a += 3u;
@@ -273,7 +275,7 @@ static inline void sp_key_end(SpPack *P)
 
 /* ------------------------------------------------------------- tokens */
 
-SP_INLINE(sp_put)
+SP_COLD(sp_put)
 static inline void sp_put(SpPack *P, uint32_t t)
 {
     P->tok[P->ntok++] = (uint8_t)t;
@@ -385,7 +387,7 @@ static inline uint32_t sp_step(SpPack *P)
 
 /* ------------------------------------------------------------- unpacker */
 
-SP_INLINE(sp_get_bits3)
+SP_COLD(sp_get_bits3)
 static inline uint32_t sp_get_bits3(const uint32_t *w, uint32_t pos)
 {
     uint32_t sh = pos & 31u, v = w[pos >> 5] >> sh;
@@ -393,7 +395,7 @@ static inline uint32_t sp_get_bits3(const uint32_t *w, uint32_t pos)
     return v & 7u;
 }
 
-SP_INLINE(sp_append)
+SP_COLD(sp_append)
 static inline uint32_t sp_append(uint8_t *out, uint8_t *rh, uint32_t n, uint32_t b)
 {
     out[n] = (uint8_t)b;

@@ -40,8 +40,9 @@ pedal, firmware and what happened.
 ## Install
 
 Download an effect's `.ZDL` from the [Releases](../../releases) page
-(also in `dist/`). Each effect's README gives its category and how many free
-flash blocks it needs.
+(also in `dist/`). Each effect's README gives its category, how many free
+flash blocks it needs and its DSP cost (the pedal refuses a patch whose
+effects' costs add up to more than its budget, 210 on the G1on family).
 
 Install it like any other effect with
 [Zoom Effect Manager 2](https://zoomeffectmanager.com/en/): add the
@@ -72,7 +73,7 @@ Each effect has its own `build.py`; see its README for the commands.
 | `src/floppy/` | Floppy: the storage effect that saves zmenu effects' data in the patch |
 | `src/common/zmenu/` | zmenu: C library for knob menus and data saved through Floppy (`zmenu.h`), layout generator (`zmenu_gen.py`) |
 | `build/` | The linker that turns the TI object file into a ZDL, based on repeat98's, with additions (see its header); shared build helpers (`zdl_build.py`) |
-| `tools/` | Experimental G1Xon USB file transfer, used during development (not for general use yet) |
+| `tools/` | Experimental G1on-family USB SysEx tools (effect files, patch read, live knob set, patch switch), used during development; see [tools/README.md](tools/README.md) |
 | `docs/HARDWARE-NOTES.md` | What was learned on the hardware: load limit, `_init`, knob ranges, DSP load, ... |
 | `docs/CROSS-PEDAL-ZDL-SUMMARY.md` | What one ZDL needs to run on both the MS pedals and the G1on family |
 | `docs/ZDL-SIZE-TIPS.md` | What made our ZDLs smaller (flash and load limit), with measured savings |
@@ -117,5 +118,5 @@ These effects stand on the work of these projects:
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). Third-party code and the LineSel handler blob
-are listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+MIT, see [LICENSE](LICENSE). Third-party code is listed in
+[THIRD_PARTY.md](THIRD_PARTY.md).

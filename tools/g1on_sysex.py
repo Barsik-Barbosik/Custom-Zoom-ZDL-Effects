@@ -1,18 +1,23 @@
-"""File transfer for Zoom G1on/G1Xon-family pedals ("ZOOM 1 Series" MIDI ports).
+"""USB MIDI SysEx tool for Zoom G1on/G1Xon-family pedals ("ZOOM 1 Series" MIDI ports):
+files, flash read, the current patch (read) and its knobs (live set).
 
-Normal-mode (no firmware update) file protocol over USB MIDI SysEx. The device byte is auto-detected
-(G1Xon fw 1.21 = 0x64). Every SysEx is sent from a worker thread with a timeout:
-on Windows a send to a pedal that has stopped reading blocks in the driver until
+Normal mode (no firmware update). The device byte is auto-detected
+(G1Xon fw 1.21 = 0x64, B1Xon fw 1.30 = 0x66). How to use: tools/README.md.
+Every SysEx is sent from a worker thread with a timeout: on Windows a send to a pedal that has stopped reading blocks in the driver until
 the pedal is replugged, so we report it instead of hanging.
 
-    python -B tools/zoom1_files.py list
-    python -B tools/zoom1_files.py usage
-    python -B tools/zoom1_files.py delete NAME.ZDL --yes
-    python -B tools/zoom1_files.py upload path/NAME.ZDL --yes
-    python -B tools/zoom1_files.py flashread 0xA5000 3231744 -o fs.bin   # raw flash (backup)
-    python -B tools/zoom1_files.py download NAME.ZDL [-o DIR]      # does not work on G1Xon
+    python -B tools/g1on_sysex.py list
+    python -B tools/g1on_sysex.py usage
+    python -B tools/g1on_sysex.py delete NAME.ZDL --yes
+    python -B tools/g1on_sysex.py upload path/NAME.ZDL --yes
+    python -B tools/g1on_sysex.py flashread 0xA5000 3231744 -o fs.bin   # raw flash (backup)
+    python -B tools/g1on_sysex.py download NAME.ZDL [-o DIR]      # does not work on G1Xon
+    python -B tools/g1on_sysex.py patch [-o patch.syx]            # current patch rows (50 + 29), keeps unsaved edits
+    python -B tools/g1on_sysex.py knob SLOT PARAM VALUE           # set a knob live (50 + 31), not saved
+    python -B tools/g1on_sysex.py program N                       # switch to patch N (MIDI Program Change)
 
-STATUS (G1Xon fw 1.21): list, usage, delete, upload and flashread work.
+STATUS (G1Xon fw 1.21, B1Xon fw 1.30): list, usage, delete, upload, flashread,
+patch, knob and program work.
 `download` does NOT work: the pedal acks the read command but never sends data
 (use flashread). Each run ends with PC mode off (53) unless --stay-pcmode is given.
 
@@ -335,6 +340,14 @@ def main() -> None:
     # (likely RtMidi's 1 KB SysEx buffer), and the pedal was deaf afterwards until a
     # replug (likely its stuck USB transmit). 768 B -> ~890 B replies.
     fr.add_argument("--chunk", type=lambda s: int(s, 0), default=768)
+    pt = sub.add_parser("patch", help="read the current (edit) patch, read-only (request 29)")
+    pt.add_argument("-o", "--out", type=Path, help="save every reply as raw SysEx (F0 .. F7)")
+    kb = sub.add_parser("knob", help="set one parameter of the current patch live, not saved (31)")
+    kb.add_argument("slot", type=int, help="effect slot 0..4")
+    kb.add_argument("param", type=int, help="0 = on/off, 2..10 = knobs 1..9 (1 = effect type: refused)")
+    kb.add_argument("value", type=int)
+    pg = sub.add_parser("program", help="switch to patch N 0..99 (MIDI Program Change; unsaved edits are lost)")
+    pg.add_argument("number", type=int)
     dl = sub.add_parser("download")
     dl.add_argument("names", nargs="+")
     dl.add_argument("-o", "--outdir", type=Path, default=DEFAULT_OUT)
@@ -347,7 +360,10 @@ def main() -> None:
     rc = 0
     try:
         pedal.identify()
-        pedal.pcmode(True)
+        if args.action in ("patch", "knob", "program"):
+            args.stay_pcmode = True     # 53 would reload the patch (see `patch`)
+        else:
+            pedal.pcmode(True)
         try:
             if args.action == "list":
                 files = pedal.listing()
@@ -399,6 +415,47 @@ def main() -> None:
                 args.out.parent.mkdir(parents=True, exist_ok=True)
                 args.out.write_bytes(out)
                 print(f"\nOK   {len(out)} bytes from {args.addr:#x} in {time.monotonic() - t0:.1f}s -> {args.out}")
+            elif args.action == "patch":
+                # OS 1.21 / 1.30: 29 is answered (28 + 112 packed bytes) only while
+                # editor mode (50, B14[21]) is on; 52/53 don't set it. 51 (editor
+                # off) and 53 (PC mode off) both reload the current patch from flash
+                # (0xC0083E58(1)) and drop unsaved edits, so this sends neither and
+                # leaves editor mode on (main skips 52/53 for `patch`).
+                pedal.cmd(0x50)
+                replies = [r for r in pedal.cmd(0x29) if len(r) > 4 and r[3] == 0x28]
+                for r in replies:
+                    print(f"{len(r) + 2:5d} B  F0 {bytes(r).hex(' ').upper()} F7")
+                if not replies:
+                    print("FAIL no patch reply")
+                    rc = 1
+                elif args.out:
+                    args.out.parent.mkdir(parents=True, exist_ok=True)
+                    args.out.write_bytes(b"".join(b"\xF0" + bytes(r) + b"\xF7" for r in replies))
+                    print(f"OK   {len(replies)} reply(s) -> {args.out}")
+            elif args.action == "knob":
+                # OS 1.21: 31 slot param lo hi (0xC00830F4 stores slot B14[164],
+                # param B14[165], value lo + hi << 7 B14[83]) raises event 18,
+                # handled only while editor mode (50, B14[21]) or B14[22] is on:
+                # slots 0..4 -> 0xC0098B94(slot, param, value), the OS's own
+                # parameter set (param 0 on/off, 1 type, 2.. knobs = the patch
+                # record columns). No reply; read back with `patch`.
+                if not (0 <= args.slot <= 4 and (args.param == 0 or 2 <= args.param <= 10)
+                        and 0 <= args.value < 1 << 14):
+                    sys.exit("knob: slot 0..4, param 0 or 2..10, value 0..16383")
+                pedal.cmd(0x50)
+                pedal.cmd(0x31, args.slot, args.param, args.value & 0x7F, args.value >> 7)
+                print(f"OK   slot {args.slot} param {args.param} = {args.value} (sent)")
+            elif args.action == "program":
+                # OS 1.21 MIDI parser 0xC00846D0: status Cn (any channel 0..15) with
+                # one data byte -> 0xC0083840(1, ch, prog): prog < 100 -> B14[55] =
+                # prog, 0xC00970A4(prog) = the OS's own patch request (8 callers,
+                # e.g. the footswitches). No editor mode needed, no flash write, no
+                # reply; read back with `patch`.
+                if not 0 <= args.number <= 99:
+                    sys.exit("program: patch 0..99")
+                pedal.outport.send(mido.Message("program_change", channel=0, program=args.number))
+                pedal._log(">> PC", [0xC0, args.number])
+                print(f"OK   program change {args.number} (sent)")
             elif args.action == "usage":
                 print("disk (max, available):", pedal.disk_usage())
             elif args.action == "delete":

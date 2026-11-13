@@ -172,27 +172,15 @@ def main() -> None:
         knob_positions=[(i + 2, x, y) for i, (x, y) in enumerate(KNOB_SLOTS)],
         knob_bitmap=(1, 1, 11, bytes(11)),
         audio_nop=manifest.get("audio_nop", False) or "--nop" in args,
-        use_object_edit_handlers=False,
-        synthesize_linesel_edit_handlers=True,
-        synth_edit_start_index=2,
-        knob3_blob_path=str(HERE / "__nonexistent__"),
+        # (9 knob handlers = 16-byte stubs into the shared body of
+        # build/own_handlers.asm; Tempo's max 210 gives it the 200 law for
+        # every knob, raw = v / 100 either way)
         # Materializing _init: ctx[34](params, zeros, 56), then every knob's
         # edit handler, so saved values reach params[] on add / patch load /
         # power-up. Without the ctx[34] call it froze the G1Xon. --no-init
         # builds without it (then params[] keep stale values: for bisecting).
         materialize_init="--no-init" not in args,
         init_param_setup=True,
-        # No float divide in the code: leave the 640-byte divf RTS out
-        # (-640 B, room under the G1Xon load limit).
-        drop_unused_divf=True,
-        # Cloned knob 3-9 handlers = 96 B each, sharing LineSel's call_stub
-        # (-2,688 B).
-        compact_linesel_clones=True,
-        # LineSel blob without its unused _init, Dll and push/pop_rts
-        # (-160 B).
-        trim_linesel_blob=True,
-        # no .c6xabi.attributes section (-123 B file)
-        drop_attributes=True,
         # knob handler dynsyms without names (.dynstr 445 -> 214 B)
         anon_edit_syms=True,
         # DSP cost the pedal adds up per patch (budget 210 on the G1Xon):

@@ -14,3 +14,12 @@ typedef struct {
     float bp0, mk, m0;          /* new note: bp = bp0, menv = menv mk + m0 */
     uint32_t rot, sh, r0, m2;   /* LFO step; third read at ip << sh; new note: ip2 = ip2 r0 + ip m2 */
 } SsInst;
+
+/* A record's levels over a block of SS_BLK samples (ss_wt_build, from the
+ * record): the per-sample recurrences SS_BLK times in one step. */
+#define SS_BLK 8u
+typedef struct {
+    float dec8, bdec8, ma8;     /* dec, bdec, ma ^ 8 */
+    float rel8, at8;            /* env factor gate closed: rel ^ 8, open: (1 - att) ^ 8 */
+    float se, sm;               /* att sum (1 - att)^(8-j) dec^j, mb sum ma^(8-j) bdec^j (j 1..8) */
+} SsBlk;

@@ -32,9 +32,9 @@ started and stopped with the footswitch.
 ## Install
 
 `DrumBox.ZDL` (from the [Releases](../../../../releases) page or
-`../../dist/`, version 1.1.1) needs 8 free flash blocks (32,666 B). Install it as described
+`../../dist/`, version 1.1.2) needs 8 free flash blocks (31,511 B). Install it as described
 in the [main README](../../README.md#install). It is in the **SFX** category
-(gid 7, fxid 520 = 0x208). Pedals it was tested on: see the
+(gid 7, fxid 520 = 0x208) and declares a DSP cost of 60 of the patch's 210. Pedals it was tested on: see the
 [main README](../../README.md#pedals).
 
 ## How it works
@@ -60,7 +60,7 @@ in the [main README](../../README.md#install). It is in the **SFX** category
 | 2 | LenB | as LenA | Section B length |
 | 3 | Tempo | 40–250 | Tempo in BPM, 1 BPM steps |
 | 3 | Volume | 0–100 | Drum level |
-| 3 | Kit | 22 kits, Ac1 to LoBox ([Kits](#kits)) | Drum kit |
+| 3 | Kit | 22 kits, Ac1 to LoBox ([Kits](#kits)) | Drum kit; it renders once the knob has rested ~145 ms |
 
 - **Beat, fill and kit knobs:** one step per entry; the screen shows its
   short name. Randm = a random beat / fill (see Song).
@@ -652,8 +652,8 @@ sampled drums, synth hats and cymbals). Ac1..Ac8 ride `ride` and crash
 | 20 | LoFi | `drums/synth_lofi_*`, all on `synth_drum` with its crush stage (output held at ~12 kHz, coarse amplitude steps): short dusty kick, dark snare, dull gritty hats and crash, a half-open gritty hat on the ride lane, crushed toms |
 | 21 | LoBox | synth_lofi_kick, synth_el2_snare, synth_lofi_hat / _ohat, synth_el2_ride, synth_lofi_crash, synth_el2_tom / _tom_lo |
 
-**Kit cache:** when the kit changes, each lane's drum is rendered once
-into a cache in the effect's memory (~700 KB). Rendering runs in the
+**Kit cache:** when the kit changes (once the Kit knob has rested
+~145 ms), each lane's drum is rendered once into a cache in the effect's memory (~700 KB). Rendering runs in the
 background and takes a few seconds. When the song starts while the kit is
 still rendering (DrumBox added, a patch loaded), the closed hi-hat renders
 first and plays 2 count-in bars of quarter notes (beat 1 accented); then
@@ -768,8 +768,9 @@ After building, check the linker log:
 - `Applied N .obj relocations (N absolute, each with a .rela.dyn entry)`,
   both numbers equal (the tables in `.const`; the pedal fixes their
   addresses at load);
-- the allocated size (`.text` + `.const` totals) stays under ~29,968 B,
-  the largest known to load on the G1Xon (see `../../docs/HARDWARE-NOTES.md`).
+- the allocated size (`.text` + `.const` totals; 28,740 B now) stays at
+  most 30,104 B, the largest known to load on the G1on family; 30,136 B
+  froze (see `../../docs/HARDWARE-NOTES.md`).
 
 ## Known limitations
 

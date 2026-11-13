@@ -15,19 +15,23 @@ section on its own decides it.
 
 | Allocated sum | Result |
 |---|---|
-| 30,096 B | loads (largest known to work) |
-| 29,992 B | loads |
+| 30,104 B | loads (largest known to work, SongBox 1.0.0) |
+| 30,096 B | loads |
 | 29,968 B | loads |
+| 30,136 B | freezes on select (a patch holding it hangs the boot logo; only All INITIALIZE helped) |
 | 30,216 B | freezes on select |
 | 30,360 B | freezes on select |
 
-DrumBox 1.0.0 allocates 29,504 B. Check this number before every upload.
+SongBox 1.0.1 allocates 29,852 B, DrumBox 1.1.2 28,740 B. Check this
+number before every upload.
 Things that saved space, in the linker (`build/linker.py`):
 
-- `drop_unused_divf`: leaves the unused 640-byte float-divide RTS out.
-- `compact_linesel_clones`: each cloned knob handler is 96 B instead of a
-  480-byte copy of the LineSel blob (−2,688 B for 7 knobs).
-- `trim_linesel_blob`: the LineSel blob without its unused parts (480 → 320 B).
+- Own knob handlers (`build/own_handlers.asm`): one shared knob body plus
+  a 16-byte entry stub per knob, instead of copies of a stock handler
+  (DrumBox −800 B of load against its LineSel-based 1.1.1).
+- The 40-byte `Dll_` (Leemuzhko's `dll.asm`) instead of a 200-byte copy
+  of a stock one (−160 B).
+- No float-divide helper (the effects use reciprocals).
 
 In the DSP code:
 
@@ -74,11 +78,15 @@ patch load, on patch switch and at power-up. Source:
   max-6 knob arrives as 0.06. An enum knob with fewer than 100 steps
   therefore gets one exact step per entry. Read it as
   `int(raw * 100 + 0.5)`.
-- LineSel's handler law `state[21](1.5f, 0, 151, 0, v)` stops at 150.
-  Knob maxes up to 150 work with it, including 101..150.
-- **Max 200** works with stock APanDLY's law, `state[21](2.0f, 0, 201, 0, v)`
-  (raw up to 2.0). The linker gives a max-200 knob's cloned handler this
-  law. Other maxes above 150 need their own entry (`_COMPACT_RANGE_LAW`).
+- The knob handler converts the value with the firmware's
+  `state[21](top, 0, steps, 0, v)`. The law `(1.5f, 151)` (as stock
+  LineSel) stops at 150; knob maxes up to 150 work with it, including
+  101..150.
+- **Max 200** works with the law `(2.0f, 201)` (as stock APanDLY; raw up
+  to 2.0). The linker picks it for the shared knob body when a knob's max
+  is 200 or 210 (the law doesn't clamp past 200: a max-210 Tempo knob
+  reaches 250 BPM). Other maxes above 150 need their own entry
+  (`_OWN_RANGE_LAW`).
 - 9 parameters (3 pages of 3 knobs) work.
 - A `getstr` callback (descriptor `+0x24`) shows text for a knob value
   (names, BPM). Keep these callbacks free of loops, calls and division.
@@ -126,6 +134,42 @@ than tall, and scale previews 3:4.
   restart. DrumBox stores its cache so that any 32-bit word reads as a
   float below -150 dB, and keeps its variables at the arena's end.
 
+## Firmware math functions
+
+The firmware puts some of its own math routines in the `ctx` table the
+audio function receives. They are ordinary C functions (TI EABI: float
+arguments in A4 / B4, result in A4), called through the word in the slot:
+
+```c
+typedef float (*ZdlF1)(float);
+float s = ((ZdlF1)(uintptr_t)ctx[49])(x);     /* sine, x in radians */
+```
+
+| Slot | Function |
+|---|---|
+| `ctx[39]` | divide(a, b) = a / b |
+| `ctx[40]` | exp(x) |
+| `ctx[45]` | log10(x) |
+| `ctx[46]` | power(base, exponent) |
+| `ctx[49]` | sine(x), x in radians |
+| `ctx[51]` | int-to-float(i) |
+
+Tested on the B1Xon (firmware 1.30) with a probe effect: every one gave
+the right values, sine once per sample (8 calls per call of the effect)
+without crackles. The slot list comes from
+[Ziddle](https://berbasoft.com/ziddle/)'s firmware model, which also names
+cosine (38), reciprocal (47), 1/sqrt (48) and sqrt (50); those are
+untested. Each use is a function call, so the CPU cost per call is still
+to be measured. Not checked on the MS pedals.
+
+**Not used in the released effects:** the probe that worked was compiled
+without `--opt_for_space`. With it (`-ms`, as our effects are built),
+cl6x makes these calls through `__c6xabi_call_stub`, and three SongBox
+builds made that way froze the pedal as soon as the effect was selected
+(before its picture showed; once only an All INITIALIZE brought the pedal
+back). The same builds without the firmware calls loaded. The cause is not
+found yet.
+
 ## DSP load
 
 - The C674x runs at about **180 MHz**, measured with `TSCL`, which is
@@ -142,7 +186,16 @@ than tall, and scale previews 3:4.
 - DrumBox's first engine synthesized every hit live and used up to ~85 %
   of a call's time. Rendering each kit once into a cache in `ctx[3]` and
   playing the cache brought playback to ~15 % (~35 % while a kit renders).
-  DrumBox declares 60.
+  DrumBox declares 60, SongBox 52, Floppy 1.
+- **Stock effects' declared costs don't match their real load.** A test
+  effect that busy-waits a set share of each call, in the slot of SongBox,
+  found how much time five heavy patches really left: 13 %, 20 %, 18 %,
+  43 % and 52 % of a call, while the other effects' declared costs left
+  49.6, 52.2, 53.9, 57.2 and 59.5 of the 210. A compressor declared at
+  ~31 took far more, a reverb at ~27 far less. So a cost for a new effect
+  has to be tried in heavy patches on the pedal. SongBox declares 52: that
+  keeps out a patch where it crackled (room 49.6) and lets in one where it
+  played clean (room 52.2).
 - Loops that store into state can be unrolled by `cl6x` into long DINT/RINT
   (uninterruptible) blocks. Check that `dis6x` output has no `DINT` / `RINT`.
 
@@ -184,9 +237,19 @@ than tall, and scale previews 3:4.
 
 ## USB file transfer (G1Xon)
 
-`tools/zoom1_files.py` (experimental, development use) lists, deletes and
+`tools/g1on_sysex.py` (experimental, development use; see
+`tools/README.md`) lists, deletes and
 uploads single effects over USB MIDI SysEx, without a firmware update and
 without Zoom Effect Manager 2. File names on the pedal are upper case. Updating an effect means delete + upload.
+It also reads the current patch (`patch`: editor mode `50`, then request
+`29`) and sets one parameter live (`knob`: `31` slot, param, value low and
+high 7 bits; param 0 on/off, 2..10 knobs 1..9). Both keep unsaved edits;
+`51` (editor mode off) and `53` (PC mode off) reload the patch and drop them.
+`program N` switches to patch N (0..99) with a plain MIDI Program Change
+(any channel; no editor mode needed, nothing written to flash, unsaved
+edits dropped). Switch to a patch without custom effects before a replug,
+so the pedal can't boot into an effect that fails to load.
+`tools/g1on_keepalive.py` pings the pedal in the background.
 
 - After a few minutes idle, or after a 4 KB SysEx reply, the pedal can stop
   answering SysEx. Only a **physical replug** wakes it; a Windows device

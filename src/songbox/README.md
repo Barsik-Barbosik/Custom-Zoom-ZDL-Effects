@@ -21,7 +21,10 @@ DrumBox in the same patch, so the drums follow the song.
   (repeated bars and sections cost little); up to 4 copies hold longer
   songs (102 bits more each). Without Floppy the song is not saved; add an
   empty Floppy to the same patch and the song you wrote is kept and saved
-  into it (Full if it doesn't fit).
+  into it (Full if it doesn't fit). Best add Floppy before you
+  start writing a song. An effect added later in a slot before SongBox moves
+  SongBox one slot, and an unsaved song is lost; a Floppy added later goes
+  after SongBox.
 - **Drives DrumBox:** with [DrumBox](../drumbox/README.md) in the same
   patch, SongBox sets its beat, fills and tempo for each bar and starts and
   stops it with the song (MS pedals untested). After a patch change both
@@ -36,16 +39,17 @@ DrumBox in the same patch, so the drums follow the song.
 - **Footswitch on:** the song plays from bar 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the instruments.
 
-Version 1.0.0. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
+Version 1.0.1. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10; their addresses are read from
 the firmware, not tried): saving and DrumBox control assume the same patch
 layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SongBox.ZDL` (32,326 B, from the [Releases](../../../../releases) page or
+`SongBox.ZDL` (32,094 B, from the [Releases](../../../../releases) page or
 `../../dist/`) needs 8 free flash blocks; `Floppy.ZDL` 1 more.
-It is in the **SFX** category (gid 7, fxid 521). Install both as described
+It is in the **SFX** category (gid 7, fxid 521) and declares a DSP cost
+of 52 (Floppy 1, DrumBox 60) of the patch's 210. Install both as described
 in the [main README](../../README.md#install), then put SongBox, Floppy
 and (optionally) DrumBox into one patch.
 
@@ -61,7 +65,7 @@ and (optionally) DrumBox into one patch.
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
 | 3 | Tempo | 40–250 | Tempo in BPM |
 | 3 | Volume | 0–100 | Instrument level (50 = unchanged, default 70) |
-| 3 | Instr | Or1, Or1+BG, Or1+B2, Or1+BS, Or1+BT, Or1Ch, Or2, Or2+BG, Or2+B1, Or2+BS, Or2+BT, Or2Ch, EP+BG, EP+B1, EP+B2, EP+BS, EP+BT, EPCh, Mrm+BG, Mrm+B1, Mrm+B2, Mrm+BS, Mrm+BT, MrmCh, Klm+BG, Klm+B1, Klm+B2, Klm+BS, Klm+BT, KlmCh, Syn, Syn+BG, Syn+B1, Syn+B2, Syn+BT, SynCh, Plk+BG, Plk+B1, Plk+B2, Plk+BS, Plk+BT, PlkCh, BG, B1, B2, BS, BT, Mute | Instrument kit: a chords part and a bass part (default Or1+BG), grouped by chords sound. Chords: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay. Bass after the +: BG = bass guitar (precision bass), B1 = Organ1's bass, B2 = Organ2's bass, BS = the synth's bass, BT = triangle bass; a name alone (Or1, Or2, Syn) plays its own bass; Ch = the chords alone (no bass). BG, B1, B2, BS, BT alone = that bass alone |
+| 3 | Instr | Or1, Or1+BG, Or1+B2, Or1+BS, Or1+BT, Or1Ch, Or2, Or2+BG, Or2+B1, Or2+BS, Or2+BT, Or2Ch, EP+BG, EP+B1, EP+B2, EP+BS, EP+BT, EPCh, Mrm+BG, Mrm+B1, Mrm+B2, Mrm+BS, Mrm+BT, MrmCh, Klm+BG, Klm+B1, Klm+B2, Klm+BS, Klm+BT, KlmCh, Syn, Syn+BG, Syn+B1, Syn+B2, Syn+BT, SynCh, Plk+BG, Plk+B1, Plk+B2, Plk+BS, Plk+BT, PlkCh, BG, B1, B2, BS, BT, Mute | Instrument kit: a chords part and a bass part (default Or1+BG), grouped by chords sound. The kit changes once the knob has rested ~145 ms. Chords: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay. Bass after the +: BG = bass guitar (precision bass), B1 = Organ1's bass, B2 = Organ2's bass, BS = the synth's bass, BT = triangle bass; a name alone (Or1, Or2, Syn) plays its own bass; Ch = the chords alone (no bass). BG, B1, B2, BS, BT alone = that bass alone |
 
 ### Writing a song
 
@@ -331,6 +335,8 @@ python -B build.py                     # release build -> ../../dist/SongBox.ZDL
 python -B build.py --out PATH          # SongBox.ZDL to PATH
 python -B build.py --probe --out PATH  # with the CPU load meter in STATUS (development)
 python -B build.py --rhythms N --out PATH   # test build with only the first N rhythms
+python -B build.py --cost C --out PATH # test build declaring DSP cost C (heavy patch tests)
+python -B build.py --x2 | --x3 | --w1 --out PATH   # CPU test builds: pass-through / no player / busy wait of Volume %
 python -B build.py --tests             # only regenerate songbox_tests.h (no TI needed)
 python -B proto.py [--set epiano]      # instrument set prototypes -> preview/*.wav
 python -B pbass_proto.py               # precision bass variants -> preview/pbass_*.wav
@@ -345,5 +351,8 @@ G1on family; 30,136 B froze).
 - **MS pedals untested** (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10): song
   storage and DrumBox control assume the G1on patch layout.
 - **Mono instruments.**
+- **Heavy patches:** SongBox declares a DSP cost of 52. Some stock effects
+  use more DSP time than they declare, so a patch the pedal accepts can
+  still crackle; move an effect out or pick a lighter one.
 - **One SongBox per patch:** a second copy stays silent (the first in the
   chain plays).

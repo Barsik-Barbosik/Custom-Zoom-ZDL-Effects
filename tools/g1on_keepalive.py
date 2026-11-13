@@ -6,12 +6,12 @@ the deafness is in the pedal, not the driver). This sends one
 identity request every --interval seconds so the pedal never sits idle.
 
 Each ping opens the ports, sends once and closes them again, so
-zoom1_files.py can run in between (Windows MIDI ports are exclusive: a ping
+g1on_sysex.py can run in between (Windows MIDI ports are exclusive: a ping
 that finds them busy is skipped). The script stops at the FIRST missed reply:
 further sends to a deaf pedal queue in the driver and jam it until a replug.
 
-    python -B tools/zoom1_keepalive.py               # ping every 60 s, until Ctrl+C
-    python -B tools/zoom1_keepalive.py --interval 30
+    python -B tools/g1on_keepalive.py               # ping every 60 s, until Ctrl+C
+    python -B tools/g1on_keepalive.py --interval 30
 
 Every exchange is logged to tools/probe_logs/keepalive_*.log.
 """
@@ -25,7 +25,7 @@ import sys
 import time
 from datetime import datetime
 
-from zoom1_files import LOG_DIR, Pedal, SendBlocked
+from g1on_sysex import LOG_DIR, Pedal, SendBlocked
 
 
 def main() -> None:
@@ -43,7 +43,7 @@ def main() -> None:
         log_path = LOG_DIR / f"keepalive_{now:%Y%m%d_%H%M%S}.log"
         try:
             pedal = Pedal(a.port, log_path, timeout=3.0)
-        except (Exception, SystemExit) as e:   # ports busy (zoom1_files running) or gone
+        except (Exception, SystemExit) as e:   # ports busy (g1on_sysex running) or gone
             print(f"{now:%H:%M:%S}  skip: {e}", flush=True)
             time.sleep(a.interval)
             continue

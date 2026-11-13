@@ -556,7 +556,7 @@ static inline uint32_t zm_s_mark(const ZmFw *t, uint32_t s)
  * differ from what was last read or written (Floppy added or removed, patch
  * loaded, first call), so the effect should decode them (zm_s_get). Without
  * part 1 fslot = ZM_NOSLOT. */
-ZM_INLINE(zm_s_poll)
+ZM_COLD(zm_s_poll)
 static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
 {
     const ZmFw *t;
@@ -626,6 +626,17 @@ static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
         }
     }
     return dirty;
+}
+
+/* Instead of zm_s_poll on a call between polls (an effect that polls only
+ * every few calls): the own slot and the OS row; the Floppy fields keep the
+ * last poll's values. After a reset (magic) the effect must poll. */
+ZM_INLINE(zm_s_keep)
+static inline void zm_s_keep(ZmStream *z, unsigned int *ctx)
+{
+    z->slot = (uint32_t)ctx[0];
+    uint32_t i = z->fw - 1u, ok = (uint32_t)(i < ZM_NFW) & (uint32_t)(z->fwx == ~z->fw);
+    z->ft = (const ZmFw *)((uintptr_t)&zm_fws[i] & (uintptr_t)(0u - ok));   /* branch-free */
 }
 
 /* All parts' 106 bits -> w[4 q .. 4 q + 3] (part q), bit 0 first (column 1's

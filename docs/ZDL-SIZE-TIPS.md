@@ -56,6 +56,7 @@ nothing for alloc, because alloc is their sum.
 | Trick | Saving | Status |
 |---|---|---|
 | **Rarely-run code out of line:** `FUNC_CANNOT_INLINE` + `CODE_SECTION(".text")` + `FUNC_INTERRUPT_THRESHOLD 1`, called from the audio function | SongBox −1,264 B; its audio code 21,120 → 9,408 B | works |
+| Small helpers inlined at many call sites out of line too: SongBox's song packer (`sp_put`, `sp_get_bits3`, `sp_append`, `sp_next_addr`, `sp_mod12`; one more in its copy loop stays inline) and a text routine | ~−770 B alloc | works (B1Xon 1.30). The helper in the copy loop out of line too: −290 B more, but the longest packer step +4 % of a call on the worst-case song, so it stays inline |
 | Knob texts: one `static` getstr body in `.text`, tiny `GetString_*` wrappers that call it (a call inside `.text` needs no relocation) | menu library 3,104 → 704 B; DrumBox 672 → 416 B | works |
 | One generic engine driven by data records instead of code per instrument | SongBox −368 B file, −560 alloc; a new instrument ~120 B of data instead of ~900 B of code | works |
 | Pick a table index in each branch and copy the text once at the end, instead of a copy in every branch | a copy per return got inlined: +632 B and +24 relocations | works |
@@ -65,6 +66,7 @@ nothing for alloc, because alloc is their sum.
 | Formulas instead of compare chains or macros expanded per entry | ~7 B per entry per expansion | works |
 | Branch-free operations (`x \|= (a - b) >> 31`), small maps as nibble lists, offset counters | whole 32-byte packets | works |
 | A new case through the existing code with its constants in variables, instead of a separate block after it (SongBox's unfolded chord voicings: the note routine's fold limits 12 / 55 become 99 / 0) | the separate block cost +128 B of code, the variables nothing | works |
+| Firmware math (`ctx[49]` sine, `ctx[40]` exp, `ctx[46]` power, `ctx[39]` divide, see HARDWARE-NOTES) instead of own approximations, tables or the bundled divide | a call instead of inlined code / table bytes | functions work (B1Xon 1.30) from code built without `-ms`. SongBox: sine + power instead of an own sine and pitch loops = 224 B less, but at `-ms` cl6x calls them through `__c6xabi_call_stub`, and those builds froze the pedal on select (3 builds). **Not used** |
 
 Notes:
 - Moving code out of line gains most for small helpers inlined at many
@@ -92,6 +94,7 @@ Notes:
 | Per-OS address rows without the fields that are the same on every OS (the id test as a constant), small counts as bytes | zmenu rows 560 → 512 B, −128 B of code | works |
 | All texts (knob names, knob texts, chord and instrument names) as one pool of NUL-terminated strings instead of fixed 8-byte slots; one shared out-of-line routine skips to string *i* | SongBox texts 526 → 360 B, −232 B file in all (the 8-byte compare loop went too) | works |
 | Rare per-entry values in spare bits of another table: SongBox's "every second bar" fill, used by 6 of 149 rhythms, as a 4-bit code in the unused top bits of a note offset (already masked off when read) into a 5-entry list, instead of a byte per rhythm | −112 B alloc (−144 B table, +32 B code) | works |
+| A value that mostly follows the entry's index, stored as a code into a short list of differences: SongBox's DrumBox beat per rhythm (beat = rhythm number + one of 8 differences), the 4-bit code in spare bits of a note offset and of the name word, instead of a byte per rhythm | −96 B alloc (149 rhythms) | works (B1Xon 1.30) |
 | Drop wavetable harmonics whose amplitude is exactly 0 (a plucked string's nodes) | 4 B per term | works |
 | Instrument records (29 words each) as one index byte per field into a pool of the distinct words, copied into the effect's state when the wavetables are built | SongBox 6 records 696 → 418 B (+64 B of code) | works (B1Xon 1.30) |
 | One record (envelope, gains) shared by several wavetables: a set names record and table separately | a new wave costs only its harmonic list | works (B1Xon 1.30) |
@@ -114,20 +117,25 @@ Notes:
   moves the load into each branch, even from a local pointer. The struct
   still pays through the linker (below).
 
-## 6. Linker options (`build/linker.py`, all off by default)
+## 6. Linker options (`build/linker.py`)
+
+Always on (no code from Zoom's effects in a built ZDL):
+
+| What | Saving | Status |
+|---|---|---|
+| Own knob handlers (`build/own_handlers.asm`): an OnOff handler, one shared knob body and TI's call stub, plus a 16-B entry stub per knob (knob id and parameter offset in registers) | DrumBox 800 B against copied stock handlers; SongBox 32 B against the trimmed stock block | works |
+| The shared body takes a knob max over 150's range law for every knob. Every law gives raw = value / 100, and the 200-step law doesn't clamp past 200 (a max-210 Tempo knob reaches 250 BPM) | | works |
+| The 40-B `Dll_` (Leemuzhko's `dll.asm`) instead of a 200-B copy of a stock one | 160 B | works |
+| No float-divide helper and no `.c6xabi.attributes` section | 640 B, 123 B | works |
+
+Options (off by default):
 
 | Option | What it does | Saving | Status |
 |---|---|---|---|
-| `drop_unused_divf` | leaves out the float-divide helper when the code doesn't call it | 640 B | works |
-| `compact_linesel_clones` | a copied knob handler is 3 fetch packets of LineSel's handler block, not the whole 480-B block | 3,360 B (DrumBox) | works |
-| `trim_linesel_blob` | keeps only the parts of the handler block that are used | 160 B | works |
-| `init_call_loop` | `_init` calls the copied handlers from one 160-B loop, not a 64-B block each | 288 B (DrumBox) | works |
-| `compact_edit_stubs` | one shared knob handler body plus a 16-B stub per knob (knob id and parameter offset in registers) | Floppy 992 → 416 B; SongBox 736 B | works |
-| (with it) a knob max over 150 | the shared body takes that max's range law for every knob. Every law gives raw = value / 100, and the 200-step law doesn't clamp past 200 (a max-210 Tempo knob reaches 250 BPM) | makes the line above possible for SongBox | works |
+| `init_call_loop` | `_init` calls the knob entry stubs from one 160-B loop, not a 64-B block each | 288 B (DrumBox) | works |
 | `drop_ti_abs_symbols` | no `__TI_*` bookkeeping symbols | ~170 B with the next line | works |
 | `dynamic_entries=17` | `.dynamic` without its padding entries | | works |
 | `rela_const_base` | the address-load relocations into `.const` share one `.dynsym` entry, with the offset in each entry's addend. 82 of 265 stock effects we scanned use such addends | 120 B; with one table struct, all 17 table targets share one symbol | works |
-| `drop_attributes` | no `.c6xabi.attributes` section (every stock effect has one) | 123 B | works |
 | `anon_edit_syms` | the knob handlers' `.dynsym` entries without names, as the knob-text callbacks' already are (Zoom's effects name them `<audio>_<knob>_edit`) | SongBox 231 B of `.dynstr` | works |
 | no `_init` | for an effect that never reads its knob values from `params[]` | | works |
 | `rela_text_base` | the descriptor's knob-text callback pointers share one `.dynsym` entry, the offset in each entry's addend (no Zoom effect does this for these pointers) | SongBox 192 B | works (B1Xon 1.30) |
