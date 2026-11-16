@@ -46,9 +46,13 @@ effects' costs add up to more than its budget, 210 on the G1on family).
 
 Install it like any other effect with
 [Zoom Effect Manager 2](https://zoomeffectmanager.com/en/): add the
-ZDL to its custom folder and write it to the pedal. Or you can still use
-my old Zoom Firmware Editor: add the ZDL to the pedal's firmware updater
-file and run the updater.
+ZDL to its custom folder and write it to the pedal. Or try my new
+[Stomp Commander](https://barsik-barbosik.github.io/Stomp-Commander/)
+([source](https://github.com/Barsik-Barbosik/Stomp-Commander)): a browser
+app (Chrome or Edge) that copies ZDLs straight from a PC folder to the
+pedal over USB, nothing to install. Or you can still use my old Zoom
+Firmware Editor: add the ZDL to the pedal's firmware updater file and run
+the updater.
 
 ## Building
 
