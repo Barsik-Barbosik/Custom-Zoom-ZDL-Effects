@@ -18,7 +18,7 @@ bug-fix releases (1.10.1) keep it. Floppy keeps its own numbering.
 
 ### DrumBox
 
-- **Tempo Pedal (the new default):** the first Tempo value, before 40 BPM,
+- **Pedal Tempo (the new default):** the first Tempo value, before 40 BPM,
   follows the pedal's tempo (G1on family: the BPM of the settings menu and
   the rhythm / looper; MS pedals: tap tempo / TEMPO; MIDISTOMP: the MIDI
   clock's tempo, in whole BPM). The BPM values moved up one knob step, so
@@ -30,7 +30,7 @@ bug-fix releases (1.10.1) keep it. Floppy keeps its own numbering.
 
 ### SongBox
 
-- **Tempo Pedal (the new default):** as DrumBox's, the first Tempo value
+- **Pedal Tempo (the new default):** as DrumBox's, the first Tempo value
   follows the pedal's tempo, and a DrumBox it drives follows it too. The BPM
   values moved up one knob step: patches saved with an older SongBox play
   1 BPM slower (re-set Tempo once). Use it with this DrumBox (older DrumBox

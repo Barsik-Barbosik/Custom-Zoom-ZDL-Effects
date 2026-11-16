@@ -29,7 +29,7 @@ DrumBox in the same patch, so the drums follow the song.
   patch, SongBox sets its beat, fills and tempo for each bar and starts and
   stops it with the song (MS pedals untested). After a patch change both
   start with 2 count-in bars while DrumBox loads its sounds.
-- **Tempo Pedal or 40–250 BPM:** Pedal follows the pedal's own tempo (see
+- **Tempo: Pedal or 40–250 BPM:** Pedal follows the pedal's own tempo (see
   the Tempo knob). Chords on Organ1 (jazz organ), Organ2 (rock
   organ), electric piano, marimba, kalimba, a saw or a plucked saw, with
   the precision bass, a triangle bass, Organ1's or the saw's bass (each

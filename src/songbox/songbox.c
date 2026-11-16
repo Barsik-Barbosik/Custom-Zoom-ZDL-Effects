@@ -125,7 +125,7 @@ ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 #define SS_K_RHY1   3u                  /* Rhy1..3 = knobs 3..5 */
 #define SS_K_TEMPO  6u
 #define SS_TEMPO_MAX 211u               /* 0 = Pedal, BPM = 39 + value (build.py's Tempo max) */
-/* Tempo Pedal (ss_pedal_bpm): the G1on family's global BPM int (settings
+/* Pedal tempo (ss_pedal_bpm): the G1on family's global BPM int (settings
  * menu, rhythm, looper) */
 #define SS_G1_BPM   0x1181BB2Cu
 #define SS_K_VOLUME 7u

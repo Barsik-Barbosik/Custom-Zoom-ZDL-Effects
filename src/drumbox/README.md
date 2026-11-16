@@ -21,7 +21,7 @@ started and stopped with the footswitch.
   bars each, optionally with a fill in the middle too, or Skip.
 - **22 kits:** sampled acoustic kits (drums resynthesized from WAV samples),
   synth, electronic and lo-fi kits, and mixes of them.
-- **Tempo Pedal or 40–250 BPM:** the pedal's own tempo (see the Tempo
+- **Tempo: Pedal or 40–250 BPM:** the pedal's own tempo (see the Tempo
   knob). The screen shows beat, fill, length and kit names and the BPM.
 - **Footswitch on:** the song starts on section A, beat 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the drums.
@@ -774,7 +774,7 @@ After building, check the linker log:
 
 ## Known limitations
 
-- **Pedal tempo on the MS pedals is untested.** Tempo Pedal follows the
+- **Pedal tempo on the MS pedals is untested.** Tempo = Pedal follows the
   pedal's tempo on the G1on family; the MS-50G / MS-60B / MS-70CDR addresses
   are from the firmware, not tried on a pedal. MIDISTOMP gives the clock's
   tempo only, in whole BPM: DrumBox does not restart on MIDI Start or lock to the clock.
