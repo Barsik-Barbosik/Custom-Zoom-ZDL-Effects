@@ -13,11 +13,12 @@ the pedal is replugged, so we report it instead of hanging.
     python -B tools/g1on_sysex.py flashread 0xA5000 3231744 -o fs.bin   # raw flash (backup)
     python -B tools/g1on_sysex.py download NAME.ZDL [-o DIR]      # does not work on G1Xon
     python -B tools/g1on_sysex.py patch [-o patch.syx]            # current patch rows (50 + 29), keeps unsaved edits
+    python -B tools/g1on_sysex.py stored N [-o stored.syx]        # saved patch N (50 + 09), no switch, keeps unsaved edits
     python -B tools/g1on_sysex.py knob SLOT PARAM VALUE           # set a knob live (50 + 31), not saved
     python -B tools/g1on_sysex.py program N                       # switch to patch N (MIDI Program Change)
 
 STATUS (G1Xon fw 1.21, B1Xon fw 1.30): list, usage, delete, upload, flashread,
-patch, knob and program work.
+patch, knob and program work. `stored` is untested on hardware.
 `download` does NOT work: the pedal acks the read command but never sends data
 (use flashread). Each run ends with PC mode off (53) unless --stay-pcmode is given.
 
@@ -342,6 +343,9 @@ def main() -> None:
     fr.add_argument("--chunk", type=lambda s: int(s, 0), default=768)
     pt = sub.add_parser("patch", help="read the current (edit) patch, read-only (request 29)")
     pt.add_argument("-o", "--out", type=Path, help="save every reply as raw SysEx (F0 .. F7)")
+    st = sub.add_parser("stored", help="read saved patch N 0..99 without switching to it, read-only (request 09)")
+    st.add_argument("number", type=int)
+    st.add_argument("-o", "--out", type=Path, help="save the reply as raw SysEx (F0 .. F7)")
     kb = sub.add_parser("knob", help="set one parameter of the current patch live, not saved (31)")
     kb.add_argument("slot", type=int, help="effect slot 0..4")
     kb.add_argument("param", type=int, help="0 = on/off, 2..10 = knobs 1..9 (1 = effect type: refused)")
@@ -360,7 +364,7 @@ def main() -> None:
     rc = 0
     try:
         pedal.identify()
-        if args.action in ("patch", "knob", "program"):
+        if args.action in ("patch", "stored", "knob", "program"):
             args.stay_pcmode = True     # 53 would reload the patch (see `patch`)
         else:
             pedal.pcmode(True)
@@ -432,6 +436,26 @@ def main() -> None:
                     args.out.parent.mkdir(parents=True, exist_ok=True)
                     args.out.write_bytes(b"".join(b"\xF0" + bytes(r) + b"\xF7" for r in replies))
                     print(f"OK   {len(replies)} reply(s) -> {args.out}")
+            elif args.action == "stored":
+                # 09 00 00 N -> 08 xx xx N xx xx <patch, packed as the 29 reply>
+                # (Ziddle's protocol table: classic-read-stored, no switch, no
+                # flash write). Editor mode (50) as for `patch`; 52/53 skipped so
+                # unsaved edits of the current patch stay.
+                if not 0 <= args.number <= 99:
+                    sys.exit("stored: patch 0..99")
+                pedal.cmd(0x50)
+                replies = [r for r in pedal.cmd(0x09, 0x00, 0x00, args.number)
+                           if len(r) > 6 and r[3] == 0x08]
+                for r in replies:
+                    print(f"{len(r) + 2:5d} B  F0 {bytes(r).hex(' ').upper()} F7")
+                good = [r for r in replies if r[6] == args.number]
+                if not good:
+                    print(f"FAIL no stored-patch reply for {args.number}")
+                    rc = 1
+                elif args.out:
+                    args.out.parent.mkdir(parents=True, exist_ok=True)
+                    args.out.write_bytes(b"".join(b"\xF0" + bytes(r) + b"\xF7" for r in good))
+                    print(f"OK   patch {args.number} -> {args.out}")
             elif args.action == "knob":
                 # OS 1.21: 31 slot param lo hi (0xC00830F4 stores slot B14[164],
                 # param B14[165], value lo + hi << 7 B14[83]) raises event 18,

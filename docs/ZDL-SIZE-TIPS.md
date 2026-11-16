@@ -124,7 +124,7 @@ Always on (no code from Zoom's effects in a built ZDL):
 | What | Saving | Status |
 |---|---|---|
 | Own knob handlers (`build/own_handlers.asm`): an OnOff handler, one shared knob body and TI's call stub, plus a 16-B entry stub per knob (knob id and parameter offset in registers) | DrumBox 800 B against copied stock handlers; SongBox 32 B against the trimmed stock block | works |
-| The shared body takes a knob max over 150's range law for every knob. Every law gives raw = value / 100, and the 200-step law doesn't clamp past 200 (a max-210 Tempo knob reaches 250 BPM) | | works |
+| The shared body takes a knob max over 150's range law for every knob. Every law gives raw = value / 100, and the 200-step law doesn't clamp past 200 (a max-211 Tempo knob reaches 250 BPM) | | works |
 | The 40-B `Dll_` (Leemuzhko's `dll.asm`) instead of a 200-B copy of a stock one | 160 B | works |
 | No float-divide helper and no `.c6xabi.attributes` section | 640 B, 123 B | works |
 

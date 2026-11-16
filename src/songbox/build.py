@@ -54,7 +54,7 @@ KNOBS = [  # name, max, default
     ("Chord", 26, 0), ("Rhythm", 2, 0),                  # Chord: END, 24 chords, Drums, Rest
     ("Rhy1", len(PATTERNS), DEFAULTS["Rhy1"]), ("Rhy2", len(PATTERNS), DEFAULTS["Rhy2"]),
     ("Rhy3", len(PATTERNS), DEFAULTS["Rhy3"]),           # 0 Randm, 1.. patterns (patterns.json)
-    ("Tempo", 210, 60), ("Volume", 100, 70), ("Instr", len(sets.INSTR) - 1, sets.INSTR_DEFAULT),  # 40..250 BPM (max 210: APanDLY law, unclamped); 50 = x1; Instr = sets.INSTR
+    ("Tempo", 211, 0), ("Volume", 100, 70), ("Instr", len(sets.INSTR) - 1, sets.INSTR_DEFAULT),  # 0 Pedal (default), 1..211 = 40..250 BPM (max 211: APanDLY law, unclamped); 50 = x1; Instr = sets.INSTR
 ]
 
 
@@ -299,7 +299,8 @@ def main() -> None:
         defines.append("SS_W1=1")
     compile_c(HERE / "songbox.c", obj, include=[ZMENU, SONG], defines=defines, space=SPACE)
     params = [dict(name=n, type="knob", max=mx, default=d, scale="enum", audio_min=0.0,
-                   audio_max=float(mx), audio_default=float(d), getstr=f"GetString_Ss{i + 1}")
+                   audio_max=float(mx), audio_default=float(d), getstr=f"GetString_Ss{i + 1}",
+                   **({"flags": 0x28} if n == "Tempo" else {}))   # tempo knob: MS tap button
               for i, (n, mx, d) in enumerate(KNOBS)]
     link(LinkerConfig(
         effect_name="SongBox",
@@ -309,7 +310,7 @@ def main() -> None:
         params=params_from_manifest(params),
         obj_path=obj,
         output_path=out_zdl,
-        fxid_version=b"1.00",
+        fxid_version=b"1.10",
         flags_byte=1,
         screen_image=make_screen(),
         # ~16 % mean per call (probe), peaks ~45 %; chain budget 210 ~ the whole DSP; --cost N: heavy patch tests
@@ -327,7 +328,7 @@ def main() -> None:
         anon_abi_syms=True,             # ABI dynsyms without names (untested)
         overlap_zero_tail=True,         # Coe + blank knob bitmap in imageInfo's zero tail (untested)
         # (9 knob handlers = 16-byte stubs into the shared body of
-        # build/own_handlers.asm; Tempo's max 210 gives it the 200 law for
+        # build/own_handlers.asm; Tempo's max 211 gives it the 200 law for
         # every knob)
         **link_common(),
     ))

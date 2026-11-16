@@ -5,7 +5,7 @@ pixels darker than mid-grey are dark (set bits in the ZDL picture). build.py cal
 change the screen.
 
     python -B screen.py            # check screen.png (knob slots, RLE size)
-    python -B screen.py --readme   # write ../../docs/images/screen.png (README picture)
+    python -B screen.py --readme   # write ../../docs/images/drumbox.png (README picture)
 
 The pedal's pixels are about 1.33x taller than wide, so round things are
 drawn 1.33x wider than tall, and the README picture scales each pixel 6
@@ -26,7 +26,7 @@ from screen_image import Canvas  # noqa: E402
 W, H = 128, 64
 KNOB_SLOTS = [(1, 0), (126, 0), (127, 0)]
 SOURCE = HERE / "screen.png"
-README_IMAGE = HERE.parent.parent / "docs" / "images" / "screen.png"
+README_IMAGE = HERE.parent.parent / "docs" / "images" / "drumbox.png"
 
 
 def check_slots(c: Canvas) -> None:

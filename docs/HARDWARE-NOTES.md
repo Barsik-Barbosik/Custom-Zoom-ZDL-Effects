@@ -22,7 +22,7 @@ section on its own decides it.
 | 30,216 B | freezes on select |
 | 30,360 B | freezes on select |
 
-SongBox 1.0.1 allocates 29,852 B, DrumBox 1.1.2 28,740 B. Check this
+SongBox 1.10.0 allocates 30,048 B, DrumBox 1.10.0 28,888 B. Check this
 number before every upload.
 Things that saved space, in the linker (`build/linker.py`):
 
@@ -84,9 +84,13 @@ patch load, on patch switch and at power-up. Source:
   101..150.
 - **Max 200** works with the law `(2.0f, 201)` (as stock APanDLY; raw up
   to 2.0). The linker picks it for the shared knob body when a knob's max
-  is 200 or 210 (the law doesn't clamp past 200: a max-210 Tempo knob
-  reaches 250 BPM). Other maxes above 150 need their own entry
-  (`_OWN_RANGE_LAW`).
+  is 200, 210 or 211 (the law doesn't clamp past 200: a max-211 Tempo knob,
+  0 = Pedal and 1..211 = 40..250 BPM, reaches 250 BPM). Other maxes above
+  150 need their own entry (`_OWN_RANGE_LAW`).
+- Descriptor flags 0x28 (`+0x2C`) mark a tempo knob, as on the Time /
+  Sync knobs of Zoom's own delays; on the MS pedals it should offer tap
+  tempo for the effect (seen in themanro's probes, untested with our
+  effects). On the B1Xon 1.30 such a knob works as any other.
 - 9 parameters (3 pages of 3 knobs) work.
 - A `getstr` callback (descriptor `+0x24`) shows text for a knob value
   (names, BPM). Keep these callbacks free of loops, calls and division.

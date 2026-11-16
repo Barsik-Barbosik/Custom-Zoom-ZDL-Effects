@@ -29,7 +29,8 @@ DrumBox in the same patch, so the drums follow the song.
   patch, SongBox sets its beat, fills and tempo for each bar and starts and
   stops it with the song (MS pedals untested). After a patch change both
   start with 2 count-in bars while DrumBox loads its sounds.
-- **Tempo 40–250 BPM.** Chords on Organ1 (jazz organ), Organ2 (rock
+- **Tempo Pedal or 40–250 BPM:** Pedal follows the pedal's own tempo (see
+  the Tempo knob). Chords on Organ1 (jazz organ), Organ2 (rock
   organ), electric piano, marimba, kalimba, a saw or a plucked saw, with
   the precision bass, a triangle bass, Organ1's or the saw's bass (each
   organ and the saw also with its own bass), the basses alone, or muted
@@ -39,14 +40,14 @@ DrumBox in the same patch, so the drums follow the song.
 - **Footswitch on:** the song plays from bar 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the instruments.
 
-Version 1.0.1. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
+Version 1.10.0. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10; their addresses are read from
 the firmware, not tried): saving and DrumBox control assume the same patch
 layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SongBox.ZDL` (32,094 B, from the [Releases](../../../../releases) page or
+`SongBox.ZDL` (32,294 B, from the [Releases](../../../../releases) page or
 `../../dist/`) needs 8 free flash blocks; `Floppy.ZDL` 1 more.
 It is in the **SFX** category (gid 7, fxid 521) and declares a DSP cost
 of 52 (Floppy 1, DrumBox 60) of the patch's 210. Install both as described
@@ -63,7 +64,7 @@ and (optionally) DrumBox into one patch.
 | 2 | Rhy1 | Randm, 149 patterns ([Patterns](#patterns)) | Pattern played by rhythm 1 |
 | 2 | Rhy2 | as Rhy1 | Pattern played by rhythm 2 |
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
-| 3 | Tempo | 40–250 | Tempo in BPM |
+| 3 | Tempo | Pedal, 40–250 | Tempo in BPM, 1 BPM steps; Pedal = the pedal's tempo: G1on / G1Xon / B1on / B1Xon the BPM of the settings menu and the rhythm / looper; MS pedals the tap tempo / TEMPO setting; MIDISTOMP the MIDI clock's tempo while it runs. A driven DrumBox follows it (default Pedal) |
 | 3 | Volume | 0–100 | Instrument level (50 = unchanged, default 70) |
 | 3 | Instr | Or1, Or1+BG, Or1+B2, Or1+BS, Or1+BT, Or1Ch, Or2, Or2+BG, Or2+B1, Or2+BS, Or2+BT, Or2Ch, EP+BG, EP+B1, EP+B2, EP+BS, EP+BT, EPCh, Mrm+BG, Mrm+B1, Mrm+B2, Mrm+BS, Mrm+BT, MrmCh, Klm+BG, Klm+B1, Klm+B2, Klm+BS, Klm+BT, KlmCh, Syn, Syn+BG, Syn+B1, Syn+B2, Syn+BT, SynCh, Plk+BG, Plk+B1, Plk+B2, Plk+BS, Plk+BT, PlkCh, BG, B1, B2, BS, BT, Mute | Instrument kit: a chords part and a bass part (default Or1+BG), grouped by chords sound. The kit changes once the knob has rested ~145 ms. Chords: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay. Bass after the +: BG = bass guitar (precision bass), B1 = Organ1's bass, B2 = Organ2's bass, BS = the synth's bass, BT = triangle bass; a name alone (Or1, Or2, Syn) plays its own bass; Ch = the chords alone (no bass). BG, B1, B2, BS, BT alone = that bass alone |
 

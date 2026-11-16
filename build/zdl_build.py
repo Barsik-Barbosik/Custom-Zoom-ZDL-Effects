@@ -62,7 +62,7 @@ def link_common() -> dict:
     )
 
 README_IMAGES = {                                         # effect folder -> README picture
-    "drumbox": "screen.png",
+    "drumbox": "drumbox.png",
     "songbox": "songbox.png",
     "floppy": "floppy.png",
 }

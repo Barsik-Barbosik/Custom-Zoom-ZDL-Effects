@@ -95,25 +95,6 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
 #define DB_SONG_OFF 91
 #define DB_SONG_CNT 92
 static volatile int db_drv = 0;
-/* Known OSes, 8 words each: 3 fingerprint words (address, value; from
- * zmenu.h's zm_fws, ones that differ between them), the state[31]
- * table rows (44 B per slot, col 2.. = knobs) and the slot count. DrumBox
- * only reads its own row, so a short fingerprint can't do harm elsewhere. */
-#define DB_F_NFW 4u
-static const uint32_t db_f_fw[DB_F_NFW * 8u] = {
-    /* G1on / G1Xon 1.21, B1on / B1Xon 1.30 (HW) */
-    0xC00B05CCu, 0x02C53A2Bu, 0xC00B05D0u, 0x01C50628u, 0xC009B278u, 0x0200736Du,
-    0x1181B370u, 5u,
-    /* MS-70CDR 2.10 (untested; zmenu's static rows) */
-    0xC00CBF4Cu, 0x02E7442Bu, 0xC00CBF50u, 0x01E74228u, 0xC00BB168u, 0x1021BC13u,
-    0xC009C1A0u, 6u,
-    /* MS-50G 3.10 (untested) */
-    0xC00CC68Cu, 0x02E9C02Bu, 0xC00CC690u, 0x01E9BE28u, 0xC00AB784u, 0x1041E013u,
-    0xC009C1A0u, 6u,
-    /* MS-60B 2.10 (untested) */
-    0xC00BC50Cu, 0x02EA982Bu, 0xC00BC510u, 0x01EA9628u, 0xC009B5E4u, 0x1041E413u,
-    0xC008C838u, 4u,
-};
 #define DB_ALONE (!st->fDrv)  /* not driven: start gate */
 /* Count-in: on its own, 2 bars when the song starts while the kit still
  * renders (countN = count bars left; a kit change later gets none, lanes
@@ -127,6 +108,31 @@ static const uint32_t db_f_fw[DB_F_NFW * 8u] = {
 #define DB_COUNT_BAR (st->rLane < DB_NUM_LANES || (st->countN > 1 && !(st->countN & 1)))
 #define DB_COUNT_STEP st->countN++
 #endif
+/* Known OSes, DB_F_W words each: 3 fingerprint words (address, value; from
+ * zmenu.h's zm_fws, ones that differ between them), the state[31]
+ * table rows (44 B per slot, col 2.. = knobs), the slot count, the OS's
+ * tempo word (int BPM 40..250: G1on the one global BPM of the settings
+ * menu, rhythm and looper; MS the patch TEMPO that tap tempo writes, and
+ * MIDISTOMP's MIDI clock in whole BPM). DrumBox only reads its own row and
+ * these words, so a short fingerprint can't do harm elsewhere. */
+#define DB_F_NFW 4u
+#define DB_F_W   9u
+static const uint32_t db_f_fw[DB_F_NFW * DB_F_W] = {
+    /* G1on / G1Xon 1.21, B1on / B1Xon 1.30 (HW) */
+    0xC00B05CCu, 0x02C53A2Bu, 0xC00B05D0u, 0x01C50628u, 0xC009B278u, 0x0200736Du,
+    0x1181B370u, 5u, 0x1181BB2Cu,
+    /* MS-70CDR 2.10 (untested; zmenu's static rows) */
+    0xC00CBF4Cu, 0x02E7442Bu, 0xC00CBF50u, 0x01E74228u, 0xC00BB168u, 0x1021BC13u,
+    0xC009C1A0u, 6u, 0xC009C06Cu,
+    /* MS-50G 3.10 (untested) */
+    0xC00CC68Cu, 0x02E9C02Bu, 0xC00CC690u, 0x01E9BE28u, 0xC00AB784u, 0x1041E013u,
+    0xC009C1A0u, 6u, 0xC009C06Cu,
+    /* MS-60B 2.10 (untested) */
+    0xC00BC50Cu, 0x02EA982Bu, 0xC00BC510u, 0x01EA9628u, 0xC009B5E4u, 0x1041E413u,
+    0xC008C838u, 4u, 0xC008C75Cu,
+};
+/* Tempo knob value 0 (before 40 BPM): follow the pedal's tempo */
+#define DB_TEMPO_PEDAL 0u
 /* A crash fill crashes the next downbeat only if the last crash is at
  * least this many bars back (short sections: a crash every 4th bar at
  * most). Must match CRASH_GAP in preview.py. */
@@ -437,23 +443,43 @@ static inline void db_init_state(DBState *st)
 #endif
 }
 
+/* The running OS's db_f_fw row, 0 if unknown. */
+DB_ALWAYS_INLINE(db_fw)
+static inline const uint32_t *db_fw(void)
+{
+    uint32_t k, f;
+    const uint32_t *t;
+    for (f = 0u; f < DB_F_NFW; f++) {
+        t = &db_f_fw[f * DB_F_W];
+        for (k = 0u; k < 6u; k += 2u)
+            if (*(volatile const uint32_t *)(uintptr_t)t[k] != t[k + 1u]) break;
+        if (k == 6u) return t;
+    }
+    return 0;
+}
+
+/* The pedal's tempo: the OS's tempo word (MIDISTOMP keeps the MS patch
+ * TEMPO on the MIDI clock's tempo in whole BPM, so no transport block read);
+ * 120 BPM on an unknown OS or a value outside 40..250. */
+DB_ALWAYS_INLINE(db_pedal_bpm)
+static inline float db_pedal_bpm(const uint32_t *t)
+{
+    int b;
+    if (!t) return 120.0f;
+    b = *(volatile const int *)(uintptr_t)t[8];
+    return (b >= 40 && b <= 250) ? (float)b : 120.0f;
+}
+
 #ifdef DB_FOLLOW
 /* This slot's table row (written by another effect, or by the OS after a
  * knob turn) goes into params[] as raw = value / 100, every call (a value
  * written before this effect's first call counts too). Unknown OS: nothing. */
 DB_ALWAYS_INLINE(db_follow)
-static inline void db_follow(unsigned int *ctx, float *params)
+static inline void db_follow(unsigned int *ctx, float *params, const uint32_t *t)
 {
-    uint32_t slot = (uint32_t)ctx[0], k, v, f;
-    const uint32_t *t;
+    uint32_t slot = (uint32_t)ctx[0], k, v;
     volatile const uint32_t *row;
-    for (f = 0u; f < DB_F_NFW; f++) {
-        t = &db_f_fw[f * 8u];
-        for (k = 0u; k < 6u; k += 2u)
-            if (*(volatile const uint32_t *)(uintptr_t)t[k] != t[k + 1u]) break;
-        if (k == 6u) break;
-    }
-    if (f == DB_F_NFW || slot >= t[7]) return;
+    if (!t || slot >= t[7]) return;
     row = (volatile const uint32_t *)(uintptr_t)(t[6] + 44u * slot + 8u);
     for (k = 0u; k < 9u; k++) {
         v = row[k];
@@ -1012,8 +1038,9 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     }
 #endif
 
+    const uint32_t *fw = db_fw();
 #ifdef DB_FOLLOW
-    db_follow(ctx, params);
+    db_follow(ctx, params, fw);
 #endif
     /* Pages: BeatA, FillA, LenA / BeatB, FillB, LenB / Tempo, Volume, Kit. */
     float beatAN  = db_param_list(params[DRUMBOX_BEATA_SLOT], DRUMBOX_BEATA_DEFAULT_NORM);
@@ -1022,8 +1049,8 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     float beatBN   = db_param_list(params[DRUMBOX_BEATB_SLOT], DRUMBOX_BEATB_DEFAULT_NORM);
     float fillBN   = db_param_list(params[DRUMBOX_FILLB_SLOT], DRUMBOX_FILLB_DEFAULT_NORM);
     float lenBN    = db_param(params[DRUMBOX_LENB_SLOT],       DRUMBOX_LENB_DEFAULT_NORM);
-    /* Tempo raw = knob / 100 up to 2.1 (max 210, handler law 2.0f / 201
-     * unclamped). */
+    /* Tempo raw = knob / 100 up to 2.11 (0 = Pedal, max 211 = 250 BPM,
+     * handler law 2.0f / 201 unclamped). */
     float tempoR  = params[DRUMBOX_TEMPO_SLOT];
     if (tempoR != tempoR || tempoR < 0.0f) tempoR = DRUMBOX_TEMPO_DEFAULT_NORM;
     tempoR = db_clamp(tempoR, 0.0f, DRUMBOX_TEMPO_UI_MAX * 0.01f);
@@ -1040,8 +1067,10 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     }
 #endif
 
-    float bpm = DRUMBOX_TEMPO_AUDIO_MIN + tempoR *
-        (100.0f * (DRUMBOX_TEMPO_AUDIO_MAX - DRUMBOX_TEMPO_AUDIO_MIN) / DRUMBOX_TEMPO_UI_MAX);
+    /* BPM = 39 + knob (knob 1 = 40 .. 211 = 250); knob 0 follows the pedal */
+    float bpm = (tempoR < (DB_TEMPO_PEDAL + 0.5f) * 0.01f) ? db_pedal_bpm(fw) :
+        DRUMBOX_TEMPO_AUDIO_MIN + (tempoR - 0.01f) *
+        (100.0f * (DRUMBOX_TEMPO_AUDIO_MAX - DRUMBOX_TEMPO_AUDIO_MIN) / (DRUMBOX_TEMPO_UI_MAX - 1));
     float inc = bpm * DB_STEP_PER_BPM;
     float drumGain = levelN * 1.3f;   /* 1.3: dense patterns with cymbals peak ~0.9 at Volume 70 */
     /* One beat / fill per knob step, knob 0..150 (values past the end give the last one);
@@ -1371,14 +1400,18 @@ static int db_song(char *s)
 #define DB_SONG_TEXT(s) do { } while (0)
 #endif
 
-/* Tempo: v 0..210 -> "40".."250" (BPM = 40 + v, same as the DSP). */
+/* Tempo: v 0 -> "Pedal" (the pedal's tempo), 1..211 -> "40".."250"
+ * (BPM = 39 + v, same as the DSP). */
 int GetString_DbTempo(unsigned int v, char *s)
 {
     unsigned int bpm, h = 0u, t = 0u;
     int n = 0;
     DB_SONG_TEXT(s);
-    if (v > DRUMBOX_TEMPO_UI_MAX) v = DRUMBOX_TEMPO_UI_MAX;
-    bpm = 40u + v;
+    if (v == DB_TEMPO_PEDAL) {
+        s[0] = 'P'; s[1] = 'e'; s[2] = 'd'; s[3] = 'a'; s[4] = 'l'; s[5] = 0;
+        return 5;
+    }
+    bpm = 39u + v;
     /* Digits by compare-and-subtract, no loops: TI pipelines loops with
      * DINT/RINT, which has no place in a UI callback. */
     if (bpm >= 200u) { bpm -= 200u; h = 2u; }

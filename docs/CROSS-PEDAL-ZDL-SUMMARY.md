@@ -75,6 +75,7 @@ Keeping the check small (themanro's `zvis.h`, table version, tested on B1Xon 1.3
 | `state[31]` slot table (col 0 = On/Off copy) | 0xC009C1A0 | 0xC009C1A0 | 0xC008C838 | 0x1181B370 |
 | Slots per patch | 6 | 6 | 4 | 5 |
 | Current patch number | 0xC00EF88C | 0xC00EFE0C | 0xC00DFE3C | 0xC00DEADC |
+| Tempo, int BPM 40..250 (MS: the patch TEMPO, which tap tempo and MIDISTOMP's MIDI clock write; G1on: one global BPM of the settings menu, rhythm and looper, not saved per patch) | 0xC009C06C | 0xC009C06C | 0xC008C75C | 0x1181BB2C (tested on the B1Xon 1.30) |
 | Saved patch copy (EDITED = differs from live) | — | — | — | 0x1181B268 |
 | Logo page vs knob page | 0xC009D398 and others | 0xC009D398 and others | 0xC008D230 and others | no variable; count `getstr` calls |
 | Selected knob (1-based) | — | — | — | 0xC0078CAC |

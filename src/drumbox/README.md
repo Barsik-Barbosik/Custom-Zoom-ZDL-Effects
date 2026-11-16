@@ -1,6 +1,6 @@
 # DrumBox — drum machine ZDL for Zoom pedals
 
-<img src="../../docs/images/screen.png" width="538" height="358" alt="DrumBox screen image">
+<img src="../../docs/images/drumbox.png" width="538" height="358" alt="DrumBox screen image">
 
 DrumBox is a full drum machine that plays along with your guitar,
 started and stopped with the footswitch.
@@ -21,8 +21,8 @@ started and stopped with the footswitch.
   bars each, optionally with a fill in the middle too, or Skip.
 - **22 kits:** sampled acoustic kits (drums resynthesized from WAV samples),
   synth, electronic and lo-fi kits, and mixes of them.
-- **Tempo 40–250 BPM.** The screen shows beat, fill, length and kit names
-  and the BPM.
+- **Tempo Pedal or 40–250 BPM:** the pedal's own tempo (see the Tempo
+  knob). The screen shows beat, fill, length and kit names and the BPM.
 - **Footswitch on:** the song starts on section A, beat 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the drums.
 - **Follows [SongBox](../songbox/README.md)** in the same patch: SongBox
@@ -32,7 +32,7 @@ started and stopped with the footswitch.
 ## Install
 
 `DrumBox.ZDL` (from the [Releases](../../../../releases) page or
-`../../dist/`, version 1.1.2) needs 8 free flash blocks (31,511 B). Install it as described
+`../../dist/`, version 1.10.0) needs 8 free flash blocks (31,663 B). Install it as described
 in the [main README](../../README.md#install). It is in the **SFX** category
 (gid 7, fxid 520 = 0x208) and declares a DSP cost of 60 of the patch's 210. Pedals it was tested on: see the
 [main README](../../README.md#pedals).
@@ -58,7 +58,7 @@ in the [main README](../../README.md#install). It is in the **SFX** category
 | 2 | BeatB | as BeatA | Section B (chorus) beat |
 | 2 | FillB | as FillA | Fill on section B's last bar |
 | 2 | LenB | as LenA | Section B length |
-| 3 | Tempo | 40–250 | Tempo in BPM, 1 BPM steps |
+| 3 | Tempo | Pedal, 40–250 | Tempo in BPM, 1 BPM steps; Pedal = the pedal's tempo: G1on / G1Xon / B1on / B1Xon the BPM of the settings menu and the rhythm / looper; MS pedals the tap tempo / TEMPO setting; MIDISTOMP the MIDI clock's tempo while it runs (default Pedal) |
 | 3 | Volume | 0–100 | Drum level |
 | 3 | Kit | 22 kits, Ac1 to LoBox ([Kits](#kits)) | Drum kit; it renders once the knob has rested ~145 ms |
 
@@ -768,13 +768,14 @@ After building, check the linker log:
 - `Applied N .obj relocations (N absolute, each with a .rela.dyn entry)`,
   both numbers equal (the tables in `.const`; the pedal fixes their
   addresses at load);
-- the allocated size (`.text` + `.const` totals; 28,740 B now) stays at
+- the allocated size (`.text` + `.const` totals; 28,888 B now) stays at
   most 30,104 B, the largest known to load on the G1on family; 30,136 B
   froze (see `../../docs/HARDWARE-NOTES.md`).
 
 ## Known limitations
 
-- **No tap tempo.** The G1on / G1Xon / B1on / B1Xon have no tap tempo
-  function, so the tempo is set with the Tempo knob. On the MS pedals
-  DrumBox does not follow the pedal's tap tempo either.
+- **Pedal tempo on the MS pedals is untested.** Tempo Pedal follows the
+  pedal's tempo on the G1on family; the MS-50G / MS-60B / MS-70CDR addresses
+  are from the firmware, not tried on a pedal. MIDISTOMP gives the clock's
+  tempo only, in whole BPM: DrumBox does not restart on MIDI Start or lock to the clock.
 - **Mono drums.** The same drum signal goes to both L and R.

@@ -173,7 +173,7 @@ def main() -> None:
         knob_bitmap=(1, 1, 11, bytes(11)),
         audio_nop=manifest.get("audio_nop", False) or "--nop" in args,
         # (9 knob handlers = 16-byte stubs into the shared body of
-        # build/own_handlers.asm; Tempo's max 210 gives it the 200 law for
+        # build/own_handlers.asm; Tempo's max 211 gives it the 200 law for
         # every knob, raw = v / 100 either way)
         # Materializing _init: ctx[34](params, zeros, 56), then every knob's
         # edit handler, so saved values reach params[] on add / patch load /

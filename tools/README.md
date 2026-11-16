@@ -15,7 +15,7 @@ effects in this repository.
 
 | Script | What |
 |---|---|
-| `g1on_sysex.py` | List, upload and delete effect files; disk usage; raw flash read; read the current patch; set a knob live; switch patches |
+| `g1on_sysex.py` | List, upload and delete effect files; disk usage; raw flash read; read the current patch or a saved one; set a knob live; switch patches |
 | `g1on_keepalive.py` | Sends an identity request every N seconds so the pedal doesn't stop answering SysEx between tool runs |
 
 ## Setup
@@ -35,6 +35,7 @@ python -B tools/g1on_sysex.py usage                       # flash size and bytes
 python -B tools/g1on_sysex.py upload path/NAME.ZDL --yes  # write a file
 python -B tools/g1on_sysex.py delete NAME.ZDL --yes       # delete a file
 python -B tools/g1on_sysex.py patch [-o patch.syx]        # read the current patch
+python -B tools/g1on_sysex.py stored N [-o stored.syx]    # read saved patch N without switching
 python -B tools/g1on_sysex.py knob SLOT PARAM VALUE       # set a knob of the current patch live
 python -B tools/g1on_sysex.py program N                   # switch to patch N (0..99)
 python -B tools/g1on_sysex.py flashread ADDR LENGTH -o out.bin   # raw flash read
@@ -68,10 +69,13 @@ logged as hex to `tools/probe_logs/`.
   patch from flash: **save the patch first**, or unsaved edits are lost
   (`--stay-pcmode` leaves PC mode on).
 
-### Patches: `patch`, `knob`, `program`
+### Patches: `patch`, `stored`, `knob`, `program`
 
 - `patch` prints the current patch as the pedal sends it (editor mode
   `50`, then request `29`) and saves it with `-o`. It keeps unsaved edits.
+- `stored N` prints saved patch N (0..99) without switching to it (editor
+  mode `50`, then request `09 00 00 N`) and saves it with `-o`. It keeps
+  unsaved edits. Not yet tested on a pedal.
 - `knob SLOT PARAM VALUE` sets one parameter of the current patch live, as
   if the knob had been turned: slot 0..4, param 0 = on/off, 2..10 =
   knobs 1..9 (1 = effect type is refused). The value is the knob's step
@@ -137,6 +141,7 @@ What the tools send (`ZOOM` = `52 00 dd`, dd = the device byte):
 | `60 24 NAME` | Delete |
 | `60 30 addr len` | Raw flash read |
 | `29` | Current patch (answered in editor mode) |
+| `09 00 00 N` | Saved patch N, reply `08 .. .. N .. ..` + patch (untested) |
 | `31 slot param lo hi` | Set one parameter live (editor mode) |
 | `Cn prog` | MIDI Program Change: switch patch |
 

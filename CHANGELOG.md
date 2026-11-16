@@ -1,5 +1,43 @@
 # Changelog
 
+## DrumBox 1.10.0, SongBox 1.10.0 (2026-11-17)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,663 B | 8 | 60 | `922cc79c9b49591840f79b5aca928587f239cdfbdd0ed2756a68a84319a89e51` |
+| `SongBox.ZDL` | 32,294 B | 8 | 52 | `016bea7d65e901b6b2bc2b97c5a2a830f076d5f4ab68c730cb2facbb76099701` |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` (1.0.1, unchanged) |
+
+All three work on the B1Xon 1.30; the MS pedals are untested.
+
+Version numbers jump to 1.10.0 so they match the ZDL header's version
+field, which holds 4 characters: the header shows major.minor (`1.10`), and
+bug-fix releases (1.10.1) keep it. Floppy keeps its own numbering.
+
+### DrumBox
+
+- **Tempo Pedal (the new default):** the first Tempo value, before 40 BPM,
+  follows the pedal's tempo (G1on family: the BPM of the settings menu and
+  the rhythm / looper; MS pedals: tap tempo / TEMPO; MIDISTOMP: the MIDI
+  clock's tempo, in whole BPM). The BPM values moved up one knob step, so
+  patches saved with an older DrumBox play 1 BPM slower (re-set Tempo once).
+  The Tempo knob carries the tempo-knob flag of Zoom's own delays, which
+  should let the MS pedals offer tap tempo for it (untested on MS pedals).
+  Tested on the B1Xon.
+- Updated logo.
+
+### SongBox
+
+- **Tempo Pedal (the new default):** as DrumBox's, the first Tempo value
+  follows the pedal's tempo, and a DrumBox it drives follows it too. The BPM
+  values moved up one knob step: patches saved with an older SongBox play
+  1 BPM slower (re-set Tempo once). Use it with this DrumBox (older DrumBox
+  versions play 1 BPM faster when driven). The Tempo knob carries the
+  tempo-knob flag of Zoom's own delays, which should let the MS pedals offer
+  tap tempo for it (untested on MS pedals). Tested on the B1Xon.
+
 ## DrumBox 1.1.2, SongBox 1.0.1, Floppy 1.0.1 (2026-11-13)
 
 Files in `dist/` and on the Releases page:

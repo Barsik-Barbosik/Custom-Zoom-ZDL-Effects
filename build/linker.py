@@ -53,8 +53,9 @@ means byte-identical output to repeat98's):
   * Knob max 200: the knob body's range law (the firmware's
     state[21](top, 0, steps, 0, v)) is 2.0f / 201 as stock APanDLY's
     outLv_edit (0..200) instead of 1.5f / 151 (stock LineSel), which stops
-    at 150. Raw stays v / 100. Max 210 gets the same pair (the law is linear
-    and not clamped on the B1Xon 1.30, so v 201..210 give raw 2.01..2.10).
+    at 150. Raw stays v / 100. Max 210 / 211 get the same pair (the law is
+    linear and not clamped on the B1Xon 1.30, so v 201..210 give raw
+    2.01..2.10; 211 works too).
   * Load-time relocation of the .obj's absolute addresses: each .obj
     ABS_L16/H16 (MVKL/MVKH of a .const table, e.g. a `static const` array)
     also gets a .rela.dyn entry, as in every stock ZDL. Patched at link time
@@ -1026,9 +1027,10 @@ _COMPACT_DLL_RELA_OFFSETS = [
 
 # build/own_handlers.asm with the knob body's range law (state[21](top, 0,
 # steps, 0, v), raw = v / 100): max <= 150 1.5f / 151 (as stock LineSel),
-# max 200 / 210 2.0f / 201 (as stock APanDLY's outLv).
+# max 200 / 210 / 211 2.0f / 201 (as stock APanDLY's outLv).
 _OWN_HANDLERS_ASM = Path(__file__).resolve().parent / "own_handlers.asm"
-_OWN_RANGE_LAW = {150: (151, 0x3FC00000), 200: (201, 0x40000000), 210: (201, 0x40000000)}
+_OWN_RANGE_LAW = {150: (151, 0x3FC00000), 200: (201, 0x40000000), 210: (201, 0x40000000),
+                  211: (201, 0x40000000)}
 
 
 def _ti_root() -> Path:

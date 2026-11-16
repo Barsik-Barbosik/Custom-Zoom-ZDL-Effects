@@ -93,7 +93,7 @@
 #define SS_DB_FILLA 1u
 #define SS_DB_LENA  2u
 #define SS_DB_LENB  5u
-#define SS_DB_TEMPO 6u                  /* BPM = 40 + value */
+#define SS_DB_TEMPO 6u                  /* as SongBox's Tempo: 0 = Pedal, BPM = 39 + value */
 #define SS_DB_NONE  0xFFFFu
 #define SS_DB_SONG_ON  90u              /* LenA markers (DrumBox DB_SONG_ON / _OFF): */
 #define SS_DB_SONG_OFF 91u              /* 1 bar / Skip, shown "Song" / "Song-" */
@@ -124,7 +124,10 @@ ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 #define SS_K_RHYTHM 2u
 #define SS_K_RHY1   3u                  /* Rhy1..3 = knobs 3..5 */
 #define SS_K_TEMPO  6u
-#define SS_TEMPO_MAX 210u               /* BPM = 40 + value (build.py's Tempo max) */
+#define SS_TEMPO_MAX 211u               /* 0 = Pedal, BPM = 39 + value (build.py's Tempo max) */
+/* Tempo Pedal (ss_pedal_bpm): the G1on family's global BPM int (settings
+ * menu, rhythm, looper) */
+#define SS_G1_BPM   0x1181BB2Cu
 #define SS_K_VOLUME 7u
 #define SS_K_INSTR  8u                  /* ss_instr[]: keys part << 4 | bass part */
 #define SS_POLL_CALLS 4096u             /* calls (~0.74 s) between slot / Floppy polls (a power of 2) */
@@ -174,8 +177,8 @@ typedef struct {
  *   part names; ss_text joins them. */
 #define SS_S_KNOB   0u
 #define SS_S_WORD   18u
-#define SS_S_CHORD  48u
-#define SS_S_INSTR  62u
+#define SS_S_CHORD  49u
+#define SS_S_INSTR  63u
 #define SS_KNOB_NAMES_INIT \
     "Bar\0"    "Chord\0"  "Rhythm\0" \
     "Select\0" "play\0"   "mode:\0"         /* PLAY */ \
@@ -199,7 +202,8 @@ typedef struct {
 #define SS_W_STATUS 24u
 #define SS_W_SIZE   25u                 /* "Size:" */
 #define SS_W_NOFL   26u                 /* "Can't" "save!", then "(no" "floppy)" */
-#define SS_NWORDS   30u
+#define SS_W_PEDAL  30u                 /* Tempo 0 */
+#define SS_NWORDS   31u
 #define SS_WORDS_INIT \
     "PLAY\0" "OCTAVE\0" "LENGTH\0" "TRIM\0" "CLEAR\0" \
     "MENU\0" \
@@ -209,7 +213,8 @@ typedef struct {
     "BAR\0" "HALF\0" "BEAT\0" \
     "NO\0" "YES\0" "Pack\0" \
     "DONE\0" "STATUS\0" "Size:\0" \
-    "Can't\0" "save!\0" "(no  \0" "floppy)\0"
+    "Can't\0" "save!\0" "(no  \0" "floppy)\0" \
+    "Pedal\0"
 #define SS_CHORD_NAMES_INIT \
     "C\0" "C#\0" "D\0" "D#\0" "E\0" "F\0" \
     "F#\0" "G\0" "G#\0" "A\0" "A#\0" "B\0" \
@@ -1105,6 +1110,21 @@ static inline uint32_t ss_second(SsState *st)
     return r;
 }
 
+/* The pedal's tempo for Tempo 0 ("Pedal"), as DrumBox's db_pedal_bpm, so a
+ * DrumBox driven to its Pedal value plays the same BPM: the OS's tempo int,
+ * the G1on family's global BPM; on the MS pedals the patch TEMPO, 8 B past
+ * the zm_fws cursor word (MS-70CDR / MS-50G 0xC009C06C, MS-60B 0xC008C75C;
+ * only the G1on row has no map stride), which MIDISTOMP keeps on the MIDI
+ * clock's tempo in whole BPM. Else 120. */
+ZM_INLINE(ss_pedal_bpm)
+static inline float ss_pedal_bpm(const ZmFw *t)
+{
+    int b;
+    if (!t) return 120.0f;
+    b = (int)ZM_U32(t->mstride ? t->cursor + 8u : SS_G1_BPM);
+    return (b >= 40 && b <= 250) ? (float)b : 120.0f;
+}
+
 /* Find DrumBox; write its knobs for the player's state (see SS_DB_ID). */
 SS_COLD(ss_drums)
 static inline void ss_drums(SsState *st, const float *params)
@@ -1256,7 +1276,8 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
 #else
     ss_drums(st, params);
 #endif
-    inc = (float)(40u + zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX)) * SS_STEP_PER_BPM;
+    j = zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX);     /* 0 = Pedal */
+    inc = (j ? (float)(39u + j) : ss_pedal_bpm(zm_s_fw(&st->zm))) * SS_STEP_PER_BPM;
     vol = (float)zm_knob(params[5u + SS_K_VOLUME], 100u) * 0.02f;
     /* Instr: the kit changes once the knob has settled (turning it through
      * kits would switch the playing notes at every step: clicks) */
@@ -1741,8 +1762,9 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
          * silent parts share an id no part has (sets.py): none for "Mute" */
         if (st->k->keys_id[h] != st->k->bass_id[t])
             w2 = SS_S_INSTR + SS_NKEYI + 1u + t, skip = h == 0u;
-    } else if (k == SS_K_TEMPO) {       /* BPM */
-        v = 40u + (v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v);
+    } else if (k == SS_K_TEMPO) {       /* "Pedal", BPM */
+        if (v == 0u) w = SS_S_WORD + SS_W_PEDAL;
+        else v = 39u + (v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v);
     } else if (!st || k == SS_K_VOLUME) {
         /* plain number */
     } else if (k == SS_K_BAR) {
