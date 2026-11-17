@@ -6,7 +6,7 @@
   python -B build.py --probe --out P   # load probe: STATUS shows CPU % (SS_PROBE)
   python -B build.py --x2 --out P      # cost probe: pass-through, all code kept (SS_X2)
   python -B build.py --x3 --out P      # cost probe: all but the player (SS_X3)
-  python -B build.py --w1 --out P      # headroom probe: pass-through + Volume % busy wait (SS_W1)
+  python -B build.py --w1 --out P      # headroom probe: pass-through + Chords % busy wait (SS_W1)
   python -B build.py --rhythms N --out P   # test build: only the first N rhythms
   python -B build.py --cost C --out P      # test build: declared DSP cost C (heavy patch tests)
   python -B build.py --tests        # only regenerate songbox_tests.h (no TI)
@@ -54,7 +54,9 @@ KNOBS = [  # name, max, default
     ("Chord", 26, 0), ("Rhythm", 2, 0),                  # Chord: END, 24 chords, Drums, Rest
     ("Rhy1", len(PATTERNS), DEFAULTS["Rhy1"]), ("Rhy2", len(PATTERNS), DEFAULTS["Rhy2"]),
     ("Rhy3", len(PATTERNS), DEFAULTS["Rhy3"]),           # 0 Randm, 1.. patterns (patterns.json)
-    ("Tempo", 211, 0), ("Volume", 100, 70), ("Instr", len(sets.INSTR) - 1, sets.INSTR_DEFAULT),  # 0 Pedal (default), 1..211 = 40..250 BPM (max 211: APanDLY law, unclamped); 50 = x1; Instr = sets.INSTR
+    ("Tempo", 211, 0),  # 0 Pedal (default), 1..211 = 40..250 BPM (max 211: APanDLY law, unclamped)
+    ("Bass", len(sets.BASS) * sets.LEVELS - 1, sets.BASS_DEFAULT),      # part * sets.LEVELS + level
+    ("Chords", len(sets.KEYS) * sets.LEVELS - 1, sets.CHORDS_DEFAULT),  # (sets.py BASS / KEYS)
 ]
 
 
@@ -287,7 +289,7 @@ def main() -> None:
 
     write_tests(HERE / "songbox_tests.h")
     proto.c_header(HERE / "songbox_sound.h", swing_codes(), bar2_codes()[0], beat_codes()[0])   # patterns, note increments
-    sets.c_header(HERE / "songbox_instr.h")              # all instrument sets, Instr table
+    sets.c_header(HERE / "songbox_instr.h")              # all instruments, the parts of Chords / Bass
     write_drums(HERE / "songbox_drums.h")                # DrumBox control
     obj = HERE / "songbox.obj"
     defines = ["SS_PROBE=1"] if "--probe" in sys.argv else []   # never for dist/: needs --out
@@ -310,7 +312,7 @@ def main() -> None:
         params=params_from_manifest(params),
         obj_path=obj,
         output_path=out_zdl,
-        fxid_version=b"1.10",
+        fxid_version=b"1.14",
         flags_byte=1,
         screen_image=make_screen(),
         # ~16 % mean per call (probe), peaks ~45 %; chain budget 210 ~ the whole DSP; --cost N: heavy patch tests

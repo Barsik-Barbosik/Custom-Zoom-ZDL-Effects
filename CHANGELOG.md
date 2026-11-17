@@ -1,5 +1,34 @@
 # Changelog
 
+## SongBox 1.14.0 (2026-11-18)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,663 B | 8 | 60 | `27bdfe1fcc277328854f040ae9ed46892accb869ee193f549d31a6757ed06cc0` (1.10.1, unchanged) |
+| `SongBox.ZDL` | 32,166 B | 8 | 52 | `aa8ef53dd7b5fa664d018043ad4d42fe117b9706feb8e0796d5630f8aed8508c` |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` (1.0.1, unchanged) |
+
+The ZDL header shows `1.14`.
+
+### SongBox
+
+- **Bass and chords on their own knobs.** Volume and Instr are replaced
+  by **Bass** and **Chords**: each picks a sound and its level, shown as
+  "PB:70" or "Or1:55". The level goes from 00 (off) to 95 in steps of 5,
+  50 = unchanged, as the old Volume. Any chords sound goes with any bass
+  sound. Defaults PB:70 and Or1:70, as loud as before.
+- Bass names: PB (precision bass, was BG), O1, O2, Sy (the organs' and
+  the synth's basses, were B1, B2, BS), Tr (triangle, was BT).
+- The Instr kits are gone, with the chords-only kits, the bass-alone kits
+  and Mute: set a level to 0 instead. Or1, Or2 and Syn with their own bass
+  are Or1 + O1, Or2 + O2 and Syn + Sy.
+- Saved patches: both knobs read the old Volume / Instr values as new
+  ones, so set them again.
+
+Tested on the B1Xon 1.30; the MS pedals are untested.
+
 ## SongBox 1.10.2 (2026-11-17)
 
 Files in `dist/` and on the Releases page:

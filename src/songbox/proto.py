@@ -1,13 +1,13 @@
 """SongBox sound prototypes: bass + keys playing a chord song.
 
-Each instrument kit (sets.py KITS: a keys and a bass instrument from
-instruments/, picked by the Instr knob) rendered over the same song excerpt with
+Each instrument pair (sets.py KITS: a keys and a bass instrument from
+instruments/, picked by the Chords and Bass knobs) rendered over the same song excerpt with
 three rhythm patterns (rhythm 1, 2, 3 = what the Rhy knobs pick).
 c_header() writes songbox_sound.h (patterns, note increments); the
 instruments' header comes from sets.py.
 
     python -B proto.py            -> preview/songbox_<kit>.wav
-    python -B proto.py --set EP+BG    (a sets.py KITS name = knob text)
+    python -B proto.py --set EP+PB   (a sets.py KITS name: chords + "+" + bass)
 """
 from __future__ import annotations
 

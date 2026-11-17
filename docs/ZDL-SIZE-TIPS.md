@@ -67,6 +67,8 @@ nothing for alloc, because alloc is their sum.
 | Branch-free operations (`x \|= (a - b) >> 31`), small maps as nibble lists, offset counters | whole 32-byte packets | works |
 | A new case through the existing code with its constants in variables, instead of a separate block after it (SongBox's unfolded chord voicings: the note routine's fold limits 12 / 55 become 99 / 0) | the separate block cost +128 B of code, the variables nothing | works |
 | Firmware math (`ctx[49]` sine, `ctx[40]` exp, `ctx[46]` power, `ctx[39]` divide, see HARDWARE-NOTES) instead of own approximations, tables or the bundled divide | a call instead of inlined code / table bytes | functions work (B1Xon 1.30) from code built without `-ms`. SongBox: sine + power instead of an own sine and pitch loops = 224 B less, but at `-ms` cl6x calls them through `__c6xabi_call_stub`, and those builds froze the pedal on select (3 builds). **Not used** |
+| One knob per part (sound and level: value = sound × 20 + level) instead of a list of fixed chords + bass kits with a Volume knob | SongBox −128 B alloc in all, with the divide below (48 kits and their names → 7 + 5 sounds); every pairing available | works (B1Xon 1.30) |
+| Divide by a small constant as multiply + shift: `(v * 205) >> 12` = v / 20 for every knob value (the generator asserts it over the range), instead of a subtract loop (no integer `/`) | −32 B alloc | works (B1Xon 1.30) |
 
 Notes:
 - Moving code out of line gains most for small helpers inlined at many

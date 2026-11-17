@@ -30,24 +30,26 @@ DrumBox in the same patch, so the drums follow the song.
   stops it with the song (MS pedals untested). After a patch change both
   start with 2 count-in bars while DrumBox loads its sounds.
 - **Tempo: Pedal or 40–250 BPM:** Pedal follows the pedal's own tempo (see
-  the Tempo knob). Chords on Organ1 (jazz organ), Organ2 (rock
-  organ), electric piano, marimba, kalimba, a saw or a plucked saw, with
-  the precision bass, a triangle bass, Organ1's or the saw's bass (each
-  organ and the saw also with its own bass), the basses alone, or muted
-  (DrumBox keeps following).
+  the Tempo knob).
+- **Sounds:** chords on Organ1 (jazz organ), Organ2 (rock organ), electric
+  piano, marimba, kalimba, a saw or a plucked saw; bass on the precision
+  bass, a triangle bass, or Organ1's, Organ2's or the saw's own bass. Any
+  chords sound goes with any bass. Bass and chords each have one knob for
+  the sound and its level (00–95, 50 = as designed): either can be turned
+  off, or both (DrumBox keeps following).
 - **Song settings** (MENU): play once or in a loop, chords an octave up or
   down, a chord every bar, half bar or beat.
 - **Footswitch on:** the song plays from bar 1. **Off:** it stops.
 - The guitar passes through at full level, mixed with the instruments.
 
-Version 1.10.2. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
+Version 1.14.0. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10; their addresses are read from
 the firmware, not tried): saving and DrumBox control assume the same patch
 layout as on the G1on. The MS-60B has 4 slots per patch.
 
 ## Install
 
-`SongBox.ZDL` (32,294 B, from the [Releases](../../../../releases) page or
+`SongBox.ZDL` (32,166 B, from the [Releases](../../../../releases) page or
 `../../dist/`) needs 8 free flash blocks; `Floppy.ZDL` 1 more.
 It is in the **SFX** category (gid 7, fxid 521) and declares a DSP cost
 of 52 (Floppy 1, DrumBox 60) of the patch's 210. Install both as described
@@ -65,8 +67,8 @@ and (optionally) DrumBox into one patch.
 | 2 | Rhy2 | as Rhy1 | Pattern played by rhythm 2 |
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
 | 3 | Tempo | Pedal, 40–250 | Tempo in BPM, 1 BPM steps; Pedal = the pedal's tempo: G1on / G1Xon / B1on / B1Xon the BPM of the settings menu and the rhythm / looper; MS pedals the tap tempo / TEMPO setting; MIDISTOMP the MIDI clock's tempo while it runs. A driven DrumBox follows it (default Pedal) |
-| 3 | Volume | 0–100 | Instrument level (50 = unchanged, default 70) |
-| 3 | Instr | Or1, Or1+BG, Or1+B2, Or1+BS, Or1+BT, Or1Ch, Or2, Or2+BG, Or2+B1, Or2+BS, Or2+BT, Or2Ch, EP+BG, EP+B1, EP+B2, EP+BS, EP+BT, EPCh, Mrm+BG, Mrm+B1, Mrm+B2, Mrm+BS, Mrm+BT, MrmCh, Klm+BG, Klm+B1, Klm+B2, Klm+BS, Klm+BT, KlmCh, Syn, Syn+BG, Syn+B1, Syn+B2, Syn+BT, SynCh, Plk+BG, Plk+B1, Plk+B2, Plk+BS, Plk+BT, PlkCh, BG, B1, B2, BS, BT, Mute | Instrument kit: a chords part and a bass part (default Or1+BG), grouped by chords sound. The kit changes once the knob has rested ~145 ms. Chords: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay. Bass after the +: BG = bass guitar (precision bass), B1 = Organ1's bass, B2 = Organ2's bass, BS = the synth's bass, BT = triangle bass; a name alone (Or1, Or2, Syn) plays its own bass; Ch = the chords alone (no bass). BG, B1, B2, BS, BT alone = that bass alone |
+| 3 | Bass | PB:00 – Tr:95 | Bass sound and level (default PB:70): PB = bass guitar (precision bass), O1 = Organ1's bass, O2 = Organ2's bass, Sy = the synth's bass, Tr = triangle bass. Level 00 (off) to 95 in steps of 5, 50 = unchanged. Turning goes through the levels of one sound (PB:00 … PB:95), then the next sound (O1:00). A new sound plays once the knob has rested ~145 ms |
+| 3 | Chords | Or1:00 – Plk:95 | Chords sound and level (default Or1:70), as Bass: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay |
 
 ### Writing a song
 
@@ -96,7 +98,7 @@ change PLAY goes back to LOOP and OCTAVE / LENGTH to the saved values.
 ### STATUS (the position after the last bar)
 
 Read only. The knob names show the song's size in bits, used / capacity,
-and the playing bar ("Size:" "55/106" "B: 12"; "Pack" while saving).
+and the playing bar ("Size:" "55/106" "B:12"; "Pack" while saving).
 Without Floppy the first two take turns, about 1.5 s each: "Size: 55/0", "Can't save!", "(no  floppy)". The values
 show the playing chord and, after an arrow, the next one ("STATUS" "Am"
 "→  G").
@@ -286,8 +288,8 @@ and chords swing with it.
   Floppy's knob fields through [zmenu](../common/zmenu/README.md) stream mode.
   The packer runs a few steps per audio call and checks that the stream
   decodes back to the song before writing it.
-- **Sound:** bass and chords from one of the Instr kits (a chords and a
-  bass part each), mono, added to the guitar. An instrument is a record
+- **Sound:** a bass part and a chords part (the Bass and Chords knobs),
+  mono, added to the guitar. An instrument is a record
   (envelope, gains) playing a wavetable; one record can play another
   file's table (the pluck record plays the saw table as Plk, the kalimba
   the marimba's sine table). The saw reads its table twice, 0.3 % apart
@@ -309,7 +311,7 @@ and chords swing with it.
 | `build.py` | Generates the headers, runs `cl6x`, then the linker |
 | `instruments/` | `engine.c` (the one instrument engine: a wavetable voice driven by a record, `SsInst` in `engine.h`) and its Python mirror `engine.py`; one `<id>.py` per instrument with its record and wavetable harmonics: `epiano`, `organ1` (jazz organ), `organ2` (rock organ), `pbass` (precision bass; `pbass_model.py` = the string model and its variants); `tri` (triangle synth; the triangle bass), `saw` (two detuned saws), `pluck` (pluck record, played on the saw's table), `marimba`, `kalimba` (record on the marimba's table); `inst_lib.h` C helper |
 | `inst_lib.py` | Helpers shared by the instrument models (sine, decay coefficients, voice) |
-| `sets.py` | Instrument sets (one keys + one bass instrument each, `"record:table"` to pair one file's record with another's wavetable) and the Instr knob values → `songbox_instr.h` |
+| `sets.py` | The Chords and Bass knobs' instruments (`"record:table"` to pair one file's record with another's wavetable) → `songbox_instr.h` |
 | `proto.py` | Patterns and note increments → `songbox_sound.h`; renders WAV prototypes of each set |
 | `pbass_proto.py` | Renders the precision bass variants of `instruments/pbass_model.py` as WAVs (bass alone, then with electric piano) |
 | `patterns/patterns.json` | The 149 patterns: bass, chords and DrumBox beat / fills (format in `song_patterns.py`) |
@@ -337,9 +339,9 @@ python -B build.py --out PATH          # SongBox.ZDL to PATH
 python -B build.py --probe --out PATH  # with the CPU load meter in STATUS (development)
 python -B build.py --rhythms N --out PATH   # test build with only the first N rhythms
 python -B build.py --cost C --out PATH # test build declaring DSP cost C (heavy patch tests)
-python -B build.py --x2 | --x3 | --w1 --out PATH   # CPU test builds: pass-through / no player / busy wait of Volume %
+python -B build.py --x2 | --x3 | --w1 --out PATH   # CPU test builds: pass-through / no player / busy wait of Chords %
 python -B build.py --tests             # only regenerate songbox_tests.h (no TI needed)
-python -B proto.py [--set epiano]      # instrument set prototypes -> preview/*.wav
+python -B proto.py [--set EP+PB]       # chords + bass prototypes -> preview/*.wav
 python -B pbass_proto.py               # precision bass variants -> preview/pbass_*.wav
 ```
 

@@ -1,4 +1,4 @@
-"""SongBox instrument kits: a chords (keys) part and a bass part each, from
+"""SongBox instruments: chords (keys) parts and bass parts, from
 instruments/ (one file per instrument, as DrumBox's drums/).
 
 Every instrument runs on one engine, instruments/engine.c (Python mirror
@@ -12,14 +12,13 @@ the table of another (a record-only file: ROLE, LEVEL, REC; a table-only
 file: LOW, HIGH, GAIN), so one record can serve several tables and one
 table several records (pluck.py on saw).
 
-The Instr knob (INSTR): a list of kits (chords part, bass part), any
-combination of KEYS and BASS, either part None = silent; the knob text comes
-from the parts (kit_name). c_header() writes songbox_instr.h: the table
-terms (one table per table file used, first use order), the records as byte
-indexes into a pool of distinct words (unpacked into the state by
-ss_wt_build), per part its id (record | table << 4) and level (part 0 =
-silent: level 0), the Instr table (keys part << 4 | bass part) and its knob
-texts, each as an initializer (c_init) of a songbox.c SsConst member.
+The Chords knob picks a KEYS part, the Bass knob a BASS part, each with a
+level (value = part * LEVELS + level, "Or1:70"). c_header() writes
+songbox_instr.h: the table terms (one table per table file used, first use
+order), the records as byte indexes into a pool of distinct words (unpacked
+into the state by ss_wt_build), per part (chords parts, then bass parts) its
+id (record | table << 4), level and knob name, each as an initializer
+(c_init) of a songbox.c SsConst member.
 """
 
 from __future__ import annotations
@@ -36,78 +35,43 @@ for _d in (HERE, INST_DIR):                             # instrument files impor
     if str(_d) not in sys.path:
         sys.path.append(str(_d))
 
-# chords parts: knob name part -> member (up to 15)
+# chords parts in Chords knob order: knob name -> member
 KEYS = {
     "Or1": "organ1",                # Organ1: jazz organ
     "Or2": "organ2",                # Organ2: rock organ
     "EP": "epiano",                 # electric piano
-    "Syn": "saw",                   # synth: two detuned saws
-    "Plk": "pluck:saw",             # pluck: the saw, -60 dB after 400 ms
     "Mrm": "marimba",
     "Klm": "kalimba:marimba",       # kalimba on the marimba's sine table
+    "Syn": "saw",                   # synth: two detuned saws
+    "Plk": "pluck:saw",             # pluck: the saw, -60 dB after 400 ms
 }
-# bass parts: knob suffix -> member (up to 15); a keys instrument plays its own bass
+# bass parts in Bass knob order: knob name -> member; a keys instrument plays its own bass
 BASS = {
-    "BG": "pbass",                  # bass guitar (precision bass)
-    "BT": "tri",                    # triangle bass
-    "B1": "organ1",                 # Organ1's bass
-    "B2": "organ2",                 # Organ2's bass
-    "BS": "saw",                    # the synth's (saw) bass
+    "PB": "pbass",                  # precision bass (bass guitar)
+    "O1": "organ1",                 # Organ1's bass
+    "O2": "organ2",                 # Organ2's bass
+    "Sy": "saw",                    # the synth's (saw) bass
+    "Tr": "tri",                    # triangle bass
 }
-# Instr knob values in knob order: (chords part, bass part), None = silent
-INSTR_LIST = (
-    # by family (organs, EPiano, mallets, synths, bass alone); in each, the
-    # instrument's own bass first, then BG, B1, B2, BS, BT, chords only (Ch)
-    ("Or1", "B1"), ("Or1", "BG"), ("Or1", "B2"), ("Or1", "BS"), ("Or1", "BT"), ("Or1", None),
-    ("Or2", "B2"), ("Or2", "BG"), ("Or2", "B1"), ("Or2", "BS"), ("Or2", "BT"), ("Or2", None),
-    ("EP", "BG"), ("EP", "B1"), ("EP", "B2"), ("EP", "BS"), ("EP", "BT"), ("EP", None),
-    ("Mrm", "BG"), ("Mrm", "B1"), ("Mrm", "B2"), ("Mrm", "BS"), ("Mrm", "BT"), ("Mrm", None),
-    ("Klm", "BG"), ("Klm", "B1"), ("Klm", "B2"), ("Klm", "BS"), ("Klm", "BT"), ("Klm", None),
-    ("Syn", "BS"), ("Syn", "BG"), ("Syn", "B1"), ("Syn", "B2"), ("Syn", "BT"), ("Syn", None),
-    ("Plk", "BG"), ("Plk", "B1"), ("Plk", "B2"), ("Plk", "BS"), ("Plk", "BT"), ("Plk", None),
-    (None, "BG"), (None, "B1"), (None, "B2"), (None, "BS"), (None, "BT"),
-    (None, None),
-)
-INSTR_DEFAULT = 1                           # Or1+BG
-# every instrument level x MASTER: SongBox Volume 70 ~ DrumBox Volume 70
+# Bass texts <= 5 characters ("PB:70"): two 6-character texts on
+# neighbouring knobs run together on the screen ("PBs 70Or1 70")
+# knob value = part * LEVELS + level; level shown x 5 ("PB:70"), gain =
+# shown / 50 (50 = x1, as the old Volume); defaults Or1:70 / PB:70 (the
+# old Volume 70)
+LEVELS = 20
+CHORDS_DEFAULT = 0 * LEVELS + 14
+BASS_DEFAULT = 0 * LEVELS + 14
+# every instrument level x MASTER: SongBox Volume 70 (now level 70) ~ DrumBox Volume 70
 # (was 7x louder: SongBox 10 sounded like DrumBox 70), then +10 %, then +8 %
 MASTER = 1.19 / 7.0
 LVL_DIV = 4096                              # C levels: bytes, level = byte / LVL_DIV
 
-
-def kit_name(k: str | None, b: str | None) -> str:
-    """Knob text: chords part + "+" + bass part ("EP+BG"), the chords part
-    alone when it plays its own bass ("Or1"), chords part + "Ch" for the
-    chords alone ("Or1Ch"), the bass part alone ("B1"), "Mute" for nothing."""
-    if k is None:
-        return "Mute" if b is None else b
-    if b is None:
-        return k + "Ch"
-    return k if KEYS[k] == BASS[b] else f"{k}+{b}"
-
-
-def instr_values() -> list:
-    """Instr knob values: (knob text, keys part index, bass part index);
-    part indexes from 1 (0 = silent)."""
-    assert len(KEYS) < 16 and len(BASS) < 16, "Instr byte: keys << 4 | bass"
-    kp, bp = list(KEYS), list(BASS)
-    out = [(kit_name(k, b), kp.index(k) + 1 if k else 0, bp.index(b) + 1 if b else 0)
-           for k, b in INSTR_LIST]
-    for text, _k, _b in out:
-        assert len(text) <= 6, f"Instr text {text!r} over 6 characters (7 don't fit)"
-    assert len({t for t, _k, _b in out}) == len(out), "Instr texts repeat"
-    # songbox.c ss_text builds the same texts at run time from the parts
-    # (the bass part alone: "" + its name; own bass = same record and table)
-    for t in list(KEYS) + list(BASS):
-        assert t.isascii() and 0 < len(t) <= 6, f"part name {t!r}"
-    used = {k for k, _b in INSTR_LIST} | {b for _k, b in INSTR_LIST}
-    assert used >= set(KEYS) | set(BASS), f"parts not in INSTR_LIST: {set(KEYS) | set(BASS) - used}"
-    return out
-
-
-INSTR = instr_values()
-# kits with both parts, by knob text: (keys member, bass member) (proto.py)
-KITS = {kit_name(k, b): (KEYS[k], BASS[b]) for k, b in INSTR_LIST if k and b}
+for _t in list(KEYS) + list(BASS):          # knob text: name + ":70" in 7 characters
+    assert _t.isascii() and 0 < len(_t) <= 4, f"part name {_t!r} over 4 characters"
+for _t in BASS:                             # Bass text <= 5 characters (next to Chords)
+    assert len(_t) <= 2, f"bass name {_t!r} over 2 characters"
+# every chords x bass pair, by name: (keys member, bass member) (proto.py)
+KITS = {f"{k}+{b}": (KEYS[k], BASS[b]) for k in KEYS for b in BASS}
 
 
 def parts(member: str) -> tuple:
@@ -152,7 +116,7 @@ def load_member(member: str) -> tuple:
 
 
 def load_set(name: str) -> tuple:
-    """(keys, bass) of kit name (KITS, a knob text): render(v) + LEVEL in that role."""
+    """(keys, bass) of a KITS name ("EP+PB"): render(v) + LEVEL in that role."""
     import engine
     out = []
     for role, member in zip(("keys", "bass"), KITS[name]):
@@ -270,44 +234,23 @@ def c_header(path: Path) -> None:
     if not all(0 < q < 256 for q in qk + qb):
         raise ValueError(f"levels don't fit a byte at 1/{LVL_DIV}: {lk} {lb}")
     lvl_err = max(abs(q / LVL_DIV / x - 1.0) for q, x in zip(qk + qb, lk + lb))
-    # part 0 (silent) id = a record | table pair no part has (never heard:
-    # level 0): songbox.c ss_text adds the bass string when the two ids
-    # differ (so for every bass alone and every chords only, not for Mute);
-    # check it gives kit_name's text for every kit
-    used = {sid(m) for m in members}
-    silent = next((r | t << 4 for t in range(len(tabs)) for r in range(len(recs))
-                   if r | t << 4 not in used), None)
-    assert silent is not None, "silent part id: every record | table pair is a part"
-    kid = [silent] + [sid(m) for m in kmem]
-    bid = [silent] + [sid(m) for m in bmem]
-    names = ["Mute", ""] + list(KEYS)
-    bstr = ["Ch"] + ["+" + b for b in BASS]             # bass part 0 = chords only
-    for (text, k, b) in INSTR:
-        t = names[1 + k - (k + b == 0)]
-        if kid[k] != bid[b]:
-            t += bstr[b][k == 0:]
-        assert t == text, f"run-time Instr text {t!r} != {text!r}"
-    # part 0 = silent: level 0, the id above (never heard; ss_text's rule)
-    L += ["", f"#define SS_NKEYI {len(kmem) + 1}u    /* chords parts + silent */",
-          f"#define SS_NBASSI {len(bmem) + 1}u    /* bass parts + silent */",
-          f"#define SS_NINSTR {len(INSTR)}u    /* Instr knob values */",
-          "/* ss_instr[SS_NINSTR]: per Instr value keys part << 4 | bass part (0 = silent) */",
-          "#define SS_INSTR_INIT { "
-          + ", ".join(f"0x{k << 4 | b:02X}u" for _t, k, b in INSTR) + " }",
-          "/* Instr kit text parts, NUL-terminated (the end of songbox.c's text pool):",
-          ' * "Mute", "" (bass alone), chords parts 1.., "Ch" (chords only), "+" + bass',
-          ' * parts 1.. (ss_text joins them) */',
+    names = list(KEYS) + list(BASS)
+    top = max(len(KEYS), len(BASS)) * LEVELS
+    assert LEVELS == 20 and all((v * 205) >> 12 == v // LEVELS for v in range(top)), \
+        "songbox.c: part = v * 205 >> 12 (v / 20)"
+    L += ["", f"#define SS_LEVELS {LEVELS}u    /* levels per part (Chords / Bass value = part * SS_LEVELS + level) */",
+          f"#define SS_NKEYI {len(kmem)}u    /* chords parts (Chords knob) */",
+          f"#define SS_NBASSI {len(bmem)}u    /* bass parts (Bass knob) */",
+          "/* part names, NUL-terminated (the end of songbox.c's text pool):",
+          " * chords parts, then bass parts */",
           "#define SS_INSTR_NAMES_INIT "
-          + " ".join('"' + t + "\\0" + '"' for t in ["Mute", ""] + list(KEYS) + bstr[:-1])
-          + f' "+{list(BASS)[-1]}"',
-          "/* per part: instrument (record | wavetable << 4) and level:",
-          " * ss_keys_id / ss_keys_lvl[SS_NKEYI] (" + ", ".join(["-"] + list(KEYS)) + "),",
-          " * ss_bass_id / ss_bass_lvl[SS_NBASSI] (" + ", ".join(["-"] + list(BASS)) + ")",
+          + " ".join('"' + t + "\\0" + '"' for t in names[:-1]) + f' "{names[-1]}"',
+          "/* per part (chords parts, then bass parts): instrument (record |",
+          " * wavetable << 4) and level: ss_part_id / ss_part_lvl[SS_NKEYI + SS_NBASSI]",
+          " * (" + ", ".join(names) + ")",
           f" * (level * SS_LVL_DIV, quantized: <= {lvl_err * 100:.2f} % off) */",
           f"#define SS_LVL_DIV {LVL_DIV}.0f",
-          "#define SS_KEYS_ID_INIT { " + ", ".join(f"{x}u" for x in kid) + " }",
-          "#define SS_BASS_ID_INIT { " + ", ".join(f"{x}u" for x in bid) + " }",
-          "#define SS_KEYS_LVL_INIT { " + ", ".join(f"{q}u" for q in [0] + qk) + " }",
-          "#define SS_BASS_LVL_INIT { " + ", ".join(f"{q}u" for q in [0] + qb) + " }",
+          "#define SS_PART_ID_INIT { " + ", ".join(f"{sid(m)}u" for m in members) + " }",
+          "#define SS_PART_LVL_INIT { " + ", ".join(f"{q}u" for q in qk + qb) + " }",
           "", "#endif", ""]
     path.write_bytes("\r\n".join(L).encode("ascii"))

@@ -22,7 +22,7 @@ section on its own decides it.
 | 30,216 B | freezes on select |
 | 30,360 B | freezes on select |
 
-SongBox 1.10.2 allocates 30,048 B, DrumBox 1.10.1 28,888 B. Check this
+SongBox 1.14.0 allocates 29,920 B, DrumBox 1.10.1 28,888 B. Check this
 number before every upload.
 Things that saved space, in the linker (`build/linker.py`):
 

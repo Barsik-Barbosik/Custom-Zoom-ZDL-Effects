@@ -6,10 +6,11 @@
  * pattern each rhythm plays, one of patterns/patterns.json, or Randm: a
  * pattern picked per run of bars with that rhythm, again on every pass),
  * page 3 Tempo
- * (40..250 BPM), Volume (50 = x1), Instr (sets.py INSTR_LIST: a chords
- * part and a bass part, either silent; drums follow in every mode).
+ * (40..250 BPM), Bass and Chords (sets.py BASS / KEYS: an instrument and
+ * its level, value = part * 20 + level, shown "Or1:70": 00 = off .. 95,
+ * 50 = x1; drums follow at every level).
  *
- * Sound: bass + keys (an instrument kit, sets.py + instruments/) play the saved song while the
+ * Sound: bass + keys (sets.py + instruments/) play the saved song while the
  * footswitch is on (MENU PLAY: once or in a loop), added to the guitar.
  * Their 16ths swing like the DrumBox beat of the pattern.
  *
@@ -42,7 +43,7 @@
  * MENU stops it; the knob's third position snaps back to YES), CLEAR NO / YES
  * (the same, then empties the song). STATUS (read only): the knob names
  * show "Size:" "55/106" (used / capacity bits; "Pack" while packing) and the
- * playing bar "B: 12"; without Floppy the first two cycle per bar (~1.5 s
+ * playing bar "B:12"; without Floppy the first two cycle per bar (~1.5 s
  * each when not playing) "Size: 55/0", "Can't save!", "(no floppy)". The
  * values: "STATUS", the playing chord "Am" and, after an arrow (font glyph
  * 0x1C), the next chord.
@@ -104,7 +105,7 @@
 ZM_EXPAND_PRAGMA(CODE_SECTION(SS_AUDIO_FUNC, ".audio"))
 ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 
-#define SS_MAGIC     0x53535553u       /* bump on a state layout change */
+#define SS_MAGIC     0x53535554u       /* bump on a state layout change */
 /* Patch change (a gap between audio calls, as DrumBox's DB_AWAY_CYC): the
  * song starts again at bar 1 after SS_AWAY_HOLD calls of silence, which also
  * gives DrumBox time for its cache check (else beat 1 would be dropped). */
@@ -128,10 +129,10 @@ ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 /* Pedal tempo (ss_pedal_bpm): the G1on family's global BPM int (settings
  * menu, rhythm, looper) */
 #define SS_G1_BPM   0x1181BB2Cu
-#define SS_K_VOLUME 7u
-#define SS_K_INSTR  8u                  /* ss_instr[]: keys part << 4 | bass part */
+#define SS_K_BASS   7u                  /* Bass, Chords: part * SS_LEVELS + level (sets.py) */
+#define SS_K_CHORDS 8u                  /* level 0..19, shown x 5 (00..95), gain x 0.1 (50 = x1) */
 #define SS_POLL_CALLS 4096u             /* calls (~0.74 s) between slot / Floppy polls (a power of 2) */
-#define SS_INSTR_SETTLE 800u            /* calls (~145 ms) the Instr knob stays put before its kit plays */
+#define SS_INSTR_SETTLE 800u            /* calls (~145 ms) a Chords / Bass instrument stays put before it plays */
 #define SS_CLR_SEC  5513u               /* audio calls per second (44100 / 8) */
 #define SS_CLR_CALLS (5u * SS_CLR_SEC)  /* Clear: "YES 5" .. "YES 1", then cleared */
 
@@ -146,7 +147,7 @@ typedef struct {
 #define SS_VCOPY(d, s) ((d).inc = (s).inc, (d).p = (s).p, (d).p2 = (s).p2, (d).p3 = (s).p3, \
     (d).env = (s).env, (d).menv = (s).menv, (d).lp = (s).lp, (d).lp2 = (s).lp2, (d).bp = (s).bp, \
     (d).att = (s).att, (d).gate = (s).gate, (d).trig = (s).trig, (d).ip = (s).ip, (d).ip2 = (s).ip2, (d).ip3 = (s).ip3)
-#include "songbox_instr.h"              /* instrument records, sets, Instr table, from sets.py */
+#include "songbox_instr.h"              /* instrument records, Chords / Bass parts, from sets.py */
 #define SS_CH_END   0u                  /* Chord knob: END, 1..24 = chord + 1, Drums, Rest (last) */
 #define SS_CH_DRUMS 25u
 #define SS_CH_REST  26u
@@ -172,9 +173,8 @@ typedef struct {
  *   MENU), the fixed knob texts and STATUS's texts.
  * - SS_S_CHORD: chord names by bar code >> 1: roots 0..11, Rest 12,
  *   Drums 13.
- * - SS_S_INSTR: Instr's kit text parts (songbox_instr.h): "Mute", ""
- *   (bass alone), the chords part names, "Ch" (chords only), "+" + the bass
- *   part names; ss_text joins them. */
+ * - SS_S_INSTR: the part names (songbox_instr.h): chords parts, then bass
+ *   parts. */
 #define SS_S_KNOB   0u
 #define SS_S_WORD   18u
 #define SS_S_CHORD  49u
@@ -238,25 +238,23 @@ typedef struct {
     int8_t bdelta[16];
     uint8_t bar2[SS_NBAR2];
     uint8_t wt_end[SS_WT_NEND];
-    uint8_t instr[SS_NINSTR];
-    uint8_t keys_id[SS_NKEYI], bass_id[SS_NBASSI];    /* record | table << 4 */
-    uint8_t keys_lvl[SS_NKEYI], bass_lvl[SS_NBASSI];  /* level * SS_LVL_DIV */
+    uint8_t part_id[SS_NKEYI + SS_NBASSI];      /* chords parts, bass parts: record | table << 4 */
+    uint8_t part_lvl[SS_NKEYI + SS_NBASSI];     /* level * SS_LVL_DIV */
     uint8_t inst_idx[SS_NINSTB];
     char strs[sizeof(SS_STRS_INIT)];
     uint32_t inst_mask[SS_NREC];
 } SsConst;
 static const SsConst ss_c = {
     SS_INST_POOL_INIT, SS_WT_TERMS_INIT, SS_PAT_NAMES_INIT,
-    SS_SWING_INIT, SS_BASS_OFS_INIT, SS_KEY_OFS_INIT, SS_PAT_INIT, SS_PAT_NOTES_INIT, SS_DB_STYLE_INIT, SS_BDELTA_INIT, SS_BAR2_INIT, SS_WT_END_INIT, SS_INSTR_INIT,
-    SS_KEYS_ID_INIT, SS_BASS_ID_INIT, SS_KEYS_LVL_INIT, SS_BASS_LVL_INIT, SS_INST_IDX_INIT, SS_STRS_INIT, SS_INST_MASK_INIT
+    SS_SWING_INIT, SS_BASS_OFS_INIT, SS_KEY_OFS_INIT, SS_PAT_INIT, SS_PAT_NOTES_INIT, SS_DB_STYLE_INIT, SS_BDELTA_INIT, SS_BAR2_INIT, SS_WT_END_INIT,
+    SS_PART_ID_INIT, SS_PART_LVL_INIT, SS_INST_IDX_INIT, SS_STRS_INIT, SS_INST_MASK_INIT
 };
 /* SS_K: the tables' base. In the player code st->k (set each call): a load
  * from the state instead of an MVKL / MVKH pair with two .rela.dyn entries
  * per use; &ss_c where no state is at hand (the engine). */
 #define SS_K (&ss_c)
 #define ss_wt_terms    (SS_K->wt_terms)
-#define ss_keys_lvl    (SS_K->keys_lvl)
-#define ss_bass_lvl    (SS_K->bass_lvl)
+#define ss_part_lvl    (SS_K->part_lvl)
 #define ss_swing_amt   (SS_K->swing)
 #define ss_bass_ofs    (SS_K->bass_ofs)
 #define ss_key_ofs     (SS_K->key_ofs)
@@ -266,9 +264,7 @@ static const SsConst ss_c = {
 #define ss_bdelta      (SS_K->bdelta)
 #define ss_bar2        (SS_K->bar2)
 #define ss_wt_end      (SS_K->wt_end)
-#define ss_instr       (SS_K->instr)
-#define ss_keys_id     (SS_K->keys_id)
-#define ss_bass_id     (SS_K->bass_id)
+#define ss_part_id     (SS_K->part_id)
 #define ss_pat_names   (SS_K->pat_names)
 
 #include "instruments/inst_lib.h"
@@ -325,7 +321,9 @@ typedef struct {
     float swing, slen;                  /* the drum bar's swing; this 16th's length (1 +- swing) */
     uint32_t swm;                       /* swing step bit: a step with step & swm lasts 1 - swing */
     uint32_t rseed, pass;               /* Randm: TSCL at the playback's start; passes through the song */
-    uint32_t isel, iwait, ikit;         /* Instr knob as last seen, calls since it moved; the kit playing */
+    uint32_t psel[2], pwait[2], part[2];    /* Chords / Bass: part as last seen, calls since it moved; the part playing */
+    uint32_t pid[2];                    /* the parts' instruments (record | table << 4) */
+    float pg[2];                        /* the parts' gains (0: skipped) */
     uint32_t tick, pfull, pscan, sec;   /* calls; this call polls the Floppies, scans the slots; ss_second's last scan */
     /* (every call's fields together, before the voices: fewer cache lines) */
     uint32_t dslot, dtgt, dbeat, dfill; /* DrumBox: slot, bar whose values are written, they */
@@ -1252,7 +1250,7 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
 {
     float *params = (float *)(uintptr_t)ctx[1];
     float *fx = (float *)(uintptr_t)ctx[5];
-    float inc, vol, s, bg, kg, len;
+    float inc, s, bg, kg, len;
     uint32_t i, j, ki, bi, lm, ev;
 
     if (params[0] < 0.5f) st->done = 0u;            /* footswitch off: Once plays again */
@@ -1285,21 +1283,27 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
 #endif
     j = zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX);     /* 0 = Pedal */
     inc = (j ? (float)(39u + j) : ss_pedal_bpm(zm_s_fw(&st->zm))) * SS_STEP_PER_BPM;
-    vol = (float)zm_knob(params[5u + SS_K_VOLUME], 100u) * 0.02f;
-    /* Instr: the kit changes once the knob has settled (turning it through
-     * kits would switch the playing notes at every step: clicks) */
-    j = zm_knob(params[5u + SS_K_INSTR], SS_NINSTR - 1u);
-    if (j != st->isel) {
-        st->isel = j;
-        st->iwait = 0u;
-    } else if (st->iwait < SS_INSTR_SETTLE && ++st->iwait == SS_INSTR_SETTLE) {
-        st->ikit = j;
+    /* Chords (j 0), Bass (j 1): value = part * 20 + level. The level acts at
+     * once; the part changes once the knob has settled (turning it through
+     * parts would switch the playing notes at every step: clicks) */
+#pragma UNROLL(1)
+    for (j = 0u; j < 2u; ++j) {
+        bi = zm_knob(params[5u + (j ? SS_K_BASS : SS_K_CHORDS)],
+                     (j ? SS_NBASSI : SS_NKEYI) * SS_LEVELS - 1u);
+        ki = (bi * 205u) >> 12;                     /* part: bi / 20 (sets.py checks the range) */
+        bi -= ki * SS_LEVELS;                       /* level */
+        if (ki != st->psel[j]) {
+            st->psel[j] = ki;
+            st->pwait[j] = 0u;
+        } else if (st->pwait[j] < SS_INSTR_SETTLE && ++st->pwait[j] == SS_INSTR_SETTLE) {
+            st->part[j] = ki;
+        }
+        ki = st->part[j] + (j ? SS_NKEYI : 0u);     /* chords parts, then bass parts */
+        st->pid[j] = ss_part_id[ki];                /* record | table << 4 */
+        st->pg[j] = (float)(ss_part_lvl[ki] * bi) * (0.1f / SS_LVL_DIV);
     }
-    j = ss_instr[st->ikit < SS_NINSTR ? st->ikit : 0u];  /* keys part << 4 | bass part (0 = silent; drums always) */
-    bg = (float)ss_bass_lvl[j & 15u] * (1.0f / SS_LVL_DIV);
-    kg = (float)ss_keys_lvl[j >> 4] * (1.0f / SS_LVL_DIV);
-    ki = ss_keys_id[j >> 4];                        /* instruments: record | table << 4 */
-    bi = ss_bass_id[j & 15u];
+    kg = st->pg[0]; bg = st->pg[1];
+    ki = st->pid[0]; bi = st->pid[1];
     lm = 15u >> st->ms[SS_OPT_LEN];                 /* song bar line: step & lm == 0 */
 
     for (i = 0u; i < 8u; ++i) st->acc[i] = 0.0f;
@@ -1363,7 +1367,7 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
 #endif
     for (j = 0u; j < 4u; ++j) {                 /* keys 0..2, then the bass */
         SsVoice *v = &st->vk[j];
-        /* skipped: a silent part only; a voice released and faded out
+        /* skipped: a part at level 0 only; a voice released and faded out
          * runs on silently, so its table lines, records and this code
          * stay in the cache for the next note start */
         if ((j < SS_VB ? kg : bg) > 0.0f)
@@ -1375,10 +1379,9 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
     SS_PM_OF(st)->cur[3] += TSCL - tv; }
 #endif
     for (i = 0u; i < 8u; ++i) {
-        s = st->acc[i];
-        if (s > 0.99f) s = 0.99f;
-        if (s < -0.99f) s = -0.99f;
-        s *= vol;
+        s = st->acc[i];                 /* the part gains are in (the old Volume's x2 limit) */
+        if (s > 1.98f) s = 1.98f;
+        if (s < -1.98f) s = -1.98f;
         fx[i] += s;
         fx[8u + i] += s;
     }
@@ -1406,7 +1409,7 @@ static const char *ss_str(const SsConst *k, uint32_t i)
 
 /* page 1 name k (0-based) into nm (8 bytes): the name from the pool, the
  * rest NUL; STATUS: "Size:" "55/106" ("Pack" while packing), playing bar
- * "B: 12"; without Floppy the first two in turn "Size:" "55/0", "Can't"
+ * "B:12"; without Floppy the first two in turn "Size:" "55/0", "Can't"
  * "save!", "(no" "floppy)". Out of line: runs on a few calls only. */
 SS_COLD(ss_name)
 static void ss_name(SsState *st, uint32_t k, volatile unsigned char *nm)
@@ -1428,8 +1431,8 @@ static void ss_name(SsState *st, uint32_t k, volatile unsigned char *nm)
         pm->shown[k] = (v << 10) + v2;
     } else
 #endif
-    if (k == 2u) {              /* "B: " + bar */
-        n = ss_nput(nm, n, 'B'); n = ss_nput(nm, n, ':'); n = ss_nput(nm, n, ' ');
+    if (k == 2u) {              /* "B:" + bar */
+        n = ss_nput(nm, n, 'B'); n = ss_nput(nm, n, ':');
         num = 1u; v = st->bar + 1u;
     } else if (st->blink < 2u) {
         p = ss_str(st->k, SS_S_WORD + SS_W_NOFL + 2u * st->blink + k);
@@ -1477,11 +1480,11 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     if ((uint32_t)ctx[0] < 1000u) return;
 #endif
 #ifdef SS_W1
-    /* headroom probe: pass-through + a busy wait of Volume % of a call
+    /* headroom probe: pass-through + a busy wait of Chords % of a call
      * (1 % = 326 cycles); the test is never false (see SS_X2) */
     if ((uint32_t)ctx[0] < 1000u) {
         t0 = TSCL;
-        i = zm_knob(((float *)(uintptr_t)ctx[1])[5u + SS_K_VOLUME], 100u) * 326u;
+        i = zm_knob(((float *)(uintptr_t)ctx[1])[5u + SS_K_CHORDS], 100u) * 326u;
         while ((uint32_t)(TSCL - t0) < i) {}
         return;
     }
@@ -1755,7 +1758,7 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
 {
     const volatile SsState *st = ss_g;
     uint32_t sel = 0u, stat = 0u, idx, h = 0u, t = 0u, w = ~0u;  /* w: text pool string (~0: a number) */
-    uint32_t w2 = ~0u, skip = 0u;       /* Instr: then string w2 from its character skip */
+    uint32_t lv = ~0u;                  /* Chords / Bass: then " " + level lv */
     int n = 0;
     if (st) { sel = st->sel; stat = st->stat; }
     idx = sel - 1u;
@@ -1765,20 +1768,16 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
             s[n] = (char)(t + (t < 11u ? '0' - 1u : t < 37u ? 'A' - 11u : 'a' - 37u));
         s[n] = 0;
         return n;
-    } else if (k == SS_K_INSTR) {       /* the kit's text from its parts (sets.py kit_name) */
-        h = st->k->instr[v < SS_NINSTR ? v : SS_NINSTR - 1u];
-        t = h & 15u;                    /* bass part */
-        h >>= 4;                        /* chords part */
-        w = SS_S_INSTR + 1u + h - (h + t == 0u);    /* chords part name, "" (none), "Mute" */
-        /* then "+" + the bass part name (alone: the name, "B1"; no bass:
-         * "Ch"), unless the chords part plays its own bass (same id); the
-         * silent parts share an id no part has (sets.py): none for "Mute" */
-        if (st->k->keys_id[h] != st->k->bass_id[t])
-            w2 = SS_S_INSTR + SS_NKEYI + 1u + t, skip = h == 0u;
+    } else if (k >= SS_K_BASS) {        /* Bass / Chords: "PB:70" (part name, level x 5) */
+        t = k == SS_K_BASS ? SS_NBASSI : SS_NKEYI;
+        for (; v >= SS_LEVELS; v -= SS_LEVELS) ++h;
+        if (h >= t) { h = t - 1u; v = SS_LEVELS - 1u; }
+        w = SS_S_INSTR + h + (k == SS_K_BASS ? SS_NKEYI : 0u);
+        lv = v;
     } else if (k == SS_K_TEMPO) {       /* "Pedal", BPM */
         if (v == 0u) w = SS_S_WORD + SS_W_PEDAL;
         else v = 39u + (v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v);
-    } else if (!st || k == SS_K_VOLUME) {
+    } else if (!st) {
         /* plain number */
     } else if (k == SS_K_BAR) {
         if (v == 0u) w = SS_S_WORD + SS_W_MENU;
@@ -1828,8 +1827,8 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
             t = h < 24u && (h & 1u);
         }
         n += ss_cpy(s + n, ss_str(st->k, w), 7 - n);
-        if (w2 != ~0u) {                /* Instr: + string w2 from its character skip */
-            n += ss_cpy(s + n, ss_str(st->k, w2) + skip, 7 - n);
+        if (lv != ~0u) {                /* Chords / Bass: ":" + the level x 5, two digits */
+            s[n++] = ':'; s[n++] = (char)('0' + (lv >> 1)); s[n++] = (char)('0' + 5u * (lv & 1u)); s[n] = 0;
         }
         if (t) { s[n++] = 'm'; s[n] = 0; }
         if (w == SS_S_WORD + SS_W_YES && st->clr) {
