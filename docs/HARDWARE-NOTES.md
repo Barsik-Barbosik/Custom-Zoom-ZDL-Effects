@@ -22,7 +22,7 @@ section on its own decides it.
 | 30,216 B | freezes on select |
 | 30,360 B | freezes on select |
 
-SongBox 1.10.0 allocates 30,048 B, DrumBox 1.10.0 28,888 B. Check this
+SongBox 1.10.2 allocates 30,048 B, DrumBox 1.10.1 28,888 B. Check this
 number before every upload.
 Things that saved space, in the linker (`build/linker.py`):
 
@@ -130,6 +130,14 @@ than tall, and scale previews 3:4.
 - A patch switch can be detected as a gap between audio calls: calls come
   every ~33,000 TSCL cycles, and a gap of more than ~9,000,000 (~50 ms)
   means the slot ran something else.
+- **The knob values arrive late.** After a patch switch the effects run
+  a few audio calls before the pedal has filled the slot table
+  (`state[31]`) with the new patch's knob values (seen on the B1Xon 1.30).
+  An effect that reads or writes other slots' values (SongBox: Floppy's
+  song, DrumBox's knobs) must keep checking for a while, not only on the
+  first call: SongBox 1.10.1 checked once, kept the old song for a moment
+  and left DrumBox on its own Tempo. 1.10.2 checks every call until its
+  count-in ends.
 - **The next effect gets your leftovers.** No code runs when an effect is
   replaced, and the next effect in the slot gets the arena as it is. A
   stock delay uses the whole arena as a float delay line: it writes from

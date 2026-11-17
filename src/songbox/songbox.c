@@ -104,7 +104,7 @@
 ZM_EXPAND_PRAGMA(CODE_SECTION(SS_AUDIO_FUNC, ".audio"))
 ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 
-#define SS_MAGIC     0x53535551u        /* bump on a state layout change */
+#define SS_MAGIC     0x53535553u       /* bump on a state layout change */
 /* Patch change (a gap between audio calls, as DrumBox's DB_AWAY_CYC): the
  * song starts again at bar 1 after SS_AWAY_HOLD calls of silence, which also
  * gives DrumBox time for its cache check (else beat 1 would be dropped). */
@@ -662,6 +662,7 @@ static void ss_unpack_job(SsState *st)
         st->need = how == SP_END_CUT || (how == SP_END_OUT && st->zm.gap);
         st->full = 0u;
         ss_ms_set(st, set);             /* saved OCTAVE, LENGTH */
+        st->dtgt = SS_DB_NONE;          /* DrumBox's beat / fill from this song (a load in the count-in) */
         ss_request_pack(st, SS_PK_LOAD);
         st->sum = st->csum;
         st->jreq = 1u;
@@ -1073,9 +1074,11 @@ static void ss_pm_ev(SsState *st, const float *params)
 #endif
 
 /* DrumBox knob k := v in its table row, and with rec in its patch record
- * row too (written only when it differs). Between polls only a value that
- * changed since the last write (no OS memory read); a poll call checks all
- * (DrumBox's own knob turns, a restored row). */
+ * row too (written only when it differs). Between scan calls only a value
+ * that changed since the last write (no OS memory read); a scan call checks
+ * all (DrumBox's own knob turns, a restored row, and after a patch change
+ * the record the OS puts into the row, a few calls late: every call is a
+ * scan call until the count-in ends, see pscan). */
 SS_COLD(ss_db_col)
 static void ss_db_col(SsState *st, const ZmFw *t, uint32_t k, uint32_t v, uint32_t rec)
 {
@@ -1169,11 +1172,13 @@ static inline void ss_drums(SsState *st, const float *params)
     st->ddrv = 1u;
     if (st->dwait == 2u && st->step != 0u) st->dwait = 1u;
     if (st->dwait == 1u && st->step == 0u) st->dwait = 0u;
-    if (!st->play || st->dwait) {       /* stopped (or waiting): no drums */
+    /* Stopped (or waiting): no drums (LenA, LenB Skip). The other columns
+     * are written too, so none of DrumBox's own values (a patch load puts
+     * its record in the row) stay there when the song starts. */
+    if (!st->play || st->dwait) {
         st->dtgt = SS_DB_NONE;
-        ss_db_col(st, t, SS_DB_LENA, SS_DB_SONG_OFF, 0u);
-        ss_db_col(st, t, SS_DB_LENB, 0u, 0u);
-        return;
+        la = SS_DB_SONG_OFF;
+        goto wr;
     }
     /* A drum bar holds k = 1 << LENGTH song bars, the playing one from dbar
      * on. Count-in: dbar stays 0, so its last bar's look-ahead is bar 0.
@@ -1223,15 +1228,17 @@ static inline void ss_drums(SsState *st, const float *params)
         st->dbeat = beat;
         st->dfill = fill;
     }
+    /* count-in until the last count bar's look-ahead (step 12), so its
+     * next bar line is the song's bar 1 */
+    la = st->cin > (uint32_t)(st->step >= SS_DB_AHEAD) ? SS_DB_SONG_CNT : SS_DB_SONG_ON;
+wr:
     /* Tempo also in the record: DrumBox's page shows it, a save keeps it */
     ss_db_col(st, t, SS_DB_TEMPO, zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX), 1u);
     ss_db_col(st, t, SS_DB_LENB, 0u, 0u);
     ss_db_col(st, t, SS_DB_BEATA, st->dbeat, 0u);
     ss_db_col(st, t, SS_DB_FILLA, st->dfill, 0u);
-    /* last: from Skip, DrumBox starts now; count-in until the last count
-     * bar's look-ahead (step 12), so its next bar line is the song's bar 1 */
-    ss_db_col(st, t, SS_DB_LENA,
-              st->cin > (uint32_t)(st->step >= SS_DB_AHEAD) ? SS_DB_SONG_CNT : SS_DB_SONG_ON, 0u);
+    /* last: from Skip, DrumBox starts now */
+    ss_db_col(st, t, SS_DB_LENA, la, 0u);
 }
 
 /* 8 samples of bass + keys added to both channels of ctx[5]. The sequencer
@@ -1514,11 +1521,17 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
      * turn (one call's peak), and both after a reset, a gap or a patch
      * change; the poll also on a load or verify (+ save) call (the
      * Floppies as now). Edits, pack starts and knob jumps use the last
-     * values (a verify catches a Floppy changed meanwhile). */
+     * values (a verify catches a Floppy changed meanwhile). After a patch
+     * change both every call while the song holds (hold) and through the
+     * count-in (cin): the OS fills the slot rows from the new patch's
+     * records a few calls late, so the first poll may still see the old
+     * patch's Floppy (the old song) and DrumBox's row before its record
+     * (its own Tempo, LenB). The count-in plays no bass / keys: the
+     * poll's peak fits there. */
     zm_s_keep(&st->zm, ctx);
     ch = st->zm.ft ? ZM_U32(st->zm.ft->patch) : st->patch;    /* the patch number */
     away = t0 - st->lastCall > SS_AWAY_CYC || ch != st->patch;
-    i = away || st->zm.magic != ZM_MAGIC;
+    i = away || st->zm.magic != ZM_MAGIC || (st->hold | st->cin) != 0u;
     st->tick++;
     st->pfull = i || (st->lreq | st->vreq) != 0u || (st->tick & (SS_POLL_CALLS - 1u)) == 0u;
     st->pscan = i || (st->tick & (SS_POLL_CALLS - 1u)) == 1u;

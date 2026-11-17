@@ -1,5 +1,33 @@
 # Changelog
 
+## SongBox 1.10.2 (2026-11-17)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,663 B | 8 | 60 | `27bdfe1fcc277328854f040ae9ed46892accb869ee193f549d31a6757ed06cc0` (1.10.1, unchanged) |
+| `SongBox.ZDL` | 32,294 B | 8 | 52 | `38d3eea55dc65683362f9096c114fe8e49c68a848f011a381045cb0419e50f24` |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` (1.0.1, unchanged) |
+
+The ZDL header still shows `1.10`. Saved patches stay as they are.
+
+### SongBox
+
+Fixes for switching between patches that hold SongBox and DrumBox. The
+pedal loads the new patch's knob values a moment after the effects start
+running, and SongBox read them too early:
+
+- The drums no longer go out of sync after a patch change. DrumBox could
+  still be counting in (at the Tempo saved on DrumBox) when SongBox's
+  first bar started.
+- The new patch's song plays from the start, instead of the previous
+  patch's rhythm for a moment.
+- Switching between song patches no longer asks to save a patch you didn't
+  change.
+
+Tested on the B1Xon 1.30; the MS pedals are untested.
+
 ## DrumBox 1.10.1, SongBox 1.10.1 (2026-11-17)
 
 Files in `dist/` and on the Releases page:
