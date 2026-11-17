@@ -90,7 +90,9 @@ patch load, on patch switch and at power-up. Source:
 - Descriptor flags 0x28 (`+0x2C`) mark a tempo knob, as on the Time /
   Sync knobs of Zoom's own delays; on the MS pedals it should offer tap
   tempo for the effect (seen in themanro's probes, untested with our
-  effects). On the B1Xon 1.30 such a knob works as any other.
+  effects). On the B1Xon 1.30 such a knob works as any other. On an
+  MS-70CDR, DrumBox's Tempo knob with 0x28 got the delay-style tap mode;
+  DrumBox and SongBox now use flags 0, and Pedal follows the pedal's TEMPO.
 - 9 parameters (3 pages of 3 knobs) work.
 - A `getstr` callback (descriptor `+0x24`) shows text for a knob value
   (names, BPM). Keep these callbacks free of loops, calls and division.
@@ -238,6 +240,19 @@ found yet.
   up to 12 characters plus a NUL), 4,108 bytes. Each category is a group:
   `>>>` + NUL + group id, the effect file names, all-zero blank records,
   then `<<<` + NUL + group id.
+- **The effect needs a SONAME** (tested on the B1Xon 1.30). The G1on
+  family takes the effect's group from the ELF `DT_SONAME` prefix
+  (`ZDL_SFX_DrumBox.out`: `ZDL_SFX_` = SFX). A ZDL with an empty SONAME
+  still gets a place in the effect list, but that place shows the name of
+  the neighbouring effect (a second "Delay", for example), and the effect
+  itself never appears. Changing the fxid doesn't help; adding the SONAME
+  does, with the code and data unchanged. Some third-party ZDLs ship
+  without one. The prefix must match the header gid: 1 `ZDL_DYN_`,
+  2 `ZDL_FLT_`, 3 `ZDL_DRV_`, 6 `ZDL_MOD_`, 7 `ZDL_SFX_`, 8 `ZDL_DLY_`,
+  9 `ZDL_REV_`. This repository's linker always writes it.
+- An fxid above 1023 doesn't stop an effect from being listed or running
+  on the G1on family (B1Xon 1.30). Patches on the original MS pedals keep
+  only 10 bits of it, so stay at 1023 or below for an effect meant for both.
 
 ## USB file transfer (G1Xon)
 

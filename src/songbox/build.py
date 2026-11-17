@@ -300,7 +300,7 @@ def main() -> None:
     compile_c(HERE / "songbox.c", obj, include=[ZMENU, SONG], defines=defines, space=SPACE)
     params = [dict(name=n, type="knob", max=mx, default=d, scale="enum", audio_min=0.0,
                    audio_max=float(mx), audio_default=float(d), getstr=f"GetString_Ss{i + 1}",
-                   **({"flags": 0x28} if n == "Tempo" else {}))   # tempo knob: MS tap button
+                   **({"flags": 0} if n == "Tempo" else {}))   # plain knob: no tempo flag (no MS tap button)
               for i, (n, mx, d) in enumerate(KNOBS)]
     link(LinkerConfig(
         effect_name="SongBox",
