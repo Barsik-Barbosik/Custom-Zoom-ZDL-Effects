@@ -32,7 +32,7 @@ started and stopped with the footswitch.
 ## Install
 
 `DrumBox.ZDL` (from the [Releases](../../../../releases) page or
-`../../dist/`, version 1.10.0) needs 8 free flash blocks (31,663 B). Install it as described
+`../../dist/`, version 1.10.1) needs 8 free flash blocks (31,663 B). Install it as described
 in the [main README](../../README.md#install). It is in the **SFX** category
 (gid 7, fxid 520 = 0x208) and declares a DSP cost of 60 of the patch's 210. Pedals it was tested on: see the
 [main README](../../README.md#pedals).

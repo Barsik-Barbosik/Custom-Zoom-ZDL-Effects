@@ -1,5 +1,27 @@
 # Changelog
 
+## DrumBox 1.10.1, SongBox 1.10.1 (2026-11-17)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,663 B | 8 | 60 | `27bdfe1fcc277328854f040ae9ed46892accb869ee193f549d31a6757ed06cc0` |
+| `SongBox.ZDL` | 32,294 B | 8 | 52 | `3fc8da493b6de3e738bbf06184ce3b407c74cff5cffde22441007cff31253452` |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` (1.0.1, unchanged) |
+
+The ZDL header still shows `1.10`. Saved patches stay as they are.
+
+### DrumBox and SongBox
+
+- The Tempo knob is a plain knob again: no own tap button on the MS pedals.
+  With the tempo-knob flag of 1.10.0, an MS-70CDR offered a delay-style
+  tap mode on the effect, which worked but differed from the pedal's TEMPO
+  screen (there you can tap the footswitch or the knob). Tap the tempo on
+  the pedal's TEMPO screen; at Pedal (the default) the effect follows it.
+  Tested on the B1Xon; the MS pedals should behave as described (untested
+  with 1.10.1).
+
 ## DrumBox 1.10.0, SongBox 1.10.0 (2026-11-17)
 
 Files in `dist/` and on the Releases page:
