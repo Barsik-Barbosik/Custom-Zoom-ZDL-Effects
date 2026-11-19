@@ -16,9 +16,13 @@ the pedal is replugged, so we report it instead of hanging.
     python -B tools/g1on_sysex.py stored N [-o stored.syx]        # saved patch N (50 + 09), no switch, keeps unsaved edits
     python -B tools/g1on_sysex.py knob SLOT PARAM VALUE           # set a knob live (50 + 31), not saved
     python -B tools/g1on_sysex.py program N                       # switch to patch N (MIDI Program Change)
+    python -B tools/g1on_sysex.py current                         # current patch number (50 + 33)
+    python -B tools/g1on_sysex.py settings                        # global settings: tempo, tuner, ... (50 + 2B)
+    python -B tools/g1on_sysex.py info                            # patch count and size (07)
+    python -B tools/g1on_sysex.py status                          # status value (50 + 16)
 
 STATUS (G1Xon fw 1.21, B1Xon fw 1.30): list, usage, delete, upload, flashread,
-patch, knob and program work. `stored` is untested on hardware.
+patch, stored, knob, program, current, settings, info and status work.
 `download` does NOT work: the pedal acks the read command but never sends data
 (use flashread). Each run ends with PC mode off (53) unless --stay-pcmode is given.
 
@@ -76,8 +80,11 @@ class Pedal:
         if self.verbose:
             print("   " + line[:120])
 
-    def xfer(self, data, quiet: float = 0.05) -> list:
-        """Send one SysEx, return every SysEx reply (stops `quiet` s after the last one)."""
+    def xfer(self, data, quiet: float = 0.05, others: list | None = None) -> list:
+        """Send one SysEx, return every SysEx reply (stops `quiet` s after the last one).
+
+        Other replies (e.g. Program Change) go to `others` when it is given.
+        """
         for m in self.inport.iter_pending():
             if m.type == "sysex":
                 self._log("<< (stray)", m.data)
@@ -101,6 +108,10 @@ class Pedal:
                 if m.type == "sysex":
                     self._log("<<", m.data)
                     replies.append(list(m.data))
+                    got = True
+                elif others is not None:
+                    self.log.write(f"<< {m.hex()}\n")
+                    others.append(m)
                     got = True
             if got:
                 deadline = min(deadline, time.monotonic() + quiet)
@@ -246,6 +257,42 @@ class Pedal:
         replies = self.cmd(0x60, 0x24, name=name)
         return any(r[3:] == [0x60, 0x03, 0, 0, 0, 0, 0] for r in replies)
 
+    # --- pedal state (editor mode 50, no PC mode: 51 / 53 reload the patch) ---
+
+    def current_patch(self) -> int | None:
+        """Current patch number: 33 is answered with Bank Select (CC 0 = n / 100,
+        CC 32 = 0) and a Program Change (n % 100), plain MIDI, editor mode only."""
+        self.cmd(0x50)
+        others: list = []
+        self.xfer([ZOOM, 0x00, self.dev, 0x33], others=others)
+        bank = next((m.value for m in others if m.type == "control_change" and m.control == 0), 0)
+        pc = [m.program for m in others if m.type == "program_change"]
+        return bank * 100 + pc[-1] if pc else None
+
+    def global_settings(self) -> list | None:
+        """Global settings: 2B is answered with 2A + 16 packed bytes (editor mode only)."""
+        self.cmd(0x50)
+        for r in self.cmd(0x2B):
+            if len(r) > 5 and r[3] == 0x2A:
+                return unpack_globals(bytes(self._unpack(r[4:]))[:16])
+        return None
+
+    def patch_format(self) -> tuple | None:
+        """(number of patches, bytes per patch): 07 is answered with 06 + two 14-bit values."""
+        for r in self.cmd(0x07):
+            if len(r) >= 8 and r[3] == 0x06:
+                return r[4] | r[5] << 7, r[6] | r[7] << 7
+        return None
+
+    def status(self) -> int | None:
+        """16 is answered with 17 + a 35-bit value (editor mode only). Seen: 5;
+        the OS adds 0x2000 in PC mode. Meaning otherwise unknown."""
+        self.cmd(0x50)
+        for r in self.cmd(0x16):
+            if len(r) >= 9 and r[3] == 0x17:
+                return sum(b << (7 * i) for i, b in enumerate(r[4:9]))
+        return None
+
     @staticmethod
     def _data_block(r):
         """Return the payload length if r looks like a data reply, else None.
@@ -317,6 +364,73 @@ class Pedal:
         return out
 
 
+# Global settings in the 2A reply: 18 fields, packed from bit 0 of the 16 bytes,
+# low bits first (width, name, how to show the raw value). Checked on a B1Xon 1.30.
+GLOBAL_FIELDS = [
+    (1, "unknown 0", str),
+    (1, "auto save", lambda v: "on" if v else "off"),
+    (1, "battery", lambda v: "Ni-MH" if v else "alkaline"),
+    (2, "LCD backlight", lambda v: {0: "off", 1: "on"}.get(v, str(v))),
+    (4, "LCD contrast", str),
+    (1, "ECO", lambda v: "on" if v else "off"),
+    (1, "preselect", lambda v: "on" if v else "off"),
+    (1, "tuner output", lambda v: "mute" if v else "bypass"),
+    (4, "tuner calibration", lambda v: f"{435 + v} Hz"),
+    (4, "tuner type", lambda v: {0: "chromatic", 1: "bass"}.get(v, str(v))),
+    (4, "tuner flat", str),
+    (7, "rhythm pattern", lambda v: str(v + 1)),
+    (7, "rhythm level", str),
+    (7, "looper time", lambda v: f"setting {v}"),
+    (7, "looper level", str),
+    (8, "tempo", lambda v: f"{v} BPM"),
+    (7, "master level", str),
+    (32, "unknown 17", str),
+]
+
+
+def unpack_globals(u: bytes) -> list:
+    """The 18 raw field values of the global settings block."""
+    v, pos, out = int.from_bytes(u, "little"), 0, []
+    for width, _, _ in GLOBAL_FIELDS:
+        out.append(v >> pos & ((1 << width) - 1))
+        pos += width
+    return out
+
+
+def bits(u: bytes, pos: int, width: int) -> int:
+    return int.from_bytes(u, "little") >> pos & ((1 << width) - 1)
+
+
+def pedal_target(dst: int) -> str:
+    """Expression pedal destination byte: low nibble = target, high nibble = parameter."""
+    target, param = dst & 0x0F, dst >> 4
+    if target == 2:
+        return "input volume"
+    if target == 8:
+        return "output volume"
+    if 3 <= target <= 7:
+        return f"slot {target - 3} " + (f"knob {param - 1}" if param >= 2 else "none")
+    return f"raw {dst:#04x}"
+
+
+def describe_patch(u: bytes) -> list:
+    """Lines describing a 112-byte patch (the 29 / 08 payload, unpacked).
+
+    5 slots x 18 bytes (bit 0 = on, bits 1..29 = effect id = gid << 24 | fxid),
+    byte 90 bits 5..7 = slots used, bit offsets 728 level, 735 pedal
+    destination, 743 / 771 pedal range min / max, bytes 101..110 name.
+    """
+    name = bytes(b if 0x20 <= b < 0x7F else 0x20 for b in u[101:111]).decode()
+    lines = [f"name '{name}', level {bits(u, 728, 7)}, slots used {u[90] >> 5}"]
+    for s in range(5):
+        row = int.from_bytes(u[s * 18:s * 18 + 18], "little")
+        fx = row >> 1 & ((1 << 29) - 1)
+        if fx:
+            lines.append(f"slot {s}: gid {fx >> 24} fxid {fx & 0xFFFFFF}, {'on' if row & 1 else 'off'}")
+    lines.append(f"pedal: {pedal_target(bits(u, 735, 8))}, range {bits(u, 743, 13)}..{bits(u, 771, 13)}")
+    return lines
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", default="ZOOM 1 Series")
@@ -352,6 +466,10 @@ def main() -> None:
     kb.add_argument("value", type=int)
     pg = sub.add_parser("program", help="switch to patch N 0..99 (MIDI Program Change; unsaved edits are lost)")
     pg.add_argument("number", type=int)
+    sub.add_parser("current", help="number of the current patch, read-only (request 33)")
+    sub.add_parser("settings", help="global settings (tempo, tuner, rhythm, ...), read-only (request 2B)")
+    sub.add_parser("info", help="number of patches and patch size, read-only (request 07)")
+    sub.add_parser("status", help="status value, read-only (request 16)")
     dl = sub.add_parser("download")
     dl.add_argument("names", nargs="+")
     dl.add_argument("-o", "--outdir", type=Path, default=DEFAULT_OUT)
@@ -364,7 +482,7 @@ def main() -> None:
     rc = 0
     try:
         pedal.identify()
-        if args.action in ("patch", "stored", "knob", "program"):
+        if args.action in ("patch", "stored", "knob", "program", "current", "settings", "info", "status"):
             args.stay_pcmode = True     # 53 would reload the patch (see `patch`)
         else:
             pedal.pcmode(True)
@@ -429,6 +547,8 @@ def main() -> None:
                 replies = [r for r in pedal.cmd(0x29) if len(r) > 4 and r[3] == 0x28]
                 for r in replies:
                     print(f"{len(r) + 2:5d} B  F0 {bytes(r).hex(' ').upper()} F7")
+                    for line in describe_patch(bytes(pedal._unpack(r[4:]))[:112]):
+                        print("   " + line)
                 if not replies:
                     print("FAIL no patch reply")
                     rc = 1
@@ -449,6 +569,10 @@ def main() -> None:
                 for r in replies:
                     print(f"{len(r) + 2:5d} B  F0 {bytes(r).hex(' ').upper()} F7")
                 good = [r for r in replies if r[6] == args.number]
+                for r in good[:1]:
+                    # 08 00 00 N 70 00 (112) + 128 packed bytes + 5 check bytes
+                    for line in describe_patch(bytes(pedal._unpack(r[9:137]))[:112]):
+                        print("   " + line)
                 if not good:
                     print(f"FAIL no stored-patch reply for {args.number}")
                     rc = 1
@@ -480,6 +604,26 @@ def main() -> None:
                 pedal.outport.send(mido.Message("program_change", channel=0, program=args.number))
                 pedal._log(">> PC", [0xC0, args.number])
                 print(f"OK   program change {args.number} (sent)")
+            elif args.action == "current":
+                n = pedal.current_patch()
+                print(f"OK   current patch {n}" if n is not None else "FAIL no Program Change reply")
+                rc = 0 if n is not None else 1
+            elif args.action == "settings":
+                values = pedal.global_settings()
+                if values is None:
+                    print("FAIL no 2A reply")
+                    rc = 1
+                else:
+                    for (_, name, show), v in zip(GLOBAL_FIELDS, values):
+                        print(f"   {name:18s} {show(v)}")
+            elif args.action == "info":
+                fmt = pedal.patch_format()
+                print(f"OK   {fmt[0]} patches x {fmt[1]} bytes" if fmt else "FAIL no 06 reply")
+                rc = 0 if fmt else 1
+            elif args.action == "status":
+                v = pedal.status()
+                print(f"OK   status {v} ({v:#x})" if v is not None else "FAIL no 17 reply")
+                rc = 0 if v is not None else 1
             elif args.action == "usage":
                 print("disk (max, available):", pedal.disk_usage())
             elif args.action == "delete":

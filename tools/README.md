@@ -15,7 +15,7 @@ effects in this repository.
 
 | Script | What |
 |---|---|
-| `g1on_sysex.py` | List, upload and delete effect files; disk usage; raw flash read; read the current patch or a saved one; set a knob live; switch patches |
+| `g1on_sysex.py` | List, upload and delete effect files; disk usage; raw flash read; read the current patch or a saved one; set a knob live; switch patches; read the current patch number and the global settings |
 | `g1on_keepalive.py` | Sends an identity request every N seconds so the pedal doesn't stop answering SysEx between tool runs |
 
 ## Setup
@@ -38,6 +38,10 @@ python -B tools/g1on_sysex.py patch [-o patch.syx]        # read the current pat
 python -B tools/g1on_sysex.py stored N [-o stored.syx]    # read saved patch N without switching
 python -B tools/g1on_sysex.py knob SLOT PARAM VALUE       # set a knob of the current patch live
 python -B tools/g1on_sysex.py program N                   # switch to patch N (0..99)
+python -B tools/g1on_sysex.py current                     # number of the current patch
+python -B tools/g1on_sysex.py settings                    # global settings (tempo, tuner, ...)
+python -B tools/g1on_sysex.py info                        # number of patches and patch size
+python -B tools/g1on_sysex.py status                      # status value
 python -B tools/g1on_sysex.py flashread ADDR LENGTH -o out.bin   # raw flash read
 ```
 
@@ -73,9 +77,12 @@ logged as hex to `tools/probe_logs/`.
 
 - `patch` prints the current patch as the pedal sends it (editor mode
   `50`, then request `29`) and saves it with `-o`. It keeps unsaved edits.
+  Below the raw message it prints the name, patch level, the effect id
+  (gid, fxid) and on/off state of each slot, and the expression pedal's
+  destination and range. `stored` prints the same.
 - `stored N` prints saved patch N (0..99) without switching to it (editor
   mode `50`, then request `09 00 00 N`) and saves it with `-o`. It keeps
-  unsaved edits. Not yet tested on a pedal.
+  unsaved edits.
 - `knob SLOT PARAM VALUE` sets one parameter of the current patch live, as
   if the knob had been turned: slot 0..4, param 0 = on/off, 2..10 =
   knobs 1..9 (1 = effect type is refused). The value is the knob's step
@@ -86,6 +93,24 @@ logged as hex to `tools/probe_logs/`.
 - **Before a replug or power-off, switch to a patch with stock effects
   only** (e.g. `program 0` if patch 0 holds no custom effects), so the
   pedal can't boot into an effect that fails to load.
+
+### Pedal state: `current`, `settings`, `info`, `status`
+
+All four only read; they keep unsaved edits.
+
+- `current` prints the number of the current patch (editor mode `50`,
+  then request `33`; the pedal answers with a MIDI Bank Select and
+  Program Change).
+- `settings` prints the pedal's global settings (editor mode `50`, then
+  request `2B`): auto save, battery, LCD backlight and contrast, ECO,
+  preselect, tuner output / calibration / type / flat, rhythm pattern and
+  level, looper time and level, tempo, master level. Two fields are
+  still unknown. These settings can't be written over USB: the pedal
+  ignores the matching write message (`2A`).
+- `info` prints the number of patches and the patch size (request `07`):
+  `100 patches x 112 bytes`.
+- `status` prints a status value (editor mode `50`, then request `16`);
+  `5` on a B1Xon, its meaning is unknown.
 
 ### Flash read: `flashread`
 
@@ -141,9 +166,18 @@ What the tools send (`ZOOM` = `52 00 dd`, dd = the device byte):
 | `60 24 NAME` | Delete |
 | `60 30 addr len` | Raw flash read |
 | `29` | Current patch (answered in editor mode) |
-| `09 00 00 N` | Saved patch N, reply `08 .. .. N .. ..` + patch (untested) |
+| `09 00 00 N` | Saved patch N, reply `08 .. .. N .. ..` + patch |
 | `31 slot param lo hi` | Set one parameter live (editor mode) |
+| `33` | Current patch number, reply `B0 00 bank`, `B0 20 00`, `C0 N` (editor mode) |
+| `2B` | Global settings, reply `2A` + 16 packed bytes (editor mode) |
+| `07` | Patch count and size, reply `06 64 00 70 00` (100, 112) |
+| `16` | Status, reply `17` + 5 bytes (editor mode) |
 | `Cn prog` | MIDI Program Change: switch patch |
+
+Messages the tools never send, because they write flash (read in the
+G1Xon 1.21 firmware; `40` confirmed on a B1Xon 1.30): `42 00 00 N`
+overwrites patch N with an empty patch; `40 lo hi` and `41` delete
+effects from the current patch **and save it**.
 
 The file messages follow
 [mungewell/zoom-zt2](https://github.com/mungewell/zoom-zt2)'s protocol
