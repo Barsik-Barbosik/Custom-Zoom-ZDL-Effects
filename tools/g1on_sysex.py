@@ -18,11 +18,11 @@ the pedal is replugged, so we report it instead of hanging.
     python -B tools/g1on_sysex.py program N                       # switch to patch N (MIDI Program Change)
     python -B tools/g1on_sysex.py current                         # current patch number (50 + 33)
     python -B tools/g1on_sysex.py settings                        # global settings: tempo, tuner, ... (50 + 2B)
-    python -B tools/g1on_sysex.py info                            # patch count and size (07)
+    python -B tools/g1on_sysex.py patchinfo                       # patch count and size (07)
     python -B tools/g1on_sysex.py status                          # status value (50 + 16)
 
 STATUS (G1Xon fw 1.21, B1Xon fw 1.30): list, usage, delete, upload, flashread,
-patch, stored, knob, program, current, settings, info and status work.
+patch, stored, knob, program, current, settings, patchinfo and status work.
 `download` does NOT work: the pedal acks the read command but never sends data
 (use flashread). Each run ends with PC mode off (53) unless --stay-pcmode is given.
 
@@ -468,7 +468,7 @@ def main() -> None:
     pg.add_argument("number", type=int)
     sub.add_parser("current", help="number of the current patch, read-only (request 33)")
     sub.add_parser("settings", help="global settings (tempo, tuner, rhythm, ...), read-only (request 2B)")
-    sub.add_parser("info", help="number of patches and patch size, read-only (request 07)")
+    sub.add_parser("patchinfo", help="number of patches and patch size, read-only (request 07)")
     sub.add_parser("status", help="status value, read-only (request 16)")
     dl = sub.add_parser("download")
     dl.add_argument("names", nargs="+")
@@ -482,7 +482,7 @@ def main() -> None:
     rc = 0
     try:
         pedal.identify()
-        if args.action in ("patch", "stored", "knob", "program", "current", "settings", "info", "status"):
+        if args.action in ("patch", "stored", "knob", "program", "current", "settings", "patchinfo", "status"):
             args.stay_pcmode = True     # 53 would reload the patch (see `patch`)
         else:
             pedal.pcmode(True)
@@ -616,7 +616,7 @@ def main() -> None:
                 else:
                     for (_, name, show), v in zip(GLOBAL_FIELDS, values):
                         print(f"   {name:18s} {show(v)}")
-            elif args.action == "info":
+            elif args.action == "patchinfo":
                 fmt = pedal.patch_format()
                 print(f"OK   {fmt[0]} patches x {fmt[1]} bytes" if fmt else "FAIL no 06 reply")
                 rc = 0 if fmt else 1

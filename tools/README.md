@@ -40,7 +40,7 @@ python -B tools/g1on_sysex.py knob SLOT PARAM VALUE       # set a knob of the cu
 python -B tools/g1on_sysex.py program N                   # switch to patch N (0..99)
 python -B tools/g1on_sysex.py current                     # number of the current patch
 python -B tools/g1on_sysex.py settings                    # global settings (tempo, tuner, ...)
-python -B tools/g1on_sysex.py info                        # number of patches and patch size
+python -B tools/g1on_sysex.py patchinfo                   # number of patches and patch size
 python -B tools/g1on_sysex.py status                      # status value
 python -B tools/g1on_sysex.py flashread ADDR LENGTH -o out.bin   # raw flash read
 ```
@@ -94,7 +94,7 @@ logged as hex to `tools/probe_logs/`.
   only** (e.g. `program 0` if patch 0 holds no custom effects), so the
   pedal can't boot into an effect that fails to load.
 
-### Pedal state: `current`, `settings`, `info`, `status`
+### Pedal state: `current`, `settings`, `patchinfo`, `status`
 
 All four only read; they keep unsaved edits.
 
@@ -107,7 +107,7 @@ All four only read; they keep unsaved edits.
   level, looper time and level, tempo, master level. Two fields are
   still unknown. These settings can't be written over USB: the pedal
   ignores the matching write message (`2A`).
-- `info` prints the number of patches and the patch size (request `07`):
+- `patchinfo` prints the number of patches and the patch size (request `07`):
   `100 patches x 112 bytes`.
 - `status` prints a status value (editor mode `50`, then request `16`);
   `5` on a B1Xon, its meaning is unknown.
