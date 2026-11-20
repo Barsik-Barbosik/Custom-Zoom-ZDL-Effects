@@ -163,3 +163,12 @@ Rock organ per sample: ~213 cycles → ~36 cycles.
   moved to the mid-step call. It cost ~450 B of code.
 - Keep the note-start part small and out of line: inlined into the audio
   function the copy loop cost 384 B there, as a cold helper ~280 B.
+- AutoKnob (moves another effect's knob by calling its knob handler) shows
+  both sides. Checking the firmware, the target and the knobs on every
+  call cost **6 % mean** with nothing to do. Doing that work once every 32
+  calls (the handler call rate anyway) cut the mean to **~3 %**, but the
+  tick call then read everything cold and its peak rose **34 -> 55 %** on
+  a heavy patch. Splitting the tick in two, the checks and the LFO in one
+  call and the handler call 16 calls later, brought the peak back to the
+  no-work level (**19..37 %**, mean **2.3..2.6 %**). Keep the per-call part
+  to the checks that must not wait (patch change, chain rebuild).

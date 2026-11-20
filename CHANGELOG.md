@@ -1,5 +1,36 @@
 # Changelog
 
+## AutoKnob 1.0.0 (2026-11-20)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,663 B | 8 | 60 | `27bdfe1fcc277328854f040ae9ed46892accb869ee193f549d31a6757ed06cc0` (1.10.1, unchanged) |
+| `SongBox.ZDL` | 32,166 B | 8 | 52 | `aa8ef53dd7b5fa664d018043ad4d42fe117b9706feb8e0796d5630f8aed8508c` (1.14.0, unchanged) |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` (1.0.1, unchanged) |
+| `AutoKnob.ZDL` | 11,930 B | 3 | 6 | `4b31f629d196317280794d1daddc49d6941b6596813e16c4b2dcd5d469ff25aa` |
+
+The ZDL header shows `1.00`.
+
+### AutoKnob (new)
+
+- **An LFO for another effect's knob.** AutoKnob makes no sound: it moves
+  one knob of another effect in the same patch, stock effects too (a
+  filter sweep on an auto-wah, a tremolo from a level knob, a wobbling
+  drive).
+- Knobs: Slot and Knob pick the target (shown by the effect's and the
+  knob's names), Wave (Sine, Tri, Saw, Ramp, Sqr, S&H), Rate (0.05 to
+  10 Hz), Low and High (the sweep range; High below Low sweeps upside
+  down), Show (the target's knob page follows the LFO).
+- Footswitch off or another target: the knob goes back to its own
+  setting. With Show off, saving the patch keeps the knob's own setting.
+- Floppy and another AutoKnob are never a target (Slot shows "--"):
+  Floppy's knobs hold its stored data, such as SongBox's song.
+
+Tested on the B1Xon 1.30 (stock auto-wah, stock bass amp); the other G1on
+family pedals and the MS pedals are untested.
+
 ## SongBox 1.14.0 (2026-11-18)
 
 Files in `dist/` and on the Releases page:

@@ -77,7 +77,7 @@ Keeping the check small (themanro's `zvis.h`, table version, tested on B1Xon 1.3
 | Slots per patch | 6 | 6 | 4 | 5 |
 | Current patch number | 0xC00EF88C | 0xC00EFE0C | 0xC00DFE3C | 0xC00DEADC |
 | Tempo, int BPM 40..250 (MS: the patch TEMPO, which tap tempo and MIDISTOMP's MIDI clock write; G1on: one global BPM of the settings menu, rhythm and looper, not saved per patch) | 0xC009C06C | 0xC009C06C | 0xC008C75C | 0x1181BB2C (tested on the B1Xon 1.30) |
-| Saved patch copy (EDITED = differs from live) | — | — | — | 0x1181B268 |
+| Saved patch copy (EDITED = differs from live; same 44-byte slot rows, right after the live patch) | 0xC009C07C | 0xC009C07C | 0xC008C76C | 0x1181B268 (tested on the B1Xon 1.30) |
 | Logo page vs knob page | 0xC009D398 and others | 0xC009D398 and others | 0xC008D230 and others | no variable; count `getstr` calls |
 | Selected knob (1-based) | — | — | — | 0xC0078CAC |
 | `Event_pend` / `Semaphore_pend` | 0xC00BE680 / 0xC00C7EE0 | 0xC00BE7E0 / 0xC00C7C60 | 0xC00AE7C0 / 0xC00B8520 | 0xC009F700 / 0xC00AB540 |
@@ -86,4 +86,4 @@ Keeping the check small (themanro's `zvis.h`, table version, tested on B1Xon 1.3
 The MS-50G and MS-60B columns were found in the official updaters by matching the code that uses each MS-70CDR address; they are not tested on those pedals.
 | Fingerprint words | `Event_post` starts `27773577 85778677` (LM_DINO checks 18 more words) | `0xC00B05C0..D0` = `27773577 85778677 B64631F7 02C53A2B 01C50628`; `0xC009B278` = `0200736D`, `0xC009B280` = `10089013`, `0xC008B318` = `02C65A28`, `0xC008B320` = `02104CA0` |
 
-The G1on column is hardware-tested (G1Xon 1.21; `Event_post`, event object, redraw bit, selected effect and fingerprint also on B1Xon 1.30) except the saved patch copy, `Event_pend` / `Semaphore_pend` and LCD send (static analysis). The MS-70CDR column comes from LM_DINO's table and matches the 2.10 updater, but was not tested on hardware here.
+The G1on column is hardware-tested (G1Xon 1.21; `Event_post`, event object, redraw bit, selected effect and fingerprint also on B1Xon 1.30) except `Event_pend` / `Semaphore_pend` and LCD send (static analysis). The MS-70CDR column comes from LM_DINO's table and matches the 2.10 updater, but was not tested on hardware here.

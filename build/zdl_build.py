@@ -65,6 +65,7 @@ README_IMAGES = {                                         # effect folder -> REA
     "drumbox": "drumbox.png",
     "songbox": "songbox.png",
     "floppy": "floppy.png",
+    "autoknob": "autoknob.png",
 }
 
 
