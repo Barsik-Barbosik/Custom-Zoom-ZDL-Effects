@@ -106,6 +106,10 @@ means byte-identical output to repeat98's):
     a lone NOP_RETURN (8 B) goes into the stubs' padding. Dll_<name> is
     Leemuzhko's 40-byte dll.asm (repeat98 build/runtime/, own_runtime).
     Works (SongBox, DrumBox, Floppy; B1Xon 1.30).
+  * Param.edit: a knob's entry stub branches to that .text C function
+    instead of the shared body: handler(A4 = state, B4 = column), B3 =
+    return; it ends in the state[7] tail call itself. Works on the B1Xon
+    (storage knobs that undo turns; selector knobs with hidden bits).
 
 This is a near-verbatim port of v1's `airwindowsZoom/build/link_zdl.py`,
 parameterised so the same code can build any plugin instead of being
@@ -273,6 +277,7 @@ class Param:
     labels: list[str] = field(default_factory=list)
     getstr: str = ""     # .text value-to-string function name (descriptor +0x24)
     store: bool = False  # params[] unused: any max, cloned handler keeps the 0..150 law
+    edit: str = ""       # .text C edit handler (state, column) instead of the shared knob body
 
     @classmethod
     def from_manifest(cls, raw: dict) -> "Param":
@@ -298,6 +303,7 @@ class Param:
             labels=list(raw.get("labels", [])),
             getstr=str(raw.get("getstr", "")),
             store=bool(raw.get("store", False)),
+            edit=str(raw.get("edit", "")),
         )
 
     @property
@@ -1237,11 +1243,6 @@ def link(cfg: LinkerConfig) -> None:
     out_text[HANDLER_OFF:HANDLER_OFF + HANDLER_SIZE] = handler_blob
     if SYNTH_SIZE:
         out_text[SYNTH_OFF:SYNTH_OFF + SYNTH_SIZE] = synth_handler_blob
-        body_va = TEXT_VA + HANDLER_OFF + edit_body_off
-        for k, (_i, knob_id, param_off) in enumerate(synth_specs):
-            o = SYNTH_OFF + k * _EDIT_STUB_SIZE
-            out_text[o:o + _EDIT_STUB_SIZE] = _edit_stub(TEXT_VA + o, body_va,
-                                                         knob_id, param_off)
     # Emit NOP_RETURN_COUNT distinct 32-byte stubs (each is the same byte
     # sequence — `B B3` + delay-slot NOPs — but they live at distinct
     # VAs so different roles using NOP_RETURN don't collide in va_to_idx).
@@ -1267,6 +1268,24 @@ def link(cfg: LinkerConfig) -> None:
     for sym in obj.symbols:
         if sym['name'] and sym['shndx'] in section_va:
             obj_symbol_va[sym['name']] = section_va[sym['shndx']] + sym['value']
+
+    # Knob entry stubs: B4 = knob id (column), B7 = params[] offset, then the
+    # shared knob body, or the knob's own C handler (Param.edit: entered as
+    # handler(A4 = state, B4 = column), B3 = return; it must end in the
+    # state[7] tail call itself).
+    if SYNTH_SIZE:
+        body_va = TEXT_VA + HANDLER_OFF + edit_body_off
+        for k, (i, knob_id, param_off) in enumerate(synth_specs):
+            target = body_va
+            if cfg.params[i].edit:
+                if cfg.params[i].edit not in obj_symbol_va or \
+                        obj_symbol_va[cfg.params[i].edit] < TEXT_VA + TEXT_ORIG_OFF:
+                    raise ValueError(f"edit handler {cfg.params[i].edit!r} not in the .obj's .text")
+                target = obj_symbol_va[cfg.params[i].edit]
+                print(f"  edit:   {cfg.params[i].name} -> {cfg.params[i].edit} @ 0x{target:04X}")
+            o = SYNTH_OFF + k * _EDIT_STUB_SIZE
+            out_text[o:o + _EDIT_STUB_SIZE] = _edit_stub(TEXT_VA + o, target,
+                                                         knob_id, param_off)
 
     # =====================================================================
     # Build .const layout
