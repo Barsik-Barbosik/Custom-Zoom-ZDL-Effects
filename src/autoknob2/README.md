@@ -31,6 +31,17 @@ and set that row's two values:
 | OTHER | Phase | 0..345 | Start offset in degrees, 15° steps |
 | OTHER | Show | Off, On | On: the target's knob page follows the LFO |
 
+The shapes (one cycle at the Rate's speed):
+
+| Shape | How the knob moves |
+|---|---|
+| Sine | Smooth up and down between Low and High, slowing at both ends |
+| Tri | Up and down at a steady speed, turning sharply at Low and High |
+| Saw | From High down to Low at a steady speed, then a jump back to High |
+| Ramp | From Low up to High at a steady speed, then a jump back to Low |
+| Sqr | Half a cycle at High, half at Low |
+| S&H | A random value between Low and High, held for one cycle, then a new one |
+
 - **Page 3 (Data1..Data3) holds the menu's saved values.** The screen says
   "DON'T TURN THESE"; a turn is undone.
 - **Both LFOs start Off** (Slot Off) when AutoKnob 2 is added to a patch.

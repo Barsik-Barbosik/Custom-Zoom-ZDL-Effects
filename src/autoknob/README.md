@@ -17,6 +17,17 @@ wobbling drive.
 | High | 0..100 | Highest value of the sweep, in % of the knob's range (below Low: the sweep runs upside down) |
 | Show | Off, On | On: the target's knob page follows the LFO |
 
+The shapes (one cycle at the Rate's speed):
+
+| Shape | How the knob moves |
+|---|---|
+| Sine | Smooth up and down between Low and High, slowing at both ends |
+| Tri | Up and down at a steady speed, turning sharply at Low and High |
+| Saw | From High down to Low at a steady speed, then a jump back to High |
+| Ramp | From Low up to High at a steady speed, then a jump back to Low |
+| Sqr | Half a cycle at High, half at Low |
+| S&H | A random value between Low and High, held for one cycle, then a new one |
+
 - **The sweep runs between Low and High,** whatever the target knob is
   set to.
 - **Show Off (default): saving is safe.** The patch keeps the target knob's
