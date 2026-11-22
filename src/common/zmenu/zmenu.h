@@ -50,6 +50,10 @@
  * copies the first non-empty one in chain order is part 1 (else the first);
  * the others get the lowest free marker (and zeros) as soon as they are
  * found, so the copies may be reordered afterwards.
+ * Owner range (ZM_S_RANGE 1, defined by the effect): several Floppy users
+ * in one patch. A user owns only the Floppies after its own slot up to the
+ * next Floppy user (zm_s_user), the chain wrapping from the last slot to
+ * slot 1; with one user that is every Floppy, as without ZM_S_RANGE.
  * MS pedals: the same 106 bits assumed (their field widths are untested). */
 #if defined(ZM_STREAM) && ZM_STREAM
 #define ZM_IS_STREAM 1
@@ -519,6 +523,17 @@ static int zm_text(uint32_t m, uint32_t f, uint32_t v, char *s)
 static const struct { uint8_t w[9]; } zm_s_widt = { { 13u, 13u, 13u, 8u, 8u, 8u, 8u, 27u, 8u } };
 #define zm_s_wid (zm_s_widt.w)
 
+#if defined(ZM_S_RANGE) && ZM_S_RANGE
+/* Floppy users (stream-mode effects; slot record word +4): SongBox (SFX 521),
+ * MeloBox (SFX 525). Add every new Floppy user here. */
+#define ZM_S_ID(fx) ((7u << 24) | (fx))
+ZM_INLINE(zm_s_user)
+static inline uint32_t zm_s_user(uint32_t w)
+{
+    return (uint32_t)(w == ZM_S_ID(521u)) | (uint32_t)(w == ZM_S_ID(525u));
+}
+#endif
+
 typedef struct {
     uint32_t magic;
     uint32_t slot, fw, fslot;           /* own slot, ZM_FW_*, part 1's slot */
@@ -561,6 +576,9 @@ static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
 {
     const ZmFw *t;
     uint32_t s, i, q, m, w, pass, mk, dirty = 0u;
+#if defined(ZM_S_RANGE) && ZM_S_RANGE
+    uint32_t own;                       /* bit s: slot s is in the owner range */
+#endif
     z->slot = (uint32_t)ctx[0];
     /* the OS can't change while running: its fingerprint is checked again
      * only after a reset, or when fw doesn't match its copy (the state was
@@ -584,8 +602,21 @@ static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
          * markers) get a free marker. The own slot is never a Floppy:
          * while it is being replaced by one, the old code may still run
          * with the new id in the record and its own knob values in the row */
+#if defined(ZM_S_RANGE) && ZM_S_RANGE
+        /* owner range: the slots after the own one up to the next user, wrapping */
+        for (i = 1u, s = z->slot, own = 0u; i < t->slots; ++i) {
+            s = s + 1u == t->slots ? 0u : s + 1u;
+            if (zm_s_user(ZM_U32(t->rec + 44u * s + 4u))) break;
+            own |= 1u << s;
+        }
+#endif
         for (s = 0u, mk = 0u; s < t->slots; ++s) {     /* marks read once: nibble s (<= 8 slots) */
+#if defined(ZM_S_RANGE) && ZM_S_RANGE
+            /* own slot or outside the owner range: >= ZM_S_PARTS (not a Floppy of ours) */
+            q = zm_s_mark(t, s) | (uint32_t)(s == z->slot || !((own >> s) & 1u)) * ZM_S_PARTS;
+#else
             q = zm_s_mark(t, s) | (s == z->slot) * ZM_S_PARTS;  /* own slot: >= ZM_S_PARTS */
+#endif
             mk |= q << (4u * s);
             if (q - 1u < ZM_S_PARTS - 1u && z->pslot[q] == ZM_NOSLOT) z->pslot[q] = s;
         }

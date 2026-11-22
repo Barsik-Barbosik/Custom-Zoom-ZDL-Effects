@@ -1593,9 +1593,12 @@ def link(cfg: LinkerConfig) -> None:
 
     # (TI run-time helpers are refused above: no divf, push / pop_rts or
     # call stub for the .obj.)
-    for name, idx in undefined.items():
-        if idx not in sym_addr:
-            print(f"  WARNING: unresolved external: {name}")
+    # An unresolved call jumps into nothing on the pedal and freezes it
+    # (matujuice's DJFilter: a struct assignment became a call to
+    # __c6xabi_strasgi_64plus), so it fails the build.
+    missing = sorted(name for name, idx in undefined.items() if idx not in sym_addr)
+    if missing:
+        raise ValueError(f"unresolved external(s): {', '.join(missing)}")
 
     # =====================================================================
     # Apply .text/.audio relocations

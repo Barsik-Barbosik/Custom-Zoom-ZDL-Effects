@@ -27,6 +27,7 @@
 #define ZM_DESC        _Fx_SFX_MeloBox_Desc
 #define ZM_MAGIC       0x4D425831u      /* "MBX1" */
 #define ZM_FLOPPY_FXID 522u             /* unused (no Floppy access) */
+#define ZM_S_RANGE     1                /* own only the Floppies up to the next Floppy user */
 #include "zmenu.h"
 
 #pragma CODE_SECTION(Fx_SFX_MeloBox, ".audio")

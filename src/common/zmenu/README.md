@@ -63,6 +63,11 @@ including `zmenu.h`, keep a `ZmStream` in `ctx[3]`, then:
 
 - Part 1 holds 106 bits; each extra Floppy copy a 4-bit marker (12–14) and
   102 bits. The effect keeps its own first 4 bits below 12.
+- Several Floppy users in one patch (`ZM_S_RANGE 1`, optional): an effect
+  uses only the Floppies after its own slot up to the next Floppy user
+  (the chain wraps from the last slot to the first). With one user in the
+  patch that is every Floppy. The users are listed in `zm_s_user`; add each
+  new one there.
 
 ## Rules
 
