@@ -48,6 +48,10 @@ nothing for alloc, because alloc is their sum.
   SPLOOP: short chains carried from one iteration to the next, at most 48
   cycles per iteration, nothing kept longer than one iteration interval.
   Short, split loops are good for both size and speed.
+- Per function: `#pragma FUNCTION_OPTIONS(fn, "--opt_for_space=3")` after
+  its `CODE_SECTION` pragma. Good for cold code (knob texts, rare
+  checks) while the audio code keeps the file's level. AutoKnob 1.01: 7
+  cold functions, 256 B less `.text`, back to 3 flash blocks.
 - After every build: no `DINT` / `RINT` in the `dis6x` output, only the
   descriptor undefined in `nm6x`, and `.fardata` as small as expected.
 

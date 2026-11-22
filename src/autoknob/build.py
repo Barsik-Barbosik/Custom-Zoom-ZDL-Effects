@@ -1,7 +1,7 @@
-"""Build AUTOKNOB.ZDL: an LFO that moves a knob of another effect (SFX + 523).
+"""Build AUTOKNB1.ZDL: an LFO that moves a knob of another effect (SFX + 523).
 
-  python -B build.py                      # release build -> ../../dist/AutoKnob.ZDL
-  python -B build.py --out P              # AutoKnob.ZDL to P
+  python -B build.py                      # release build -> ../../dist/AutoKnb1.ZDL
+  python -B build.py --out P              # AutoKnb1.ZDL to P
 
 Writes autoknob_rates.h (generated: the Rate knob's phase steps). The screen
 image is screen.png (128x64; pixels darker than mid-grey are dark).
@@ -65,8 +65,8 @@ def build(out_zdl: Path) -> None:
 
     write_rates_header(HERE / "autoknob_rates.h")
     params = [
-        {"name": "Slot", "type": "knob", "max": 5, "default": 1, "scale": "enum",
-         "audio_min": 0.0, "audio_max": 5.0, "audio_default": 1.0, "getstr": "GetString_AkSlot"},
+        {"name": "Slot", "type": "knob", "max": 5, "default": 0, "scale": "enum",
+         "audio_min": 0.0, "audio_max": 5.0, "audio_default": 0.0, "getstr": "GetString_AkSlot"},
         {"name": "Knob", "type": "knob", "max": 8, "default": 0, "scale": "enum",
          "audio_min": 0.0, "audio_max": 8.0, "audio_default": 0.0, "getstr": "GetString_AkKnob"},
         {"name": "Wave", "type": "knob", "max": WAVES - 1, "default": 0, "scale": "enum",
@@ -87,14 +87,14 @@ def build(out_zdl: Path) -> None:
     obj = HERE / "autoknob.obj"
     compile_c(HERE / "autoknob.c", obj)
     link(LinkerConfig(
-        effect_name="AutoKnob",
-        audio_func_name="Fx_SFX_AutoKnob",
+        effect_name="AutoKnb1",
+        audio_func_name="Fx_SFX_AutoKnb1",
         gid=7,
         fxid=FXID,
         params=params_from_manifest(params),
         obj_path=obj,
         output_path=out_zdl,
-        fxid_version=b"1.00",
+        fxid_version=b"1.10",
         flags_byte=1,
         screen_image=make_screen(),
         knob_positions=[(i + 2, x, y) for i, (x, y) in enumerate(KNOB_SLOTS)],
@@ -119,7 +119,7 @@ def build(out_zdl: Path) -> None:
 def main() -> None:
     args = sys.argv[1:]
     if not args:                                        # release build
-        out = PROJECT / "dist" / "AutoKnob.ZDL"
+        out = PROJECT / "dist" / "AutoKnb1.ZDL"
     elif len(args) == 2 and args[0] == "--out":
         out = Path(args[1]).resolve()
     else:

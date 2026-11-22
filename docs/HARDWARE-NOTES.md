@@ -94,6 +94,22 @@ patch load, on patch switch and at power-up. Source:
   MS-70CDR, DrumBox's Tempo knob with 0x28 got the delay-style tap mode;
   DrumBox and SongBox now use flags 0, and Pedal follows the pedal's TEMPO.
 - 9 parameters (3 pages of 3 knobs) work.
+- **A knob can hold data:** a `store` knob with max 2^27 - 1 keeps a 27-bit
+  value through save, patch switch and power cycle (B1Xon 1.30). A patch
+  load zeroes a value above the max in force, so a knob that holds data
+  can't take a smaller max at run time.
+- **A knob can be locked:** its own C edit handler (linker `Param.edit`) is
+  called on every turn and on a SysEx knob set, and can write the old value
+  back into the knob's table and patch-record rows. AutoKnob 2's storage
+  knobs work this way (B1Xon 1.30).
+- **Knob names and maxes can change at run time** (descriptor rewritten from
+  the effect): AutoKnob's Slot / Knob maxes, AutoKnob 2's menu rows (B1Xon
+  1.30).
+- **A menu row in a knob's top bits:** a selector knob that also holds
+  hidden bits keeps the row in its top bits (value = row << shift |
+  hidden), so the knob graphic points into the row's quarter. One turn =
+  one row; an absolute set (SysEx, an editor) moves the row only one step
+  towards it.
 - A `getstr` callback (descriptor `+0x24`) shows text for a knob value
   (names, BPM). Keep these callbacks free of loops, calls and division.
 

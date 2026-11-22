@@ -8,6 +8,7 @@ Custom effects (ZDL) for Zoom pedals of the MultiStomp / G1on / B1on family.
 | [SongBox](src/songbox/README.md) | <a href="src/songbox/README.md"><img src="src/songbox/screen.png" width="192" height="128" alt="SongBox on the pedal's screen"></a> | SFX | Chord song sequencer: songs of up to 128 bars written on the pedal, two organs, electric piano, marimba, kalimba, synth and pluck chords with five basses, each part with its own level, drives DrumBox. Needs Floppy | — | [Releases](../../releases) |
 | [Floppy](src/floppy/README.md) | <a href="src/floppy/README.md"><img src="src/floppy/screen.png" width="192" height="128" alt="Floppy on the pedal's screen"></a> | SFX | Silent storage effect: saves SongBox's song in the patch | — | [Releases](../../releases) |
 | [AutoKnob](src/autoknob/README.md) | <a href="src/autoknob/README.md"><img src="src/autoknob/screen.png" width="192" height="128" alt="AutoKnob on the pedal's screen"></a> | SFX | LFO that moves a knob of another effect in the patch, stock effects too: six waves, Rate, Low / High range, optional knob page that follows | — | [Releases](../../releases) |
+| [AutoKnob 2](src/autoknob2/README.md) | <a href="src/autoknob2/README.md"><img src="src/autoknob2/screen.png" width="192" height="128" alt="AutoKnob 2 on the pedal's screen"></a> | SFX | Two LFOs, each moving a knob of another effect: AutoKnob's waves, Rate and range per LFO, plus Phase; with equal Rates they run locked together | — | [Releases](../../releases) |
 
 More effects will follow.
 
@@ -15,15 +16,15 @@ More effects will follow.
 
 These pedals use the ZDL effect format (`.ZDL` files):
 
-| Pedal | Firmware | DrumBox | SongBox + Floppy | AutoKnob |
-|---|----------|---|---|---|
-| Zoom G1Xon | 1.21     | **Works** (all features tested) | **Works** (all features tested) | Untested |
-| Zoom G1on | 1.21     | Untested | Untested | Untested |
-| Zoom B1on | 1.30     | Untested | Untested | Untested |
-| Zoom B1Xon | 1.30     | **Works** (all features tested) | **Works** (all features tested) | **Works** |
-| Zoom MS-70CDR | 2.10     | **Works** (tested by a user) | Untested | Untested |
-| Zoom MS-50G | 3.10     | Untested | Untested | Untested |
-| Zoom MS-60B | 2.10     | Untested | Untested | Untested |
+| Pedal | Firmware | DrumBox | SongBox + Floppy | AutoKnob | AutoKnob 2 |
+|---|----------|---|---|---|---|
+| Zoom G1Xon | 1.21     | **Works** (all features tested) | **Works** (all features tested) | Untested | Untested |
+| Zoom G1on | 1.21     | Untested | Untested | Untested | Untested |
+| Zoom B1on | 1.30     | Untested | Untested | Untested | Untested |
+| Zoom B1Xon | 1.30     | **Works** (all features tested) | **Works** (all features tested) | **Works** | **Works** |
+| Zoom MS-70CDR | 2.10     | **Works** (tested by a user) | Untested | Untested | Untested |
+| Zoom MS-50G | 3.10     | Untested | Untested | Untested | Untested |
+| Zoom MS-60B | 2.10     | Untested | Untested | Untested | Untested |
 
 Not supported: the newer pedals that use `.ZD2` effects instead of ZDL
 (MS-50G+, MS-60B+, MS-70CDR+, G1Four / G1XFour, B1Four / B1XFour,
@@ -77,6 +78,7 @@ Each effect has its own `build.py`; see its README for the commands.
 | `src/songbox/` | SongBox: DSP (`songbox.c`), patterns (`patterns/patterns.json`), song packer (`packer/`), instruments (`instruments/`, `sets.py`) |
 | `src/floppy/` | Floppy: the storage effect that saves zmenu effects' data in the patch |
 | `src/autoknob/` | AutoKnob: DSP and knob driver (`autoknob.c`), build script |
+| `src/autoknob2/` | AutoKnob 2: two LFOs, knob menu and knob driver (`autoknob.c`), build script |
 | `src/common/zmenu/` | zmenu: C library for knob menus and data saved through Floppy (`zmenu.h`), layout generator (`zmenu_gen.py`) |
 | `build/` | The linker that turns the TI object file into a ZDL, based on repeat98's, with additions (see its header); shared build helpers (`zdl_build.py`) |
 | `tools/` | Experimental G1on-family USB SysEx tools (effect files, patch read, live knob set, patch switch), used during development; see [tools/README.md](tools/README.md) |

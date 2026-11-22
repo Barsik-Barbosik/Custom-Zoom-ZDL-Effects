@@ -1,5 +1,49 @@
 # Changelog
 
+## AutoKnob 1.10.0, AutoKnob 2 1.0.0 (2026-11-22)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,663 B | 8 | 60 | `27bdfe1fcc277328854f040ae9ed46892accb869ee193f549d31a6757ed06cc0` (1.10.1, unchanged) |
+| `SongBox.ZDL` | 32,166 B | 8 | 52 | `aa8ef53dd7b5fa664d018043ad4d42fe117b9706feb8e0796d5630f8aed8508c` (1.14.0, unchanged) |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` (1.0.1, unchanged) |
+| `AutoKnb1.ZDL` | 12,146 B | 3 | 6 | `b880b5e5beb07f203f94cdff2e1f5f4c9506da1196158052be57bf314620e463` |
+| `AutoKnb2.ZDL` | 15,726 B | 4 | 10 | `e8ae0e2845f279d9c8cdda043bca310315a60a1817b70e616bf64f88d74adb2c` |
+
+The ZDL headers show `1.10` (AutoKnob) and `1.00` (AutoKnob 2).
+
+### AutoKnob 2 (new)
+
+- **Two LFOs, each moving a knob of another effect** in the same patch,
+  stock effects too. Per LFO: Slot and Knob (the target), Shape (Sine,
+  Tri, Saw, Ramp, Sqr, S&H), Rate (0.05 to 10 Hz), Low and High (the sweep
+  range), Phase (0 to 345 degrees) and Show.
+- The knobs are a small menu: knob 1 / 4 picks a row (TARGET, WAVE, RANGE,
+  OTHER) of LFO 1 / 2, the two knobs next to it set that row's values.
+  Page 3 holds the menu's saved values and can't be turned.
+- With the same Rate the two LFOs run locked together; Phase sets the
+  offset between them.
+- Both LFOs start Off (Slot Off), Show Off.
+- A separate effect (SFX 524): it can sit next to AutoKnob in the same
+  patch. Floppy, AutoKnob and another AutoKnob 2 are never a target.
+
+### AutoKnob 1.10.0
+
+- **Renamed to AutoKnb1** (file `AutoKnb1.ZDL`), next to AutoKnb2. Same
+  effect id (SFX 523), so saved patches keep it: delete the old
+  `AutoKnob.ZDL` from the pedal when you install the new file.
+- Slot goes up to the pedal's last chain position and Knob up to the
+  target's last knob; past the end Slot shows "---".
+- New default: Slot 0 (the first effect). Show stays Off by default.
+- AutoKnob 2 is never a target.
+- Version jumps from 1.0.0 to 1.10.0: the ZDL header shows major.minor
+  ("1.10"), as for DrumBox and SongBox.
+
+Tested on the B1Xon 1.30; the other G1on family pedals and the MS pedals
+are untested.
+
 ## AutoKnob 1.0.0 (2026-11-20)
 
 Files in `dist/` and on the Releases page:

@@ -23,8 +23,9 @@
  * 9, 10, 15 and 32 must hold exactly that OS's functions; on an unknown
  * OS, or a mismatch, AutoKnob does nothing.
  *
- * Knobs: Slot (target chain position, text = target effect name),
- * Knob (target knob, text = its name), Wave (Sine, Tri, Saw, Ramp, Sqr,
+ * Knobs: Slot (target chain position, text = target effect name, max = the
+ * OS's last position), Knob (target knob, text = its name, max = the
+ * target's last knob: set at run time), Wave (Sine, Tri, Saw, Ramp, Sqr,
  * S&H); Rate (0..100, 0.05..10 Hz), Low and High (0..100 % of the knob's
  * range: the LFO sweeps between them; Low > High sweeps upside down); Show
  * (Off / On). Footswitch off or a target change: the old target knob goes
@@ -55,14 +56,15 @@
 
 #include "autoknob_rates.h"
 
-#pragma CODE_SECTION(Fx_SFX_AutoKnob, ".audio")
+#pragma CODE_SECTION(Fx_SFX_AutoKnb1, ".audio")
 
 #define ZDL_PTR(type, word) ((type)(uintptr_t)(word))
 #define AK_U32(a) (*(const volatile uint32_t *)(uintptr_t)(a))
 
 #define AK_ID        ((7u << 24) | 523u)  /* own record word +4 */
 #define AK_FLOPPY    ((7u << 24) | 522u)  /* Floppy: knobs = stored data, never moved */
-#define AK_NOGO(id)  ((id) == 0u || (id) == AK_ID || (id) == AK_FLOPPY)
+#define AK_AK2       ((7u << 24) | 524u)  /* AutoKnob 2 */
+#define AK_NOGO(id)  ((id) == 0u || (id) == AK_ID || (id) == AK_AK2 || (id) == AK_FLOPPY)
 #define AK_CTX0      0x11F03000u      /* per-slot ctx, 212 B (53 words) each (all OSes) */
 #define AK_CTX_STEP  212u
 #define AK_CTX_WORDS 53u
@@ -71,12 +73,14 @@
 #define AK_E_MAX     0x0Cu            /* entry: max value */
 #define AK_E_EDIT    0x1Cu            /* entry: edit handler */
 #define AK_E_FLAGS   0x2Cu            /* entry: flags, 0x04 = last entry */
-#define AK_MAGIC     0x414B4E33u      /* "AKN3"; new value on any state layout change */
+#define AK_MAGIC     0x414B4E34u      /* "AKN4"; new value on any state layout change */
 #define AK_POST_GAP  184u             /* Show: calls between redraws (~30 / s) */
 #define AK_FW_WAIT   4096u            /* unknown firmware: calls between looks */
 #define AK_NONE      0xFFFFFFFFu
 #define AK_GAP       32u              /* calls per tick = between handler calls (~172 Hz) */
 #define AK_HALF      16u              /* tick -> its handler call */
+#define AK_LIMIT     8u               /* tick -> the knob max update (own call) */
+#define AK_DESC      _Fx_SFX_AutoKnb1_Desc
 #define AK_INV_GAP   (1.0f / 32.0f)
 #define AK_NRAMP     16u              /* params ramping at once */
 #define AK_AREA      0x400u           /* only params within this many bytes of the
@@ -182,6 +186,7 @@ typedef struct {
     uint32_t tick;                    /* calls since the last tick */
     uint32_t rtop;                    /* ramps in use are below this index */
     uint32_t pend, pw, pshow;         /* handler call due at AK_HALF: value, Show */
+    uint32_t kslot;                   /* Slot value the Knob max was set for */
     uint32_t rdst[AK_NRAMP];          /* ramping params (0 = free) */
     uint32_t rleft[AK_NRAMP];         /* calls left */
     float rtgt[AK_NRAMP], rstep[AK_NRAMP];
@@ -190,6 +195,9 @@ typedef struct {
 
 /* The state during a handler call, for ak_ramp (the 4-byte .fardata). */
 static volatile uint32_t ak_g = 0u;
+
+/* The own descriptor (linker): entry = column, 12 words, word 3 = max. */
+extern unsigned int AK_DESC[];
 
 typedef void (*AkHandler)(uint32_t *ctx);
 
@@ -265,8 +273,10 @@ void ak_poke(volatile AkState *st, uint32_t tab, uint32_t ts, uint32_t col, uint
 
 /* The running OS's ak_fwt row + 1, or 0. Pure reads (table addresses are
  * aligned RAM on every known OS). */
-#pragma FUNC_ALWAYS_INLINE(ak_fwi)
-static inline uint32_t ak_fwi(void)
+#pragma FUNC_CANNOT_INLINE(ak_fwi)
+#pragma CODE_SECTION(ak_fwi, ".text")
+#pragma FUNCTION_OPTIONS(ak_fwi, "--opt_for_space=3")
+uint32_t ak_fwi(void)
 {
     uint32_t k, i, a, v;
 #pragma UNROLL(1)
@@ -360,13 +370,69 @@ static inline void ak_unshow(volatile AkState *st, const AkFw *f)
 
 typedef void (*AkPost)(void *event, uint32_t mask);
 
+/* Max of the Knob value for target slot ts: the target's last knob (its
+ * entry with the last-entry flag), or 8 (knob 9) while the slot holds no
+ * usable target (the text shows "---"). */
+#pragma FUNC_ALWAYS_INLINE(ak_kmax)
+static inline uint32_t ak_kmax(const AkFw *f, uint32_t ts, uint32_t own)
+{
+    uint32_t t, c;
+    if (ts >= f->slots || ts == own || AK_NOGO(AK_U32(f->rec + 44u * ts + 4u))) return 8u;
+    t = ak_table(f, ts);
+    if (!t) return 8u;
+#pragma UNROLL(1)
+    for (c = 2u; c <= 10u; c++)
+        if (AK_U32(t + AK_ENTRY * c + AK_E_FLAGS) & 4u) return c - 2u;
+    return 8u;
+}
+
+/* Run-time max of Slot (the OS's last chain position) and Knob (the
+ * target's last knob) in the own descriptor, so no value past the end shows
+ * "---". After a Slot turn also Knob down to the new max (table + record;
+ * not before the first Slot value of a patch is known: the targets may still
+ * be loading). Anything written: the knob page is redrawn if AutoKnob is the
+ * selected effect. */
+#pragma FUNC_CANNOT_INLINE(ak_limits)
+#pragma CODE_SECTION(ak_limits, ".text")
+#pragma FUNCTION_OPTIONS(ak_limits, "--opt_for_space=3")
+void ak_limits(volatile AkState *st, const AkFw *f, uint32_t own)
+{
+    volatile unsigned int *d = (volatile unsigned int *)AK_DESC;
+    volatile uint32_t *t = (volatile uint32_t *)(uintptr_t)(f->tab + 44u * own);
+    volatile uint32_t *r = (volatile uint32_t *)(uintptr_t)(f->rec + 44u * own);
+    uint32_t ts = t[2], m, ch = 0u;
+    m = f->slots - 1u;
+    if (d[12u * 2u + 3u] != m) {
+        d[12u * 2u + 3u] = m;
+        ch = 1u;
+    }
+    m = ak_kmax(f, ts, own);
+    if (d[12u * 3u + 3u] != m) {
+        d[12u * 3u + 3u] = m;
+        ch = 1u;
+    }
+    if (ts != st->kslot) {
+        if (st->kslot != AK_NONE && t[3] > m) {
+            t[3] = m;
+            r[3] = m;
+            ch = 1u;
+        }
+        st->kslot = ts;
+    }
+    if (ch && f->event && *(const volatile uint8_t *)(uintptr_t)f->cursor == own) {
+        uint32_t ev = AK_U32(f->event);
+        if (ak_ddr(ev))
+            ((AkPost)(uintptr_t)f->post)((void *)(uintptr_t)ev, 0x01u);   /* never 0x40 */
+    }
+}
+
 #pragma FUNC_ALWAYS_INLINE(ak_round)
 static inline int32_t ak_round(float x)
 {
     return x >= 0.0f ? (int32_t)(x + 0.5f) : -(int32_t)(0.5f - x);
 }
 
-void Fx_SFX_AutoKnob(unsigned int *ctx)
+void Fx_SFX_AutoKnb1(unsigned int *ctx)
 {
     float *params = ZDL_PTR(float *, ctx[1]);
     unsigned int *magicSrc = ZDL_PTR(unsigned int *, ctx[12]);
@@ -413,6 +479,7 @@ void Fx_SFX_AutoKnob(unsigned int *ctx)
         st->tick = 0u;
         st->rtop = 0u;
         st->pend = 0u;
+        st->kslot = AK_NONE;
         st->magic1 = AK_MAGIC;
     }
 
@@ -443,6 +510,7 @@ void Fx_SFX_AutoKnob(unsigned int *ctx)
         for (i = 0u; i < AK_NRAMP; i++) st->rdst[i] = 0u;
         st->rtop = 0u;
         st->pend = 0u;
+        st->kslot = AK_NONE;
     }
 
     /* The OS is rebuilding the chain (effects moved, added, removed): no
@@ -502,14 +570,21 @@ void Fx_SFX_AutoKnob(unsigned int *ctx)
         return;
     }
 
+    /* the Slot / Knob max (own call; once the target has been calm) */
+    if (st->tick == AK_LIMIT) {
+        if (calm && st->stable >= AK_STABLE) ak_limits(st, f, ctx[0]);
+        return;
+    }
+
     /* the rest once per tick */
     if (st->tick < AK_GAP) return;
     st->tick = 0u;
     st->pend = 0u;
 
-    /* knobs (raw = value / 100) */
+    /* knobs (raw = value / 100; Knob from the table row, which ak_limits
+     * may lower) */
     ts = (uint32_t)ak_round(params[5] * 100.0f);
-    col = (uint32_t)ak_round(params[6] * 100.0f) + 2u;
+    col = AK_U32(f->tab + 44u * ctx[0] + 12u) + 2u;
     wave = (uint32_t)ak_round(params[7] * 100.0f);
     rate = (uint32_t)ak_round(params[8] * 100.0f);
     low = (uint32_t)ak_round(params[9] * 100.0f);
@@ -626,17 +701,21 @@ static inline int ak_name(uint32_t a, char *s)
     return n;
 }
 
-#pragma FUNC_ALWAYS_INLINE(ak_dash)
-static inline int ak_dash(char *s)
+#pragma FUNC_CANNOT_INLINE(ak_dash)
+#pragma CODE_SECTION(ak_dash, ".text")
+#pragma FUNCTION_OPTIONS(ak_dash, "--opt_for_space=3")
+int ak_dash(char *s)
 {
     s[0] = '-';
     s[1] = '-';
-    s[2] = 0;
-    return 2;
+    s[2] = '-';
+    s[3] = 0;
+    return 3;
 }
 
 /* Slot: the name of the effect in that chain position. */
 #pragma CODE_SECTION(GetString_AkSlot, ".text")
+#pragma FUNCTION_OPTIONS(GetString_AkSlot, "--opt_for_space=3")
 int GetString_AkSlot(unsigned int v, char *s)
 {
     uint32_t id, t;
@@ -651,6 +730,7 @@ int GetString_AkSlot(unsigned int v, char *s)
 /* Knob: the name of that knob of the target (own Slot column from the
  * own patch record; the first AutoKnob in the chain). */
 #pragma CODE_SECTION(GetString_AkKnob, ".text")
+#pragma FUNCTION_OPTIONS(GetString_AkKnob, "--opt_for_space=3")
 int GetString_AkKnob(unsigned int v, char *s)
 {
     uint32_t own, ts, t, e;
@@ -668,6 +748,7 @@ int GetString_AkKnob(unsigned int v, char *s)
 }
 
 #pragma CODE_SECTION(GetString_AkShow, ".text")
+#pragma FUNCTION_OPTIONS(GetString_AkShow, "--opt_for_space=3")
 int GetString_AkShow(unsigned int v, char *s)
 {
     if (v) { s[0] = 'O'; s[1] = 'n'; s[2] = 0; return 2; }
@@ -678,6 +759,7 @@ int GetString_AkShow(unsigned int v, char *s)
 static const char ak_waves[AK_NWAVES][5] = { "Sine", "Tri", "Saw", "Ramp", "Sqr", "S&H" };
 
 #pragma CODE_SECTION(GetString_AkWave, ".text")
+#pragma FUNCTION_OPTIONS(GetString_AkWave, "--opt_for_space=3")
 int GetString_AkWave(unsigned int v, char *s)
 {
     int n = 0;

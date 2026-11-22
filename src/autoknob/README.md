@@ -9,8 +9,8 @@ wobbling drive.
 
 | Knob | Values | What it does |
 |---|---|---|
-| Slot | 0..5 | Which effect (chain position); shows the effect's name, "--" for none |
-| Knob | 0..8 | Which of its knobs; shows the knob's name |
+| Slot | 0..5 | Which effect (chain position, up to the pedal's last one); shows the effect's name, "---" for none |
+| Knob | 0..8 | Which of its knobs (up to the effect's last one); shows the knob's name |
 | Wave | Sine, Tri, Saw, Ramp, Sqr, S&H | LFO shape |
 | Rate | 0..100 | LFO speed, 0.05 to 10 Hz |
 | Low | 0..100 | Lowest value of the sweep, in % of the knob's range |
@@ -28,12 +28,14 @@ wobbling drive.
   your setting back. Show is untested on the MS pedals.
 - **Footswitch off or another Slot / Knob:** the knob goes back to its own
   setting.
-- **Never moved: Floppy and another AutoKnob** (Slot shows "--"). Floppy's
-  knobs hold its stored data, such as SongBox's song.
+- **Never moved: Floppy, another AutoKnob and AutoKnob 2** (Slot shows
+  "---"). Floppy's knobs hold its stored data, such as SongBox's song.
+- **Two knobs at once:** see [AutoKnob 2](../autoknob2/README.md), a
+  separate effect with two LFOs.
 - **Removing AutoKnob from the patch** leaves the knob at its last LFO value
   until the patch is loaded again.
 
-Version 1.0.0. Status: works on the B1Xon 1.30 with a stock auto-wah and a
+Version 1.10.0. Status: works on the B1Xon 1.30 with a stock auto-wah and a
 stock bass amp; the G1on, G1Xon 1.21 and B1on 1.30 run the same firmware
 and should work too (untested). The MS-70CDR 2.10, MS-50G 3.10 and MS-60B
 2.10 should work too (addresses from their firmware, untested): please
@@ -44,8 +46,10 @@ changes which effect it points at.
 
 ## Install
 
-`AutoKnob.ZDL` (11,930 B, from the [Releases](../../../../releases) page or
-`../../dist/`) needs 3 free flash blocks. It is in the **SFX** category
+`AutoKnb1.ZDL` (12,146 B, from the [Releases](../../../../releases) page or
+`../../dist/`) needs 3 free flash blocks. Up to 1.0.0 the file was
+`AutoKnob.ZDL`: delete it from the pedal when you install `AutoKnb1.ZDL`
+(same effect id, so patches keep it). It is in the **SFX** category
 (gid 7, fxid 523) and declares a DSP cost of 6 (measured: about 2.5 % of
 the DSP on average). Install it as described in
 the [main README](../../README.md#install) and add it to the patch next to
@@ -55,7 +59,7 @@ the effect whose knob it should move.
 
 | File | Purpose |
 |---|---|
-| `autoknob.c` | Audio function `Fx_SFX_AutoKnob`, the knob poke (`ak_poke`, `ak_store`) and the knob texts |
-| `build.py` | Writes `autoknob_rates.h`, runs `cl6x` and the linker → `../../dist/AutoKnob.ZDL` |
+| `autoknob.c` | Audio function `Fx_SFX_AutoKnb1`, the knob poke (`ak_poke`, `ak_store`) and the knob texts |
+| `build.py` | Writes `autoknob_rates.h`, runs `cl6x` and the linker → `../../dist/AutoKnb1.ZDL` |
 | `autoknob_rates.h` | Generated: the Rate knob's phase steps |
 | `screen.png` | The 128x64 screen image |

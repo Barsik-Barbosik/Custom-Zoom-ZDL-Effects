@@ -172,3 +172,12 @@ Rock organ per sample: ~213 cycles → ~36 cycles.
   call and the handler call 16 calls later, brought the peak back to the
   no-work level (**19..37 %**, mean **2.3..2.6 %**). Keep the per-call part
   to the checks that must not wait (patch change, chain rebuild).
+- AutoKnob 2 (two LFOs and a knob menu) spreads its cycle of 32 calls
+  over five parts: LFO 1, menu, LFO 1's handler call, LFO 2, LFO 2's
+  handler call. With the menu sync in LFO 1's call, peaks rose to
+  **41..73 %** even with both LFOs off; in its own call (every other
+  cycle) they fell to **28..45 %**. Measured per part, the menu still cost
+  **24..30 %** with nothing changed (cold code and state). A fast path,
+  return at once when every knob column is as last written, cut it to
+  **12..17 %**; the overall peak is back to AutoKnob's range (**~23..31 %**,
+  mean **2.5..4 %**).
