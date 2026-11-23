@@ -20,11 +20,16 @@ the pedal is replugged, so we report it instead of hanging.
     python -B tools/g1on_sysex.py settings                        # global settings: tempo, tuner, ... (50 + 2B)
     python -B tools/g1on_sysex.py patchinfo                       # patch count and size (07)
     python -B tools/g1on_sysex.py status                          # status value (50 + 16)
+    python -B tools/g1on_sysex.py tuner on|off                    # UNTESTED: tuner by MIDI CC 74
+    python -B tools/g1on_sysex.py sendpatch FILE.syx --yes        # UNTESTED: whole patch to the edit buffer (28)
 
 STATUS (G1Xon fw 1.21, B1Xon fw 1.30): list, usage, delete, upload, flashread,
 patch, stored, knob, program, current, settings, patchinfo and status work.
 `download` does NOT work: the pedal acks the read command but never sends data
 (use flashread). Each run ends with PC mode off (53) unless --stay-pcmode is given.
+
+UNTESTED (never run on our pedals; taken from SysExTones/g1on, a 2017 tool for
+the original G1on 0x63, fw 1.21): tuner, sendpatch.
 
 Every exchange is logged as hex to tools/probe_logs/.
 """
@@ -431,6 +436,39 @@ def describe_patch(u: bytes) -> list:
     return lines
 
 
+def load_patch_file(path: Path) -> list:
+    """The 128 packed patch bytes from a file: a `patch -o` dump (F0 52 00 dev 28
+    <128> F7), a `stored -o` dump (F0 52 00 dev 08 00 00 N 70 00 <128> <5 check> F7)
+    or the 128 bytes alone. Returns a list of 7-bit values."""
+    data = path.read_bytes()
+    msgs = []
+    pos = 0
+    while True:
+        a = data.find(b"\xF0", pos)
+        if a < 0:
+            break
+        b = data.find(b"\xF7", a)
+        if b < 0:
+            break
+        msgs.append(data[a + 1:b])
+        pos = b + 1
+    packed = None
+    if not msgs and len(data) == 128:
+        packed = data
+    for m in msgs:
+        if len(m) >= 4 + 128 and m[0] == ZOOM and m[3] == 0x28:
+            packed = m[4:4 + 128]
+            break
+        if len(m) >= 9 + 128 and m[0] == ZOOM and m[3] == 0x08:
+            packed = m[9:9 + 128]
+            break
+    if packed is None:
+        sys.exit(f"sendpatch: no 28 / 08 patch message (or 128 raw bytes) in {path}")
+    if any(b > 0x7F for b in packed):
+        sys.exit(f"sendpatch: {path} has bytes > 0x7F in the patch data (not 7-bit packed)")
+    return list(packed)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", default="ZOOM 1 Series")
@@ -470,6 +508,12 @@ def main() -> None:
     sub.add_parser("settings", help="global settings (tempo, tuner, rhythm, ...), read-only (request 2B)")
     sub.add_parser("patchinfo", help="number of patches and patch size, read-only (request 07)")
     sub.add_parser("status", help="status value, read-only (request 16)")
+    tn = sub.add_parser("tuner", help="UNTESTED: tuner on / off (MIDI CC 74)")
+    tn.add_argument("state", choices=("on", "off"))
+    sp = sub.add_parser("sendpatch", help="UNTESTED: send a whole patch to the edit buffer (28), not saved")
+    sp.add_argument("file", type=Path, help="a `patch -o` / `stored -o` dump or 128 packed bytes")
+    sp.add_argument("--yes", action="store_true",
+                    help="required: untested; replaces the current patch (unsaved edits lost)")
     dl = sub.add_parser("download")
     dl.add_argument("names", nargs="+")
     dl.add_argument("-o", "--outdir", type=Path, default=DEFAULT_OUT)
@@ -482,7 +526,8 @@ def main() -> None:
     rc = 0
     try:
         pedal.identify()
-        if args.action in ("patch", "stored", "knob", "program", "current", "settings", "patchinfo", "status"):
+        if args.action in ("patch", "stored", "knob", "program", "current", "settings", "patchinfo", "status",
+                           "tuner", "sendpatch"):
             args.stay_pcmode = True     # 53 would reload the patch (see `patch`)
         else:
             pedal.pcmode(True)
@@ -604,6 +649,58 @@ def main() -> None:
                 pedal.outport.send(mido.Message("program_change", channel=0, program=args.number))
                 pedal._log(">> PC", [0xC0, args.number])
                 print(f"OK   program change {args.number} (sent)")
+            elif args.action == "tuner":
+                # UNTESTED on our pedals. From SysExTones/g1on (original G1on 0x63,
+                # fw 1.21): CC 74 on channel 1, 64 = on, 0 = off, with an identity
+                # request before "on" and after "off" ("needed for some reason").
+                # Ziddle's capture decoder also reads CC 74 >= 64 as tuner on. The
+                # identity before "on" is the one main() just sent. Handler not yet
+                # read in the OS disassembly.
+                value = 0x40 if args.state == "on" else 0x00
+                pedal.outport.send(mido.Message("control_change", channel=0, control=74, value=value))
+                pedal._log(">> CC", [0xB0, 74, value])
+                if args.state == "off":
+                    pedal.identify(tries=1)
+                print(f"OK   tuner {args.state} (CC 74 = {value}, sent; UNTESTED)")
+            elif args.action == "sendpatch":
+                # UNTESTED on our pedals. From SysExTones/g1on send.patch.py (original
+                # G1on 0x63, fw 1.21): 28 + the 128 packed patch bytes, the same
+                # format as the 29 reply. G1Xon OS 1.21: data bytes -> 0xC0083224,
+                # unpacked into 0xC0073490; at 112 bytes event 15 (no editor-mode
+                # check, no CRC) -> 0xC00C8540 = 0x11815444(buffer, current patch),
+                # the same apply as Program Change, then reply 00 00 (0xC0082F60).
+                # No flash write: the 08 store's 0xC00AC728 is not called. The saved
+                # reference copy (0x1181B268) is not updated either, so the pedal
+                # likely sees the patch as edited: refuse while auto save is on.
+                # Read back with 50 + 29 (built from the rows 0x1181B160) and compare.
+                if not args.yes:
+                    sys.exit("sendpatch is UNTESTED and replaces the current patch: save it first, "
+                             "then re-run with --yes")
+                packed = load_patch_file(args.file)
+                glob = pedal.global_settings()
+                if glob is None:
+                    sys.exit("sendpatch: no 2A reply, can't check auto save; nothing sent")
+                if glob[0]:
+                    sys.exit("sendpatch: auto save is on (the pedal could store the sent patch); "
+                             "turn it off on the pedal first; nothing sent")
+                sent = bytes(pedal._unpack(packed))[:112]
+                print(f"   sending {args.file} (UNTESTED):")
+                for line in describe_patch(sent):
+                    print("   " + line)
+                for r in pedal.cmd(0x28, *packed):
+                    print(f"   reply {len(r) + 2:5d} B  F0 {bytes(r).hex(' ').upper()} F7")
+                pedal.cmd(0x50)
+                back = [r for r in pedal.cmd(0x29) if len(r) > 4 and r[3] == 0x28]
+                if not back:
+                    print("FAIL no patch reply on read-back (29)")
+                    rc = 1
+                elif bytes(pedal._unpack(back[0][4:]))[:112] == sent:
+                    print("OK   read-back (29) matches the sent patch (not saved)")
+                else:
+                    print("FAIL read-back (29) differs from the sent patch:")
+                    for line in describe_patch(bytes(pedal._unpack(back[0][4:]))[:112]):
+                        print("   " + line)
+                    rc = 1
             elif args.action == "current":
                 n = pedal.current_patch()
                 print(f"OK   current patch {n}" if n is not None else "FAIL no Program Change reply")

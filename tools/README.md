@@ -42,6 +42,8 @@ python -B tools/g1on_sysex.py current                     # number of the curren
 python -B tools/g1on_sysex.py settings                    # global settings (tempo, tuner, ...)
 python -B tools/g1on_sysex.py patchinfo                   # number of patches and patch size
 python -B tools/g1on_sysex.py status                      # status value
+python -B tools/g1on_sysex.py tuner on|off                # UNTESTED: tuner on / off
+python -B tools/g1on_sysex.py sendpatch FILE.syx --yes    # UNTESTED: send a whole patch (not saved)
 python -B tools/g1on_sysex.py flashread ADDR LENGTH -o out.bin   # raw flash read
 ```
 
@@ -111,6 +113,23 @@ All four only read; they keep unsaved edits.
   `100 patches x 112 bytes`.
 - `status` prints a status value (editor mode `50`, then request `16`);
   `5` on a B1Xon, its meaning is unknown.
+
+### Untested: `tuner`, `sendpatch`
+
+Never run on our pedals yet. Both come from SysExTones/g1on, a 2017 tool for
+the original G1on (device 0x63, fw 1.21). Save the current patch first.
+
+- `tuner on|off` sends MIDI CC 74 (64 = on, 0 = off) on channel 1, with an
+  identity request before "on" and after "off", as the original tool does.
+- `sendpatch FILE --yes` sends a whole patch to the edit buffer (`28` + the
+  128 packed bytes, the format of the `29` reply). FILE is a `patch -o` or
+  `stored -o` dump, or the 128 bytes alone. It replaces the current patch
+  (unsaved edits are lost) and doesn't save it; it reads the patch back
+  (`50` + `29`) and compares. In the G1Xon 1.21 firmware it only loads the
+  patch like a patch switch, without writing flash, and the pedal answers
+  `00 00`. It refuses to send while auto save is on, because the pedal then
+  might store the patch itself. There is no check value, so a damaged file
+  is loaded as it is (a power cycle loads the stored patch again).
 
 ### Flash read: `flashread`
 
