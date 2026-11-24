@@ -4,26 +4,28 @@ Two tracks; the editor shows n grid slots per track (n = 16, 32, 64 or 128,
 the same for both): rest, hold (the note before goes on) or a note (pitch
 0..36, three octaves + 1). Stored is one 3-bit token stream: track 1's
 events, then track 2's (note or rest + length in slots), pitch as
-scale-degree steps in a key the packer picks per track (12 tries), so holds
-cost nothing and small steps cost 3 bits.
+scale-degree steps in one key for both tracks (the packer tries all 12), so
+holds cost nothing and small steps cost 3 bits.
 
 Storage parts, part q in words[4 q .. 4 q + 3] (bits 128 q ..): part 0 =
-Melody Box's own storage knobs 4-9 (8+8+8+8+27+8 = 67 bits: track 1's key in
+Melody Box's own storage knobs 4-9 (8+8+8+8+27+8 = 67 bits: the key in
 bits 0..3, then 21 tokens); parts 1.. = the storage effects after it, 106
 bits each (Floppy's patch field widths). With SndBank in the chain (sb = 1)
-it is part 1: bits 0..3 track 1's sound, 4..7 track 2's sound (SndBank's
-sound numbers; not part of the stream), then 32 tokens (bits 8..103), bits
-104..105 unused. The others (Floppies) in SongBox's Floppy layout
+it is part 1: bits 0..7 track 1's sound value, 8..15 track 2's (SndBank's
+sound * 20 + level; not part of the stream), then 30 tokens (bits
+16..105). The others (Floppies) in SongBox's Floppy layout
 (songpack.py): the first 4 bits the part marker, then 34 tokens. At most 5
 parts (Melody Box + 4 effects fill the 5 slots). One chain holds both
 tracks.
 
 Stream: settings token first (bits 0..1: n = 16 << code; bit 2: step length,
-0 = 1/16, 1 = 1/8; only playback uses it; both tracks), track 1's events,
-then track 2: its key in 2 tokens (k0 | (k1 & 1) << 3; above 11 reads as 0),
-its events. Track 2 starts where track 1 ended (END, slot n or the tokens
-ran out); fewer than 2 tokens left = track 2 empty. An empty track 2 is
-not written, and the last written track's END is left out (zero tokens read
+0 = 1/16, 1 = 1/8; only playback uses it; both tracks), then the tempo if
+it isn't Pedal: ESC EXTEND (never written at slot 0 otherwise) + 3 tokens
+v (9 bits, t0 | t1 << 3 | t2 << 6): tempo code v + 1 (above 211 reads as
+211), BPM = 39 + code; no ESC EXTEND there = code 0 = Pedal (the pedal's
+tempo). Then track 1's events, then track 2's events (the same key). Track 2
+starts where track 1 ended (END, slot n or the tokens ran out); no token
+left = track 2 empty. An empty track 2 is not written, and the last written track's END is left out (zero tokens read
 as ESC END, and running out of tokens ends a track too).
 Per track the state starts fresh: degree cur = 7 (the key's tonic in the middle
 octave), length L = 2 slots, slot position p. D = distance tokens: 2 for
@@ -67,13 +69,13 @@ NTOK = 34                     # 3-bit tokens per storage effect (parts 1..)
 PART_BITS = 3 * NTOK          # 102 token bits per storage effect
 OWN_TOK = 21                  # tokens in part 0 (Melody Box's knobs 4-9)
 OWN_END = KEY_BITS + 3 * OWN_TOK    # 67: part 0's end bit
-SB_SKIP = 8                   # SndBank's part: the two sounds' bits before its tokens
-SB_TOK = 32                   # tokens in SndBank's part
-SB_END = 128 + SB_SKIP + 3 * SB_TOK  # 232: SndBank part's end bit
+SB_SKIP = 16                  # SndBank's part: the two sound values' bits before its tokens
+SB_TOK = 30                   # tokens in SndBank's part (they end at bit 106, as the others')
 MAX_PARTS = 5
 NWORDS = 4 * MAX_PARTS
 INF = 1 << 30
 last_step = 0                 # unpack(): the stream's step length flag
+last_tempo = 0                # unpack(): the stream's tempo code
 
 LEN_T = (1, 2, 3, 4, 6, 8, 12, 16)          # LEN / EXTEND, slots
 CP_T = (4, 6, 8, 12, 16, 24, 32, 48)        # COPY / RHYTHM length, slots
@@ -84,7 +86,8 @@ CUR_MIN, CUR_MAX = -14, 28    # decoder clamp (valid streams stay in -10..24)
 T_ESC = 0
 E_END, E_REST, E_LEN, E_RHY, E_SHARP, E_JUMP, E_COPY, E_EXT = range(8)
 C_SET, C_ESC, C_LEN, C_JUMP, C_EXT = 3, 6, 9, 9, 9  # bits
-C_KEY2 = 6                    # track 2's key: 2 tokens
+C_TEMPO = 15                  # tempo (not Pedal): ESC EXTEND + 3 tokens
+TEMPO_MAX = 211               # tempo codes: 0 Pedal, 1..211 = 40..250 BPM
 
 DEG_OFS = (0, 2, 4, 5, 7, 9, 11)          # major scale
 # semitone above the key (0..11) -> degree | sharp << 3
@@ -155,13 +158,12 @@ def normalise(g: list) -> list:
 
 def next_addr(a: int, sb: int = 0) -> int:
     """Bit address of the token after the one at a (parts 128 bits apart,
-    tokens in bits 4..66 of part 0, bits 8..103 of SndBank's part 1 (sb),
-    bits 4..105 of the others). A token never ends at bit 232 except in
-    SndBank's part, so only part 1's start needs sb."""
+    tokens in bits 4..66 of part 0, bits 16..105 of SndBank's part 1 (sb),
+    bits 4..105 of the others); only part 1's start needs sb."""
     a += 3
     if a == OWN_END:
         a = 128 + (SB_SKIP if sb else KEY_BITS)
-    elif (a & 127) == 106 or a == SB_END:
+    elif (a & 127) == 106:
         a = (a | 127) + 1 + KEY_BITS
     return a
 
@@ -199,8 +201,8 @@ def get_bits(words: list, pos: int, w: int) -> int:
 def unpack(words: list, parts: int = 1, sb: int = 0) -> tuple:
     """Storage words (4 per part; sb: part 1 is SndBank's) -> (track 1 grid,
     track 2 grid), n slots each (normalised); the step length flag (0 =
-    1/16, 1 = 1/8) -> last_step."""
-    global last_step
+    1/16, 1 = 1/8) -> last_step, the tempo code -> last_tempo."""
+    global last_step, last_tempo
     key = get_bits(words, 0, KEY_BITS)
     if key > 11:
         key = 0
@@ -216,13 +218,18 @@ def unpack(words: list, parts: int = 1, sb: int = 0) -> tuple:
     x = tok()
     n = 16 << (x & 3)
     last_step = x >> 2 & 1
+    last_tempo = 0
+    if (st[1] + 5 <= nt and get_bits(words, st[0], 3) == T_ESC
+            and get_bits(words, next_addr(st[0], sb), 3) == E_EXT):    # tempo
+        tok()
+        tok()
+        v = tok()
+        v |= tok() << 3
+        v |= tok() << 6
+        last_tempo = min(v + 1, TEMPO_MAX)
     g1 = track(tok, st, nt, n, key)
     g2 = [REST] * n
-    if st[1] + 2 <= nt:                     # track 2: key, events
-        key = tok()
-        key |= (tok() & 1) << 3
-        if key > 11:
-            key = 0
+    if st[1] < nt:                          # track 2: events
         g2 = track(tok, st, nt, n, key)
     return g1, g2
 
@@ -419,9 +426,9 @@ class Tables:
 
 
 def dp(t: Tables, path: bool = False, c0: int = C_SET, endc: int = C_ESC):
-    """Cheapest token bits (c0: the track's first token(s): track 1's
-    settings, track 2's key; endc: END's cost, 0 for the last track written);
-    with path the moves."""
+    """Cheapest token bits (c0: the bits before the track's events, see
+    first_cost; endc: END's cost, 0 for the last track written); with path
+    the moves."""
     g, n = t.g, t.n
     cb, rb = copy_bits(n), rhy_bits(n)
     cost = [[INF] * 8 for _ in range(n + 1)]
@@ -499,17 +506,24 @@ def note_tokens(toks: list, d: int, s: int, cur: int) -> None:
     toks.append(i + 4)
 
 
-def emit(t: Tables, step8: int = 0, trk: int = 0, endc: int = C_ESC) -> tuple:
-    """DP path -> (token list, token bits). trk 0: the settings token first,
-    1: the key's 2 tokens; endc 0: no END (the last track written)."""
-    c0 = C_KEY2 if trk else C_SET
-    best, moves, endp = dp(t, path=True, c0=c0, endc=endc)
+def first_cost(trk: int, tempo: int) -> int:
+    """Bits before a track's events: track 1 the settings token (+ the
+    tempo if not Pedal), track 2 none."""
+    return 0 if trk else C_SET + (C_TEMPO if tempo else 0)
+
+
+def emit(t: Tables, step8: int = 0, trk: int = 0, endc: int = C_ESC, tempo: int = 0) -> tuple:
+    """DP path -> (token list, token bits). trk 0: the settings token (and
+    the tempo) first; endc 0: no END (the last track written)."""
+    best, moves, endp = dp(t, path=True, c0=first_cost(trk, tempo), endc=endc)
     g, n, key = t.g, t.n, t.key
     dt = dist_tokens(n)
-    if trk:
-        toks = [key & 7, key >> 3]
-    else:
+    toks = []
+    if not trk:
         toks = [{16: 0, 32: 1, 64: 2, 128: 3}[n] | step8 << 2]
+        if tempo:
+            v = tempo - 1
+            toks += [T_ESC, E_EXT, v & 7, v >> 3 & 7, v >> 6]
     cur = START_DEG
 
     def dist(d: int) -> list:
@@ -548,37 +562,41 @@ def emit(t: Tables, step8: int = 0, trk: int = 0, endc: int = C_ESC) -> tuple:
     return toks, best
 
 
-def best_key(g: list, c0: int, endc: int) -> Tables:
-    """The key with the cheapest DP (the first of equal ones)."""
-    bt, bc = None, INF
+def best_key(g: list, g2: list, has2: int, tempo: int) -> tuple:
+    """The key with the cheapest DPs of both tracks together (the first of
+    equal ones) -> (track 1's tables, track 2's or None)."""
+    bt, bt2, bc = None, None, INF
+    end1 = C_ESC if has2 else 0
     for k in range(12):
         t = Tables(g, k)
-        c = dp(t, c0=c0, endc=endc)
+        c = dp(t, c0=first_cost(0, tempo), endc=end1)
+        t2 = None
+        if has2:
+            t2 = Tables(g2, k)
+            c += dp(t2, c0=first_cost(1, tempo), endc=0)
         if c < bc:
-            bt, bc = t, c
-    return bt
+            bt, bt2, bc = t, t2, c
+    return bt, bt2
 
 
-def pack(g: list, step8: int = 0, g2: list = None, sb: int = 0) -> tuple:
+def pack(g: list, step8: int = 0, g2: list = None, sb: int = 0, tempo: int = 0) -> tuple:
     """Track grids (16 / 32 / 64 / 128 slots, both the same; g2 None = empty)
-    + step length flag (1 = 1/8), sb (part 1 is SndBank's; its sound bits
-    left 0) -> (words, key 1, token bits, parts needed or 0 = doesn't fit
-    MAX_PARTS, key 2 (0 if track 2 is empty))."""
+    + step length flag (1 = 1/8), sb (part 1 is SndBank's; its sound value bits
+    left 0), tempo code (0 Pedal, 1..211 = 40..250 BPM) -> (words, key, token
+    bits, parts needed or 0 = doesn't fit MAX_PARTS)."""
     g = normalise(g)
     assert len(g) in (16, 32, 64, 128), len(g)
+    assert 0 <= tempo <= TEMPO_MAX, tempo
     g2 = normalise(g2) if g2 is not None else [REST] * len(g)
     assert len(g2) == len(g)
     has2 = any(v != REST for v in g2)
     end1 = C_ESC if has2 else 0
-    bt = best_key(g, C_SET, end1)
-    toks, bits = emit(bt, step8, 0, end1)
-    key2 = 0
+    bt, bt2 = best_key(g, g2, has2, tempo)
+    toks, bits = emit(bt, step8, 0, end1, tempo)
     if has2:
-        bt2 = best_key(g2, C_KEY2, 0)
         t2, b2 = emit(bt2, 0, 1, 0)
         toks += t2
         bits += b2
-        key2 = bt2.key
     parts = need_parts(bits, sb)
     if parts > MAX_PARTS:
         parts = 0
@@ -589,7 +607,7 @@ def pack(g: list, step8: int = 0, g2: list = None, sb: int = 0) -> tuple:
         for x in toks:
             put_bits(words, a, x, 3)
             a = next_addr(a, sb)
-    return words, bt.key, bits, parts, key2
+    return words, bt.key, bits, parts
 
 
 # ------------------------------------------------------------------ test melodies
@@ -763,19 +781,20 @@ def root_bass(rng: random.Random, n: int = 64) -> list:
 
 # ------------------------------------------------------------------ report
 
-def check(g: list, step8: int = 0, g2: list = None, sb: int = 0) -> tuple:
+def check(g: list, step8: int = 0, g2: list = None, sb: int = 0, tempo: int = 0) -> tuple:
     """Pack, read back with as many parts as needed and with MAX_PARTS."""
     g = normalise(g)
     g2 = normalise(g2) if g2 is not None else [REST] * len(g)
-    words, key, bits, parts, key2 = pack(g, step8, g2, sb)
+    words, key, bits, parts = pack(g, step8, g2, sb, tempo)
     if parts:
         assert unpack(words, parts, sb) == (g, g2) and last_step == step8, (g, g2)
-        assert unpack(words, MAX_PARTS, sb) == (g, g2)
-        if sb:                              # the sound bits are not read
+        assert last_tempo == tempo, (last_tempo, tempo)
+        assert unpack(words, MAX_PARTS, sb) == (g, g2) and last_tempo == tempo
+        if sb:                              # the sound value bits are not read
             w = list(words)
-            w[4] |= 0xFF
+            w[4] |= 0xFFFF
             assert unpack(w, parts, sb) == (g, g2)
-    return words, key, bits, parts, key2
+    return words, key, bits, parts
 
 
 def main() -> None:
@@ -792,24 +811,24 @@ def main() -> None:
     lines = ["# melopack test vectors; grid = n hex bytes (0 rest, 1 hold, 2 + pitch); "
              "grid 1 = track 1, grid 2 = track 2",
              "# parts: 1 = Melody Box's knobs 4-9 (21 tokens), then 34 tokens per storage effect; "
-             "sb 1: part 2 is SndBank's (32 tokens after 8 sound bits)",
-             "# pack: P <token bits> <key 1> <key 2> <step 0 = 1/16, 1 = 1/8> <sb> <parts> "
-             "<words, 4 per part, hex> <grid 1> <grid 2>",
-             "# unpack: U <sb> <parts> <step> <words, 4 per part, hex> <grid 1> <grid 2>   "
+             "sb 1: part 2 is SndBank's (30 tokens after 16 sound value bits)",
+             "# pack: P <token bits> <key> <tempo 0 = Pedal, 1..211> <step 0 = 1/16, 1 = 1/8> <sb> "
+             "<parts> <words, 4 per part, hex> <grid 1> <grid 2>",
+             "# unpack: U <sb> <parts> <step> <tempo> <words, 4 per part, hex> <grid 1> <grid 2>   "
              "(any words, junk incl.)"]
 
     def gridhex(g: list) -> str:
         return "".join(f"{v:02x}" for v in g)
 
-    def vector(g: list, g2: list, step8: int, sb: int, r: tuple) -> None:
-        words, key, bits, parts, key2 = r
+    def vector(g: list, g2: list, step8: int, sb: int, tempo: int, r: tuple) -> None:
+        words, key, bits, parts = r
         if parts:
-            lines.append(f"P {bits} {key} {key2} {step8} {sb} {parts} "
+            lines.append(f"P {bits} {key} {tempo} {step8} {sb} {parts} "
                          + " ".join(f"{w:08x}" for w in words[:4 * parts])
                          + f" {gridhex(normalise(g))} {gridhex(normalise(g2))}")
 
     print("track 1 alone: token bits (+ 4 key bits); parts: 1 = Melody Box (63 token bits), "
-          "2 = + SndBank (159), 3 = + 1 Floppy (261), 4 = + 2 (363), 5 = + 3 (465); "
+          "2 = + SndBank (153), 3 = + 1 Floppy (255), 4 = + 2 (357), 5 = + 3 (459); "
           "vectors alternate sb 0 / 1\n")
     hdr = f"{'melody':36} {'steps':>5} {'notes':>5} {'P4':>5} {'P6':>5} {'bits':>5}  Pt"
     print(hdr)
@@ -820,24 +839,29 @@ def main() -> None:
         sb = nv & 1
         nv += 1
         r = check(g, step8, None, sb)
-        words, key, bits, parts, key2 = r
+        words, key, bits, parts = r
         ps = [v - 2 for v in g if v >= 2]
         p4 = 4 * len(g) if not ps or max(ps) - min(ps) <= 11 else "-"
         notes = len(ps)
         print(f"{name:36} {len(g):5} {notes:5} {p4:>5} {6 * len(g):5} {bits:5}  "
               f"{parts if parts else '>5':>2}")
-        vector(g, [REST] * len(g), step8, sb, r)
+        vector(g, [REST] * len(g), step8, sb, 0, r)
 
-    print(f"\n{'track 1 + track 2':36} {'steps':>5} {'alone':>5} {'both':>5}  Pt")
-    print("-" * 57)
-    for name, (g, g2) in pairs().items():
+    print(f"\n{'track 1 + track 2':36} {'steps':>5} {'alone':>5} {'both':>5} {'tempo':>5}  Pt")
+    print("-" * 63)
+    for i, (name, (g, g2)) in enumerate(pairs().items()):
         step8 = 1 if "1/8" in name else 0
         sb = nv & 1
         nv += 1
-        r = check(g, step8, g2, sb)
-        words, key, bits, parts, key2 = r
-        print(f"{name:36} {len(g):5} {pack(g, step8)[2]:5} {bits:5}  {parts if parts else '>5':>2}")
-        vector(g, g2, step8, sb, r)
+        tempo = (0, 81, 1, TEMPO_MAX)[i & 3]    # Pedal, 120, 40, 250 BPM (tempo bits included)
+        r = check(g, step8, g2, sb, tempo)
+        words, key, bits, parts = r
+        print(f"{name:36} {len(g):5} {pack(g, step8)[2]:5} {bits:5} {tempo:5}  "
+              f"{parts if parts else '>5':>2}")
+        vector(g, g2, step8, sb, tempo, r)
+    for tempo in (0, 1, 81, TEMPO_MAX):     # empty tracks, every tempo kind
+        r = check([REST] * 16, 0, None, 0, tempo)
+        vector([REST] * 16, [REST] * 16, 0, 0, tempo, r)
 
     nr = 12 if quick else 50
     sets = [("random walk, bars repeat (64)", lambda: (random_walk(rng, True), None)),
@@ -851,7 +875,7 @@ def main() -> None:
         fit = [0] * 7
         for _ in range(nr):
             g, g2 = fn()
-            words, key, bits, parts, key2 = check(g, 0, g2, 1)
+            words, key, bits, parts = check(g, 0, g2, 1)
             tot += bits
             k = need_parts(bits, 1)
             fit[k if k <= MAX_PARTS else MAX_PARTS + 1] += 1
@@ -868,14 +892,19 @@ def main() -> None:
             a = KEY_BITS
             w = [0] * NWORDS
             put_bits(w, 0, rng.randrange(16), KEY_BITS)
-            for _ in range(ntok(parts, sb)):
-                put_bits(w, a, 0 if rng.random() < 0.5 else rng.randrange(8), 3)
+            for k in range(ntok(parts, sb)):    # every second one: the tempo escape first
+                x = 0 if rng.random() < 0.5 else rng.randrange(8)
+                if i % 6 == 0 and k in (1, 2):
+                    x = T_ESC if k == 1 else E_EXT
+                put_bits(w, a, x, 3)
                 a = next_addr(a, sb)
         g, g2 = unpack(w, parts, sb)
         assert len(g) in (16, 32, 64, 128) and g == normalise(g), (w, g)
         assert len(g2) == len(g) and g2 == normalise(g2), (w, g2)
+        assert 0 <= last_tempo <= TEMPO_MAX
         if i < 100:
-            lines.append(f"U {sb} {parts} {last_step} " + " ".join(f"{x:08x}" for x in w[:4 * parts])
+            lines.append(f"U {sb} {parts} {last_step} {last_tempo} "
+                         + " ".join(f"{x:08x}" for x in w[:4 * parts])
                          + f" {gridhex(g)} {gridhex(g2)}")
 
     out = HERE / "melopack_vectors.txt"

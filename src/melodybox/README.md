@@ -3,8 +3,8 @@
 Melody Box (`MeloBox`) plays two tracks of notes (for example a melody
 and a bass line) through SndBank (`src/sndbank/`), the sound source, in the
 same patch. Without SndBank, Melody Box plays both tracks itself with a simple
-built-in voice each (a soft sawtooth synth); the SOUND settings then need
-SndBank. The guitar signal passes through.
+built-in voice each (a soft sawtooth synth); of the SOUND settings it then
+uses only the volume. The guitar signal passes through.
 
 - **Knob 1** picks the mode: MENU (settings, the first value), TRACK1 or
   TRACK2 (edit that track's steps).
@@ -23,19 +23,21 @@ SndBank. The guitar signal passes through.
 
   | Setting | Question | Values |
   |---|---|---|
+  | TEMPO | Song tempo is: | Pedal (default: the pedal's tempo), 40 … 250 BPM |
   | LENGTH | Number of steps: | 16 (default), 32, 64, 128 (both tracks) |
   | GRID | Step grid is: | 1/16 (default), 1/8 (both tracks) |
-  | SOUND1 | Track 1 sound: | SndBank's sounds PB (default), O1, O2, Sy, Tr, Or1, Or2, EP, Mrm, Klm, Syn, Plk |
-  | SOUND2 | Track 2 sound: | the same list |
+  | SOUND1 | Track1 sound is: | SndBank's sound and its volume, shown as `EP:70`: sounds PB (default), Tr, Or1, Or2, EP, Mrm, Klm, Syn, Plk, each at volume 00 (silent) … 95, 50 = normal (default) |
+  | SOUND2 | Track2 sound is: | the same |
 
-- **Footswitch on plays** both tracks in a loop at the pedal tempo; a rest
+- **Footswitch on plays** both tracks in a loop at the TEMPO setting; a rest
   is silent, holds make the note before longer. Footswitch off stops.
 - **Knobs 4-9 hold stored data** (the start of the saved melody) and
-  are locked: a turn springs back. Their names are empty, their text is `-`.
+  are locked: a turn springs back. They are named Data1 … Data6 and show
+  `DON'T` `TURN` `THESE` on each page.
 
-Status: the step editor, both tracks, playback over SndBank and the own
-voices work on the B1Xon 1.30 (G1on family). Saving is new and untested.
-Untested on the MS pedals.
+Status: the step editor, both tracks, the settings, playback over SndBank
+and the own voices, and saving / loading with the patch work on the B1Xon
+1.30 (G1on family). Untested on the MS pedals.
 
 ## Saving with the patch
 
@@ -44,10 +46,11 @@ turn, like SongBox); store the patch as usual to keep it.
 
 - **Where:** Melody Box's own knobs 4-9 first, then SndBank and Floppy
   effects placed after Melody Box (up to the next effect that saves its own
-  data in Floppies). SndBank also keeps SOUND1 and SOUND2; without SndBank
-  they are not saved.
+  data in Floppies). TEMPO, LENGTH and GRID are saved with the melody (a
+  TEMPO other than Pedal takes a little room). SndBank also keeps SOUND1 and
+  SOUND2 (sound and volume); without SndBank they are not saved.
 - **Too big:** an edit that makes the melody too big for that space is
-  refused: the step (or LENGTH) goes back and knob 2's name shows `FULL`
+  refused: the step (or TEMPO / LENGTH) goes back and knob 2's name shows `FULL`
   for a moment. Add a Floppy for more space.
 - **Adding or removing** SndBank or a Floppy: the melody you have stays and
   is saved into the new set. If it doesn't fit any more, `FULL` shows and
@@ -69,7 +72,8 @@ turn, like SongBox); store the patch as usual to keep it.
   is a note with holds.
 - **Saved in Melody Box's own knobs 4-9, then SndBank and Floppy
   effects** placed after Melody Box, packed: lengths and
-  holds cost almost nothing, small steps between notes are cheap, and
+  holds cost almost nothing, small steps between notes are cheap (both
+  tracks share one key), and
   repeated rhythms or bars (also moved up or down the scale) are stored
   as short references. A typical melody fits Melody Box + SndBank, some
   need one Floppy more; a melody with a bass line usually needs 1 Floppy

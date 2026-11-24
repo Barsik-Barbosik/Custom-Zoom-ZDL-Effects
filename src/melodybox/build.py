@@ -7,10 +7,11 @@ Knob 1 = mode: MENU (0), TRACK1 (1, default) or TRACK2 (2). A track: knobs
 1-3 show items off .. off + 2 of "" (empty), steps 1..n, "END" (step name =
 2 digits + value: "01___" rest, "01~~~" hold, "01_C2", "01C#2"); knob 2 =
 the value of its step (0 rest, 1 hold, 2..38 = C2..C5), knob 3 = scroll
-offset. MENU: knob 2 = option LENGTH / GRID / SOUND1 / SOUND2, knob 3 = its
-value, the names spell the question. Knob maxes change at run time. Knobs
-4-9 = locked storage (the patch field widths 8, 8, 8, 8, 27, 8; empty names,
-text "-"). See melodybox.c.
+offset. MENU: knob 2 = option TEMPO / LENGTH / GRID / SOUND1 / SOUND2, knob
+3 = its value (SOUND1 / 2: sound * 20 + level, "EP:70"), the names spell
+the question. Knob maxes change at run time. Knobs
+4-9 = locked storage (the patch field widths 8, 8, 8, 8, 27, 8; names
+Data1..Data6, texts DON'T / TURN / THESE on each page). See melodybox.c.
 
 --selftest decode|pack: writes melodybox_selftest.h (generated, from
 packer/melopack_vectors.txt) and builds with MB_SELFTEST (1 decode, 2 pack;
@@ -18,9 +19,9 @@ both vector sets and the packer together don't fit 8 flash blocks): after a
 fresh state the audio call decodes one vector per call with
 packer/melopack.h (decode: the P lines' words and the U lines; pack: the P
 lines' words) and compares n, the step flag and an FNV-1a hash of both
-track grids; the pack build then packs each P line's grids (mp_start +
-mp_run, a few units per call) and compares both keys, bits, parts and
-words.
+track grids + the tempo code; the pack build then packs each P line's grids
+and tempo (mp_start + mp_run, a few units per call) and compares the key,
+bits, parts and words.
 The result goes into MeloBox's own knob 1 record column (read with
 `g1on_sysex.py patch`): 0 running, 1 all passed, 2000 + i decode vector i
 (0-based, file order) failed first, 3000 + i pack vector i (0-based, P
@@ -43,7 +44,7 @@ from zdl_build import compile_c, link_common  # noqa: E402
 from zmenu_gen import FLOPPY_MAXES  # noqa: E402
 
 FXID = 525
-MAX_OFF = 127                                           # mirrors MB_MAXOFF in melodybox.c
+MAX_K3 = 211                                            # mirrors MB_MAXK3 in melodybox.c
 MAX_VAL = 38                                            # mirrors MB_MAXVAL in melodybox.c
 ZMENU = PROJECT / "src" / "common" / "zmenu"
 PACKER = HERE / "packer"
@@ -67,11 +68,11 @@ def write_selftest(path: Path, pack: bool) -> int:
     vectors); returns the number of decode vectors. Each: words (4 per
     part) in one pool; vec = word offset | parts << 16 | step flag << 20 |
     log2(n / 16) << 24 | sb << 28 (part 2 is SndBank's), then the FNV-1a hash
-    of grid 1 + grid 2. Pack vectors (P lines) also: pvec = grid offset in
-    the byte pool (grid 1, then grid 2 if not empty) | log2(n / 16) << 16 |
-    step flag << 18 | track 2 not empty << 19 | parts << 20 | key 1 << 24 |
-    key 2 << 28, then token bits | sb << 15 | word offset << 16 (their
-    words: the same pool)."""
+    of grid 1 + grid 2 + the tempo code byte. Pack vectors (P lines) also:
+    pvec = grid offset in the byte pool (grid 1, then grid 2 if not empty;
+    < 4096) | tempo code << 12 | log2(n / 16) << 20 | step flag << 22 |
+    track 2 not empty << 23 | parts << 24 | key << 28, then token bits | sb
+    << 15 | word offset << 16 (their words: the same pool)."""
     pool: list = []
     vecs: list = []
     pvecs: list = []
@@ -83,8 +84,8 @@ def write_selftest(path: Path, pack: bool) -> int:
             continue
         grid, grid2 = bytes.fromhex(f[-2]), bytes.fromhex(f[-1])
         code = {16: 0, 32: 1, 64: 2, 128: 3}[len(grid)]
-        if f[0] == "P":                     # P bits key key2 step sb parts words.. grid grid2
-            bits, key, key2, step, sb, parts = (int(x) for x in f[1:7])
+        if f[0] == "P":                     # P bits key tempo step sb parts words.. grid grid2
+            bits, key, tempo, step, sb, parts = (int(x) for x in f[1:7])
             words = f[7:7 + 4 * parts]
             has2 = int(any(grid2))
             if pack and len(grid) == 64 and not has2 and parts == 2:
@@ -92,15 +93,17 @@ def write_selftest(path: Path, pack: bool) -> int:
                 if plain > PACK_KEEP_PLAIN:
                     continue
             if pack:
-                pvecs.append((len(grids) | code << 16 | step << 18 | has2 << 19 | parts << 20
-                              | key << 24 | key2 << 28, bits | sb << 15 | len(pool) << 16))
+                assert len(grids) < 4096
+                pvecs.append((len(grids) | tempo << 12 | code << 20 | step << 22 | has2 << 23
+                              | parts << 24 | key << 28, bits | sb << 15 | len(pool) << 16))
                 grids += grid + (grid2 if has2 else b"")
         elif pack:
             continue
-        else:                               # U sb parts step words.. grid grid2
-            sb, parts, step = int(f[1]), int(f[2]), int(f[3])
-            words = f[4:4 + 4 * parts]
-        vecs.append((len(pool) | parts << 16 | step << 20 | code << 24 | sb << 28, fnv(grid + grid2)))
+        else:                               # U sb parts step tempo words.. grid grid2
+            sb, parts, step, tempo = int(f[1]), int(f[2]), int(f[3]), int(f[4])
+            words = f[5:5 + 4 * parts]
+        vecs.append((len(pool) | parts << 16 | step << 20 | code << 24 | sb << 28,
+                     fnv(grid + grid2 + bytes([tempo]))))
         pool += [int(w, 16) for w in words]
     lines = ["/* Generated by build.py --selftest from packer/melopack_vectors.txt -- do not edit. */",
              f"#define MB_NTEST {len(vecs)}u",
@@ -140,12 +143,14 @@ def build(out_zdl: Path, selftest: str = "", probe: bool = False) -> None:
     params = [
         knob("", 2, "GetString_Mb1", 1),               # mode: MENU (0) / TRACK1 (1) / TRACK2 (2)
         knob("01___", MAX_VAL, "GetString_Mb2"),       # step value / MENU option
-        knob("02___", MAX_OFF, "GetString_Mb3"),       # scroll / MENU answer
+        knob("02___", MAX_K3, "GetString_Mb3"),        # scroll / MENU answer
     ]
     # knobs 4-9: locked storage at the patch field widths (8, 8, 8, 8, 27, 8)
-    params += [{"name": "", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
+    # names Data1..Data6, texts "DON'T TURN THESE" on both pages (knobs 4-6, 7-9)
+    params += [{"name": f"Data{k + 1}", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
                 "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.0,
-                "edit": "Mb_LockEdit", "getstr": f"GetString_MbP{k + 4}" if probe else "GetString_MbData"}
+                "edit": "Mb_LockEdit",
+                "getstr": f"GetString_MbP{k + 4}" if probe else f"GetString_MbData{k % 3 + 1}"}
                for k, w in enumerate(FLOPPY_MAXES[3:])]
     obj = HERE / "melodybox.obj"
     defines = []

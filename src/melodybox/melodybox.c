@@ -15,26 +15,29 @@
  * 2..38 = C2..C5); on a scroll it jumps to the new step's value. Knob
  * texts: knob 1 "TRACK1" / "TRACK2", knob 2 its own name, knob 3 "SCROLL".
  *
- * MENU (as SongBox's): knob 2 picks the option (text LENGTH, GRID, SOUND1,
- * SOUND2), the knob names spell its question, knob 3 gives the answer:
- * LENGTH 16 / 32 / 64 / 128 steps and GRID 1/16 or 1/8 (a step's length in
- * playback) for both tracks, SOUND1 / SOUND2 the sound source's sound for
- * track 1 / 2 (PB .. Plk). Back on a track, knobs 2 and 3 jump back to the
- * step and its value.
+ * MENU (as SongBox's): knob 2 picks the option (text TEMPO, LENGTH, GRID,
+ * SOUND1, SOUND2), the knob names spell its question, knob 3 gives the
+ * answer: TEMPO Pedal (0, default: the pedal's tempo) or 40..250 BPM (39 +
+ * value), LENGTH 16 / 32 / 64 / 128 steps and GRID 1/16 or 1/8 (a step's
+ * length in playback) for both tracks, SOUND1 / SOUND2 the sound source's
+ * sound and its level for track 1 / 2 (value = sound * 20 + level, as
+ * SongBox's Bass / Chords knobs; text "EP:70": sound PB .. Plk, level x 5,
+ * 00 = silent, 50 = x1, default PB:50). Back on a track, knobs 2 and 3 jump
+ * back to the step and its value.
  *
  * Saving (as SongBox's): the steps and settings are saved in the patch
  * after each change, packed with packer/melopack.h into a storage chain:
  * part 0 = Melody Box's own knobs 4-9, then the storage effects in its
  * owner range (the slots after it up to the next storage user, wrapping, as
  * zmenu's ZM_S_RANGE): SndBank first (it also keeps SOUND1 / SOUND2 in the
- * first 8 bits of its part), then the Floppies in their part marker order
+ * first 16 bits of its part), then the Floppies in their part marker order
  * (bits 0..3 of a Floppy's part: MB_FL_MARK + its place 1..4; an unmarked
  * Floppy gets the next marker). MB_PK_WAIT calls after the last edit the
  * packer starts (a few units per call, MB_PK_CYC TSCL cycles); its result
  * is decoded again and compared with the grids, then all parts are written
  * in one call. A melody that doesn't fit the chain (or doesn't decode
- * back) is refused: the grids and LENGTH / GRID go back to the last saved
- * ones, the knobs jump there and knob 2's name shows FULL for MB_FULL
+ * back) is refused: the grids and TEMPO / LENGTH / GRID go back to the last
+ * saved ones, the knobs jump there and knob 2's name shows FULL for MB_FULL
  * calls. A SOUND change is written straight into SndBank's part. Loads:
  * the chain is polled every MB_POLL calls; a change counts once two polls
  * agree and the storage rows equal their records (after a patch change the
@@ -52,19 +55,20 @@
  * nothing is loaded or saved.
  *
  * Playback (footswitch on): the n steps of both tracks in a loop, a step =
- * a 16th or an 8th at the pedal tempo (the firmware's global BPM, 120 if
- * unknown). A note goes as a note on (pitch p = MIDI MB_BASE + p, the
- * track's sound) over the note bus (notebus.h) to the sound source SndBank
+ * a 16th or an 8th at the TEMPO setting: Pedal = the pedal tempo (the
+ * firmware's global BPM, 120 if unknown). A note goes as a note on (pitch
+ * p = MIDI MB_BASE + p, the track's sound) over the note bus (notebus.h) to the sound source SndBank
  * (MB_SYN_ID) in the chain, track 1 on bus 1, track 2 on bus 2 (one voice
  * each), a note off at MB_GATE of its last step (holds after it make it
  * longer); a rest is silent. SndBank's slot is looked for at every step
- * start; footswitch off: note offs, stop.
+ * start; footswitch off: note offs, stop. A patch's first load starts the
+ * loop again at step 1 (it may start playing before the melody is loaded).
  *
  * Own voices: with no SndBank in the chain (or an unknown firmware) each
  * track plays on one of Melody Box's own simple voices (the notebus probe's:
  * a sawtooth through a one-pole low-pass, fast attack, slow fall while
- * held, short release), added to both ctx[5] channels; the SOUND settings
- * are then not used.
+ * held, short release), added to both ctx[5] channels; of the SOUND
+ * settings only the level is used (taken at a note on).
  *
  * The names are the descriptor entries of knobs 1-3, rewritten by the audio
  * callback every call (the OS may restore them). When a name changed, the
@@ -76,7 +80,8 @@
  * (plus the own voices, see above).
  *
  * Knobs 4-9 are storage (the first part of the saved chain, 8+8+8+8+27+8
- * bits): empty names, text "-", locked as
+ * bits): names Data1..Data6, texts DON'T / TURN / THESE (on both knob
+ * pages), locked as
  * SndBank's: a turn is undone by the edit handler (Mb_LockEdit) from a
  * shadow; a record value that differs from the shadow and was the same at
  * the previous look (MB_LOOK calls apart) is another writer's (zmenu) and
@@ -102,10 +107,10 @@
 #pragma CODE_SECTION(Fx_SFX_MeloBox, ".audio")
 
 #ifdef MB_SELFTEST
-#define MB_MAGIC  0x4D425438u           /* "MBT8": the self-test build's layout */
+#define MB_MAGIC  0x4D425439u           /* "MBT9": the self-test build's layout */
 #define MB_TUNITS 1u                    /* self-test: packer units per call */
 #else
-#define MB_MAGIC  0x4D425838u           /* "MBX8"; new value on any state layout change */
+#define MB_MAGIC  0x4D425839u           /* "MBX9"; new value on any state layout change */
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
 #define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRACK1 / TRACK2 */
@@ -113,15 +118,21 @@
 #define MB_SCROLL 2u                    /* knob 3: the scroll offset / MENU answer */
 #define MB_NTRK   2u                    /* tracks */
 #define MB_MAXN   128u                  /* most steps */
-#define MB_MAXOFF 127u                  /* knob 3 build max (run time: n - 1) */
+#define MB_MAXK3  211u                  /* knob 3 build max (run time: n - 1 / the option's max) */
 #define MB_MAXVAL 38u                   /* knob 2 build max: 0 rest, 1 hold, 2..38 notes */
 #define MB_REST   0u
 #define MB_HOLD   1u
-#define MB_NOPT   4u                    /* MENU options: */
-#define MB_O_LEN  0u                    /* LENGTH: n = 16 << value (both tracks) */
-#define MB_O_GRID 1u                    /* GRID: 0 = 1/16, 1 = 1/8 (both tracks) */
-#define MB_O_SND  2u                    /* SOUND1, SOUND2: track 1 / 2's bus sound number */
-#define MB_OMAX(o) ((o) == MB_O_LEN ? 3u : (o) == MB_O_GRID ? 1u : 11u)
+#define MB_NOPT   5u                    /* MENU options: */
+#define MB_O_TEMPO 0u                   /* TEMPO: 0 Pedal, else 39 + value BPM (40..250) */
+#define MB_O_LEN  1u                    /* LENGTH: n = 16 << value (both tracks) */
+#define MB_O_GRID 2u                    /* GRID: 0 = 1/16, 1 = 1/8 (both tracks) */
+#define MB_O_SND  3u                    /* SOUND1, SOUND2: track 1 / 2's bus sound value */
+#define MB_LEVELS NB_LEVELS             /* sound value = sound * MB_LEVELS + level (as SongBox's Bass) */
+#define MB_SND_DEF NB_SV_DEF            /* PB at level 10 (shown 50, x1) */
+#define MB_OMAX(o) ((o) == MB_O_TEMPO ? MP_TEMPO_MAX : (o) == MB_O_LEN ? 3u : (o) == MB_O_GRID ? 1u \
+                    : MB_NSND * MB_LEVELS - 1u)
+#define MB_NSND   9u                    /* SndBank's sounds (PB, Tr, Or1 .. Plk) */
+#define MB_SV(st) ((st)->ov[MB_O_SND] | (st)->ov[MB_O_SND + 1u] << 8)  /* SndBank's voice settings (notebus.h) */
 #define MB_SYN_ID ((7u << 24) | 528u)   /* sound source: SndBank (SFX 528) */
 #define MB_FXID   525u                  /* own effect id (mirrors FXID in build.py) */
 #define MB_BASE   36u                   /* MIDI note of pitch 0 (C2: a bass octave) */
@@ -137,7 +148,7 @@
 #define MB_V_FALL 0.9998f               /* held note: tgt *= MB_V_FALL per call (~0.9 s) */
 #define MB_V_REL  0.97f                 /* note off: env *= MB_V_REL per call (~6 ms) */
 #define MB_V_LP   0.25f                 /* low-pass: lp += (saw - lp) MB_V_LP (~1.7 kHz) */
-#define MB_V_GAIN 0.4f
+#define MB_V_GAIN 0.4f                  /* at level 10 (x1) */
 #define MB_POLL     256u                /* calls between storage polls (~46 ms) */
 #define MB_PK_WAIT  2048u               /* calls after the last edit before packing (~0.37 s) */
 #define MB_PK_CYC   1000u               /* packer TSCL cycles per call (at least one unit) */
@@ -154,7 +165,7 @@ typedef struct {
     uint32_t posts, postWait;           /* redraws left, calls until the next */
     uint32_t mode;                      /* 0 MENU, 1 TRACK1, 2 TRACK2 (3: jump to MENU's values) */
     uint32_t off, edit, k3;             /* scroll offset; knob 2 / knob 3 values as last seen */
-    uint32_t opt, ov[MB_NOPT];          /* MENU option shown; values: length code, grid, sounds */
+    uint32_t opt, ov[MB_NOPT];          /* MENU option shown; values: tempo, length code, grid, sounds */
     uint8_t  grid[MB_NTRK][MB_MAXN];    /* step values per track: 0 rest, 1 hold, 2 + pitch */
     uint32_t play, step, len;           /* playing, step 0.., loop length in steps */
     float    ph;                        /* position in the step, 0..1 */
@@ -162,6 +173,7 @@ typedef struct {
     uint32_t cnt[MB_NTRK], on[MB_NTRK]; /* per track: bus event counter last sent, a note is on */
     uint32_t vph[MB_NTRK], vinc[MB_NTRK], vgate[MB_NTRK];  /* own voice per track: phase, step per sample, note held */
     float    venv[MB_NTRK], vtgt[MB_NTRK], vlp[MB_NTRK];   /* own voice per track: level, its target, low-pass */
+    float    vgn[MB_NTRK];              /* own voice per track: gain (SOUND's level, at the note on) */
     uint32_t lk, lfw, lslot, lwait, lok;    /* lock: calls to the next look, its fw, slot, looks waited, shadow valid */
     uint32_t sh[MB_NS], pend[MB_NS];    /* lock: shadow (storage knobs' record values), values at the last look */
 #ifndef MB_SELFTEST
@@ -175,7 +187,7 @@ typedef struct {
     uint32_t unset, settle;             /* the poll saw rows unlike their records; polls left of the settle window */
     uint32_t pslot[MP_MAXPARTS];        /* slot of part q (part 0: the own) */
     uint32_t rw[MB_NW], pw[MB_NW], cw[MB_NW];  /* storage words: this poll, the previous, last loaded / saved */
-    uint32_t sov[2];                    /* LENGTH, GRID as last saved */
+    uint32_t sov[3];                    /* TEMPO, LENGTH, GRID as last saved (= ov[0..2]) */
     uint8_t  sgrid[MB_NTRK][MB_MAXN];   /* the grids as last saved (a refused edit goes back) */
     uint8_t  vgrid[MB_NTRK][MP_MAXN];   /* the packer's result decoded again */
     MpJob    job;                       /* the packer */
@@ -209,23 +221,26 @@ static const char mb_letter[13] = ".CCDDEFFGGAAB";
  * knob). */
 #define MB_S_MODE   0u                  /* MENU, TRACK1, TRACK2 */
 #define MB_S_SCROLL 3u
-#define MB_S_OPT    4u                  /* LENGTH, GRID, SOUND1, SOUND2 */
-#define MB_S_LEN    8u                  /* 16 .. 128 */
-#define MB_S_GRID   12u                 /* 1/16, 1/8 */
-#define MB_S_SND    14u                 /* PB .. Plk (SndBank's sound order) */
-#define MB_S_Q      26u                 /* 3 words per option */
-#define MB_S_FULL   38u                 /* FULL: an edit refused */
+#define MB_S_OPT    4u                  /* TEMPO, LENGTH, GRID, SOUND1, SOUND2 */
+#define MB_S_PEDAL  9u                  /* TEMPO 0 (the others: the BPM digits) */
+#define MB_S_LEN    10u                 /* 16 .. 128 */
+#define MB_S_GRID   14u                 /* 1/16, 1/8 */
+#define MB_S_SND    16u                 /* PB .. Plk (SndBank's sound order) */
+#define MB_S_Q      25u                 /* 3 words per option */
+#define MB_S_FULL   40u                 /* FULL: an edit refused */
 #define MB_VBASE(o) ((o) == MB_O_LEN ? MB_S_LEN : (o) == MB_O_GRID ? MB_S_GRID : MB_S_SND)
 static const char mb_strs[] =
     "MENU\0" "TRACK1\0" "TRACK2\0" "SCROLL\0"
-    "LENGTH\0" "GRID\0" "SOUND1\0" "SOUND2\0"
+    "TEMPO\0" "LENGTH\0" "GRID\0" "SOUND1\0" "SOUND2\0"
+    "Pedal\0"
     "16\0" "32\0" "64\0" "128\0"
     "1/16\0" "1/8\0"
-    "PB\0" "O1\0" "O2\0" "Sy\0" "Tr\0" "Or1\0" "Or2\0" "EP\0" "Mrm\0" "Klm\0" "Syn\0" "Plk\0"
+    "PB\0" "Tr\0" "Or1\0" "Or2\0" "EP\0" "Mrm\0" "Klm\0" "Syn\0" "Plk\0"
+    "Song\0" "tempo\0" "is:\0"          /* TEMPO */
     "Number\0" "of\0" "steps:\0"        /* LENGTH */
     "Step\0" "grid\0" "is:\0"           /* GRID */
-    "Track 1\0" "sound:\0" "\0"         /* SOUND1 */
-    "Track 2\0" "sound:\0" "\0"         /* SOUND2 */
+    "Track1\0" "sound\0" "is:\0"        /* SOUND1 */
+    "Track2\0" "sound\0" "is:\0"        /* SOUND2 */
     "FULL\0";
 
 /* String i of the pool. */
@@ -250,6 +265,9 @@ static inline void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
     uint32_t cnt, oct;
     if (!st->fw || st->slot == MB_NOSLOT) {
         if (note) {                     /* the track's own voice */
+            cnt = st->ov[MB_O_SND + t];
+            cnt -= MB_LEVELS * ((cnt * 205u) >> 12);    /* the level: value mod 20 */
+            st->vgn[t] = (float)cnt * (0.1f * MB_V_GAIN);
             oct = (note * 43u) >> 9;    /* note / 12, exact below 128 */
             st->vinc[t] = mb_inc[note - 12u * oct] << oct;
             st->vgate[t] = 1u;
@@ -261,7 +279,7 @@ static inline void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
     w = (volatile uint32_t *)(uintptr_t)(zm_fws[st->fw - 1u].tab + 44u * st->slot + 4u * (NB_COL + t));
     cnt = st->cnt[t] >= 15u ? 1u : st->cnt[t] + 1u;
     st->cnt[t] = cnt;
-    *w = (*w & NB_LOWMASK) | NB_EVENT(cnt, note, st->ov[MB_O_SND + t]);
+    *w = (*w & NB_LOWMASK) | NB_EVENT(cnt, note);
 }
 
 #ifndef MB_SELFTEST
@@ -369,7 +387,7 @@ static void mb_take(volatile MbState *st, uint32_t patch)
     st->ppatch = patch;
 }
 
-/* The grids and LENGTH / GRID as saved now (or back to the saved ones). */
+/* The grids and TEMPO / LENGTH / GRID as saved now (or back to the saved ones). */
 MB_COLD(mb_keep)
 static void mb_keep(volatile MbState *st, uint32_t back)
 {
@@ -381,31 +399,34 @@ static void mb_keep(volatile MbState *st, uint32_t back)
             if (back) st->grid[k][i] = st->sgrid[k][i];
             else st->sgrid[k][i] = st->grid[k][i];
         }
-    if (back) {
-        st->ov[MB_O_LEN] = st->sov[0];
-        st->ov[MB_O_GRID] = st->sov[1];
-    } else {
-        st->sov[0] = st->ov[MB_O_LEN];
-        st->sov[1] = st->ov[MB_O_GRID];
+#pragma UNROLL(1)
+    for (i = 0u; i < 3u; i++) {         /* TEMPO, LENGTH, GRID */
+        if (back) st->ov[i] = st->sov[i];
+        else st->sov[i] = st->ov[i];
     }
 }
 
-/* Load: the polled chain's words -> grids, LENGTH, GRID (and the sounds
- * from SndBank's part); the knobs jump to them. */
+/* Load: the polled chain's words -> grids, TEMPO, LENGTH, GRID (and the
+ * sounds from SndBank's part); the knobs jump to them. */
 MB_COLD(mb_load)
 static void mb_load(volatile MbState *st, uint32_t patch)
 {
-    uint32_t n, s8, x;
-    n = mp_unpack((const uint32_t *)st->rw, st->np, st->sb, st->grid[0], st->grid[1], &s8);
+    uint32_t n, s8, tp, x;
+    n = mp_unpack((const uint32_t *)st->rw, st->np, st->sb, st->grid[0], st->grid[1], &s8, &tp);
+    st->ov[MB_O_TEMPO] = tp;
     st->ov[MB_O_LEN] = n == 16u ? 0u : n == 32u ? 1u : n == 64u ? 2u : 3u;
     st->ov[MB_O_GRID] = s8;
     if (st->sb) {
-        x = st->rw[4] & 15u;
-        st->ov[MB_O_SND] = x > MB_OMAX(MB_O_SND) ? 0u : x;
-        x = st->rw[4] >> 4 & 15u;
-        st->ov[MB_O_SND + 1u] = x > MB_OMAX(MB_O_SND) ? 0u : x;
+        x = st->rw[4] & 0xFFu;
+        st->ov[MB_O_SND] = x > MB_OMAX(MB_O_SND) ? MB_SND_DEF : x;
+        x = st->rw[4] >> 8 & 0xFFu;
+        st->ov[MB_O_SND + 1u] = x > MB_OMAX(MB_O_SND) ? MB_SND_DEF : x;
     }
     if (st->off >= n) st->off = n - 1u;
+    if (!st->sv || patch != st->cpatch)
+        st->play = 0u;                  /* first load of a patch: playback starts again at step 1 */
+    else
+        st->len = n;                    /* another writer: the loop takes the new length now */
     mb_keep(st, 0u);
     mb_take(st, patch);
     st->mode = 3u;                      /* the knobs jump to the loaded values */
@@ -418,7 +439,7 @@ static void mb_load(volatile MbState *st, uint32_t patch)
 }
 
 /* Write the packer's words into the chain's parts (only changed columns;
- * Floppy markers by place, SndBank's sound bits; SndBank's knob 1 / 2 table
+ * Floppy markers by place, SndBank's sound values; SndBank's knob 1 / 2 table
  * words keep their bus bits; the own knobs' lock shadow follows). */
 MB_COLD(mb_write)
 static void mb_write(volatile MbState *st, const ZmFw *t, const volatile uint32_t *w)
@@ -434,9 +455,10 @@ static void mb_write(volatile MbState *st, const ZmFw *t, const volatile uint32_
             v = w[4u * q + (p >> 5)] >> sh;
             if (sh + zm_s_wid[c] > 32u) v |= w[4u * q + (p >> 5) + 1u] << (32u - sh);
             v &= (1u << zm_s_wid[c]) - 1u;
-            if (q && c == 0u)
-                v = sbp ? (v & ~0xFFu) | st->ov[MB_O_SND] | st->ov[MB_O_SND + 1u] << 4
-                        : (v & ~15u) | (MB_FL_MARK + q - st->sb);
+            if (sbp && c < 2u)          /* the sound values: knob 1's field, knob 2's bits 0..2 */
+                v = c ? (v & ~7u) | MB_SV(st) >> NB_LOW : MB_SV(st) & NB_LOWMASK;
+            else if (q && c == 0u)
+                v = (v & ~15u) | (MB_FL_MARK + q - st->sb);
             o = 44u * s + 4u * (2u + c);
             x = sbp && c < 2u ? (ZM_U32(t->tab + o) & ~NB_LOWMASK) | v : v;
             if (ZM_U32(t->tab + o) != x) *(volatile uint32_t *)(uintptr_t)(t->tab + o) = x;
@@ -450,14 +472,20 @@ static void mb_write(volatile MbState *st, const ZmFw *t, const volatile uint32_
     }
 }
 
-/* SOUND1 / SOUND2 into SndBank's part (bits 0..7 of its knob 1 field). */
+/* SOUND1 / SOUND2 into SndBank's part (bits 0..15: its knob 1 field, then
+ * bits 0..2 of its knob 2 field). */
 MB_COLD(mb_sounds)
 static void mb_sounds(volatile MbState *st, const ZmFw *t)
 {
-    uint32_t o = 44u * st->pslot[1] + 4u * NB_COL, v = st->ov[MB_O_SND] | st->ov[MB_O_SND + 1u] << 4;
-    *(volatile uint32_t *)(uintptr_t)(t->tab + o) = (ZM_U32(t->tab + o) & ~0xFFu) | v;
-    *(volatile uint32_t *)(uintptr_t)(t->rec + o) = (ZM_U32(t->rec + o) & ~0xFFu) | v;
-    st->cw[4] = (st->cw[4] & ~0xFFu) | v;
+    uint32_t o = 44u * st->pslot[1] + 4u * NB_COL, v = MB_SV(st), c, m, x;
+#pragma UNROLL(1)
+    for (c = 0u; c < 2u; c++, o += 4u) {
+        m = c ? 7u : NB_LOWMASK;
+        x = c ? v >> NB_LOW : v & NB_LOWMASK;
+        *(volatile uint32_t *)(uintptr_t)(t->tab + o) = (ZM_U32(t->tab + o) & ~m) | x;
+        *(volatile uint32_t *)(uintptr_t)(t->rec + o) = (ZM_U32(t->rec + o) & ~m) | x;
+    }
+    st->cw[4] = (st->cw[4] & ~0xFFFFu) | v;
 }
 
 /* The packer finished: save if it fits the chain and decodes back to the
@@ -465,11 +493,11 @@ static void mb_sounds(volatile MbState *st, const ZmFw *t)
 MB_COLD(mb_done)
 static void mb_done(volatile MbState *st, const ZmFw *t, uint32_t me)
 {
-    uint32_t n = 16u << st->ov[MB_O_LEN], ok, s8, i, k, v, prev;
+    uint32_t n = 16u << st->ov[MB_O_LEN], ok, s8, tp, i, k, v, prev;
     ok = !st->job.err && st->job.parts && st->job.parts <= st->np;
     if (ok) {
-        ok = mp_unpack((const uint32_t *)st->job.words, st->np, st->sb, st->vgrid[0], st->vgrid[1], &s8) == n
-             && s8 == st->ov[MB_O_GRID];
+        ok = mp_unpack((const uint32_t *)st->job.words, st->np, st->sb, st->vgrid[0], st->vgrid[1], &s8, &tp) == n
+             && s8 == st->ov[MB_O_GRID] && tp == st->ov[MB_O_TEMPO];
 #pragma UNROLL(1)
         for (k = 0u; k < MB_NTRK && ok; k++)
 #pragma UNROLL(1)
@@ -541,7 +569,7 @@ static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
         if (st->pwait) st->pwait--;
         else {
             mp_start((MpJob *)&st->job, st->grid[0], st->grid[1], 16u << st->ov[MB_O_LEN],
-                     st->ov[MB_O_GRID], st->sb);
+                     st->ov[MB_O_GRID], st->ov[MB_O_TEMPO], st->sb);
             st->pk = 2u;
         }
     } else if (st->pk == 2u) {
@@ -581,7 +609,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     }
     mode = zm_knob(params[5 + MB_MODE], 2u);         /* 0 MENU, 1 TRACK1, 2 TRACK2 */
     r2 = zm_knob(params[5 + MB_EDIT], MB_MAXVAL);
-    r3 = zm_knob(params[5 + MB_SCROLL], MB_MAXOFF);
+    r3 = zm_knob(params[5 + MB_SCROLL], MB_MAXK3);
 
     if (st->magic0 != MB_MAGIC || st->magic1 != MB_MAGIC) {
         st->magic0 = MB_MAGIC;
@@ -592,11 +620,13 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             st->grid[0][i] = MB_REST;
             st->grid[1][i] = MB_REST;
         }
-        st->opt = MB_O_LEN;
+        /* MENU: the option knob 2 shows in the patch (the load's jump keeps it) */
+        st->opt = mode ? MB_O_TEMPO : r2 >= MB_NOPT ? MB_NOPT - 1u : r2;
+        st->ov[MB_O_TEMPO] = 0u;        /* Pedal */
         st->ov[MB_O_LEN] = 0u;          /* 16 steps */
         st->ov[MB_O_GRID] = 0u;         /* 1/16 */
-        st->ov[MB_O_SND] = 0u;          /* PB, both tracks */
-        st->ov[MB_O_SND + 1u] = 0u;
+        st->ov[MB_O_SND] = MB_SND_DEF;  /* PB at 50, both tracks */
+        st->ov[MB_O_SND + 1u] = MB_SND_DEF;
         st->off = r3 > 15u ? 15u : r3;
         if (mode) st->grid[mode - 1u][st->off] = (uint8_t)r2;   /* knob 2's patch value: its step's */
         st->mode = mode ? mode : 3u;    /* MENU: the knobs jump to its values below */
@@ -618,6 +648,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             st->venv[t] = 0.0f;
             st->vtgt[t] = 0.0f;
             st->vlp[t] = 0.0f;
+            st->vgn[t] = 0.0f;
         }
         st->lk = 0u;
         st->lfw = 0u;
@@ -845,18 +876,19 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
 
 #ifdef MB_SELFTEST
     /* self-test: decoder, one vector per call (n, step flag, FNV-1a hash of
-     * both grids); then (pack build, MB_SELFTEST 2) packer, one P vector at
-     * a time (keys, bits, parts, words); result into the own knob 1 record
-     * column for `patch`: 0 running, 1 all passed, 2000 + i decode vector i
-     * failed first, 3000 + i pack vector i, 4000 + i its emitted bits !=
-     * the DP's */
+     * both grids + the tempo code); then (pack build, MB_SELFTEST 2) packer,
+     * one P vector at a time (key, bits, parts, words); result into the own
+     * knob 1 record column for `patch`: 0 running, 1 all passed, 2000 + i
+     * decode vector i failed first, 3000 + i pack vector i, 4000 + i its
+     * emitted bits != the DP's */
     if (st->ti < MB_NTEST) {
-        uint32_t vv = mb_test.vec[st->ti][0], s8, nn, h, j;
+        uint32_t vv = mb_test.vec[st->ti][0], s8, tp, nn, h, j;
         nn = mp_unpack(&mb_test.words[vv & 0xFFFFu], vv >> 16 & 15u, vv >> 28 & 1u,
-                       st->tgrid[0], st->tgrid[1], &s8);
+                       st->tgrid[0], st->tgrid[1], &s8, &tp);
         h = 2166136261u;
 #pragma UNROLL(1)
         for (j = 0u; j < 2u * nn; j++) h = (h ^ st->tgrid[j >= nn][j >= nn ? j - nn : j]) * 16777619u;
+        h = (h ^ tp) * 16777619u;
         if ((nn != 16u << (vv >> 24 & 3u) || s8 != (vv >> 20 & 15u) || h != mb_test.vec[st->ti][1])
             && !st->tres)
             st->tres = 2000u + st->ti;
@@ -865,14 +897,14 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     } else if (st->pi < MB_NPTEST) {
         uint32_t pv = mb_test.pvec[st->pi][0], pb = mb_test.pvec[st->pi][1], parts, j, bad, nn;
         if (!st->pgo) {
-            nn = 16u << (pv >> 16 & 3u);
-            mp_start((MpJob *)&st->job, &mb_test.grids[pv & 0xFFFFu],
-                     (pv >> 19 & 1u) ? &mb_test.grids[(pv & 0xFFFFu) + nn] : 0, nn, pv >> 18 & 1u,
-                     pb >> 15 & 1u);
+            nn = 16u << (pv >> 20 & 3u);
+            mp_start((MpJob *)&st->job, &mb_test.grids[pv & 0xFFFu],
+                     (pv >> 23 & 1u) ? &mb_test.grids[(pv & 0xFFFu) + nn] : 0, nn, pv >> 22 & 1u,
+                     pv >> 12 & 0xFFu, pb >> 15 & 1u);
             st->pgo = 1u;
         } else if (mp_run((MpJob *)&st->job, MB_TUNITS)) {
-            parts = pv >> 20 & 15u;
-            bad = st->job.okey != (pv >> 24 & 15u) || st->job.okey2 != (pv >> 28 & 15u)
+            parts = pv >> 24 & 15u;
+            bad = st->job.okey != (pv >> 28 & 15u)
                   || st->job.bits != (pb & 0x7FFFu) || st->job.parts != parts;
 #pragma UNROLL(1)
             for (j = 0u; j < 4u * parts && !bad; j++)
@@ -902,8 +934,9 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             st->len = n;
             start = 1u;
         } else {
-            x = st->fw;                 /* the pedal tempo (as SongBox's ss_pedal_bpm) */
-            b = x ? (int)ZM_U32(zm_fws[x - 1u].mstride ? zm_fws[x - 1u].cursor + 8u : MB_G1_BPM) : 120;
+            x = st->fw;                 /* TEMPO, Pedal: the pedal tempo (as SongBox's ss_pedal_bpm) */
+            b = st->ov[MB_O_TEMPO] ? 39 + (int)st->ov[MB_O_TEMPO] :
+                x ? (int)ZM_U32(zm_fws[x - 1u].mstride ? zm_fws[x - 1u].cursor + 8u : MB_G1_BPM) : 120;
             st->ph += (float)(b >= 40 && b <= 250 ? b : 120)
                       * (st->ov[MB_O_GRID] ? 0.5f * MB_PH_PER_BPM : MB_PH_PER_BPM);
             if (st->ph >= 1.0f) {       /* the next step */
@@ -964,7 +997,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
 #pragma UNROLL(1)
     for (t = 0u; t < MB_NTRK; t++) {
         float *fx = (float *)(uintptr_t)ctx[5];
-        float env0 = st->venv[t], env, de, lp, saw;
+        float env0 = st->venv[t], env, de, lp, saw, gn = st->vgn[t];
         uint32_t ph, inc;
         if (st->vgate[t]) {
             st->vtgt[t] *= MB_V_FALL;
@@ -982,7 +1015,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
                 saw = (float)(int)ph * (1.0f / 2147483648.0f);
                 lp += (saw - lp) * MB_V_LP;
                 env0 += de;
-                saw = lp * env0 * MB_V_GAIN;
+                saw = lp * env0 * gn;
                 fx[i] += saw;
                 fx[8u + i] += saw;
             }
@@ -1013,8 +1046,8 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
 
 /* Knob k (0-based), value v: knob 1 MENU / TRACK1 / TRACK2; knob 2 its own
  * name (a track: descriptor entry 3 as the audio callback wrote it) or the
- * MENU option; knob 3 SCROLL or the MENU option's value. One shared copy in
- * .text. */
+ * MENU option; knob 3 SCROLL or the MENU option's value (TEMPO: Pedal or
+ * the BPM). One shared copy in .text. */
 #pragma CODE_SECTION(mb_text, ".text")
 #pragma FUNC_CANNOT_INLINE(mb_text)
 static int mb_text(uint32_t k, uint32_t v, char *s)
@@ -1022,7 +1055,7 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
     const volatile MbState *st = mb_g;
     const volatile unsigned char *nm = (const volatile unsigned char *)&ZM_DESC[12u * 3u];
     const char *p;
-    uint32_t menu = st && st->mode == 0u, o;
+    uint32_t menu = st && st->mode == 0u, o, lv = MB_LEVELS;
     int n = 0;
     if (k == MB_MODE) p = mb_str(MB_S_MODE + (v < 2u ? v : 2u));
     else if (k == MB_EDIT && menu) p = mb_str(MB_S_OPT + (v < MB_NOPT ? v : MB_NOPT - 1u));
@@ -1036,10 +1069,34 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
         return n;
     } else if (menu) {
         o = st->opt < MB_NOPT ? st->opt : MB_NOPT - 1u;
-        p = mb_str(MB_VBASE(o) + (v < MB_OMAX(o) ? v : MB_OMAX(o)));
+        if (v > MB_OMAX(o)) v = MB_OMAX(o);
+        if (o == MB_O_TEMPO && v) {     /* the BPM, 40..250 */
+            v += 39u;
+            if (v >= 100u) {
+                o = v >= 200u ? 2u : 1u;
+                s[n++] = (char)('0' + o);
+                v -= 100u * o;
+            }
+            o = (v * 205u) >> 11;       /* v / 10, exact for v < 1029 */
+            s[n++] = (char)('0' + o);
+            s[n++] = (char)('0' + v - 10u * o);
+            s[n] = 0;
+            return n;
+        }
+        if (o >= MB_O_SND) {            /* sound value: sound, level */
+            lv = v;
+            v = (v * 205u) >> 12;       /* v / 20, exact below 1024 */
+            lv -= MB_LEVELS * v;
+        }
+        p = o == MB_O_TEMPO ? mb_str(MB_S_PEDAL) : mb_str(MB_VBASE(o) + v);
     } else p = mb_str(MB_S_SCROLL);
 #pragma UNROLL(1)
     for (; n < 7 && p[n]; n++) s[n] = p[n];
+    if (lv < MB_LEVELS) {               /* SOUND: ":" + the level x 5, two digits ("EP:70") */
+        s[n++] = ':';
+        s[n++] = (char)('0' + (lv >> 1));
+        s[n++] = (lv & 1u) ? '5' : '0';
+    }
     s[n] = 0;
     return n;
 }
@@ -1111,15 +1168,28 @@ int GetString_MbP8(unsigned int v, char *s) { (void)v; return mb_dtext(4u, s); }
 int GetString_MbP9(unsigned int v, char *s) { (void)v; return mb_dtext(5u, s); }
 #endif
 
-/* Storage knobs 4-9: text "-" (the value is stored data). */
-#pragma CODE_SECTION(GetString_MbData, ".text")
-int GetString_MbData(unsigned int v, char *s)
+/* Storage knobs 4-9 (names Data1..Data6; the values are stored data):
+ * DON'T / TURN / THESE on knobs 4-6 and again on 7-9 (one body per text:
+ * the value doesn't say which knob). */
+static const char mb_sdata[3][6] = { "DON'T", "TURN", "THESE" };
+
+#pragma CODE_SECTION(mb_dstr, ".text")
+#pragma FUNC_CANNOT_INLINE(mb_dstr)
+static int mb_dstr(uint32_t i, char *s)
 {
-    (void)v;
-    s[0] = '-';
-    s[1] = 0;
-    return 1;
+    int n = 0;
+#pragma UNROLL(1)
+    for (; mb_sdata[i][n]; n++) s[n] = mb_sdata[i][n];
+    s[n] = 0;
+    return n;
 }
+
+#pragma CODE_SECTION(GetString_MbData1, ".text")
+int GetString_MbData1(unsigned int v, char *s) { (void)v; return mb_dstr(0u, s); }
+#pragma CODE_SECTION(GetString_MbData2, ".text")
+int GetString_MbData2(unsigned int v, char *s) { (void)v; return mb_dstr(1u, s); }
+#pragma CODE_SECTION(GetString_MbData3, ".text")
+int GetString_MbData3(unsigned int v, char *s) { (void)v; return mb_dstr(2u, s); }
 
 typedef void (*MbWrite)(float *dst, float v, float k);
 

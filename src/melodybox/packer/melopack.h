@@ -2,16 +2,19 @@
  * whose module docstring is the spec): the decoder (mp_unpack) and the
  * packer (mp_start + mp_run, a job a few units per call).
  *
- * Two tracks in one token stream: track 1 (settings token, events), then
- * track 2 (its key in 2 tokens, events); an empty track 2 is not written
- * and the last written track has no END.
+ * Two tracks in one token stream, one key for both: track 1 (settings
+ * token, the tempo if not Pedal, events), then track 2 (events); an empty
+ * track 2 is not written and the last written track has no END. Tempo:
+ * ESC EXTEND (never written at slot 0 otherwise) + 3 tokens v: code v + 1
+ * (0 Pedal = no ESC EXTEND there; 1..211 = 40..250 BPM).
  *
  * Grid slot values: MP_REST, MP_HOLD, MP_NOTE + pitch (pitch 0..36).
  * Storage words: 4 per part, part q in words[4 q .. 4 q + 3] (bits 128 q
- * ..). Part 0 = Melody Box's own storage knobs 4-9 (67 bits): track 1's key
+ * ..). Part 0 = Melody Box's own storage knobs 4-9 (67 bits): the key
  * in bits 0..3, then 21 tokens (bits 4..66). Parts 1..4 = the storage
- * effects: with SndBank in the chain (sb) it is part 1: bits 0..7 the two
- * tracks' sounds (not read or written here), then 32 tokens (bits 8..103);
+ * effects: with SndBank in the chain (sb) it is part 1: bits 0..15 the two
+ * tracks' sound values (not read or written here), then 30 tokens (bits
+ * 16..105);
  * the others (Floppies): bits 0..3 the part marker, then 34 tokens (bits
  * 4..105).
  *
@@ -43,9 +46,8 @@
 #define MP_NTOK      34u                /* 3-bit tokens per storage effect (parts 1..) */
 #define MP_OWN_TOK   21u                /* tokens in part 0 (Melody Box's knobs 4-9) */
 #define MP_OWN_END   (MP_KEY_BITS + 3u * MP_OWN_TOK)   /* 67: part 0's end bit */
-#define MP_SB_SKIP    8u                /* SndBank's part: sound bits before its tokens */
-#define MP_SB_TOK    32u                /* tokens in SndBank's part */
-#define MP_SB_END    (128u + MP_SB_SKIP + 3u * MP_SB_TOK)  /* 232: SndBank part's end bit */
+#define MP_SB_SKIP   16u                /* SndBank's part: sound value bits before its tokens */
+#define MP_SB_TOK    30u                /* tokens in SndBank's part (they end at bit 106, as the others') */
 /* tokens in parts 0 .. parts - 1 (sb: part 1 is SndBank's) */
 #define MP_NTOKS(parts, sb) (MP_OWN_TOK + MP_NTOK * ((parts) - 1u) \
                              - ((sb) && (parts) > 1u ? MP_NTOK - MP_SB_TOK : 0u))
@@ -53,6 +55,7 @@
 #define MP_CUR_MIN   (-14)
 #define MP_CUR_MAX   28
 #define MP_L_DEFAULT 1u                 /* LEN index: 2 slots */
+#define MP_TEMPO_MAX 211u               /* tempo codes: 0 Pedal, 1..211 = 40..250 BPM */
 
 #define MP_ESC       0u                 /* main token 0 */
 #define MP_E_END     0u                 /* ESC codes */
@@ -112,24 +115,25 @@ static inline uint32_t mp_get3(const uint32_t *w, uint32_t a)
     return lo & 7u;
 }
 
-/* Bit address of the token after the one at a (sb: part 1 is SndBank's; a
- * token ends at bit 232 only there, so only part 1's start needs sb). Out
- * of line (size: many call sites; callers are in .text too). */
+/* Bit address of the token after the one at a (sb: part 1 is SndBank's;
+ * only part 1's start needs sb). Out of line (size: many call sites;
+ * callers are in .text too). */
 MP_COLD(mp_next)
 static uint32_t mp_next(uint32_t a, uint32_t sb)
 {
     a += 3u;
     if (a == MP_OWN_END) a = sb ? 128u + MP_SB_SKIP : 128u + MP_KEY_BITS;
-    else if ((a & 127u) == 106u || a == MP_SB_END) a = (a | 127u) + 1u + MP_KEY_BITS;
+    else if ((a & 127u) == 106u) a = (a | 127u) + 1u + MP_KEY_BITS;
     return a;
 }
 
 /* Storage words (4 per part, parts 1..5; sb: part 1 is SndBank's) -> track
  * grids g1, g2 [0 .. n - 1]; returns n (16, 32, 64 or 128, both tracks);
- * *step8 = the step length flag (0 = 1/16, 1 = 1/8). */
+ * *step8 = the step length flag (0 = 1/16, 1 = 1/8), *tempo = the tempo
+ * code (0 Pedal, 1..211). */
 MP_COLD(mp_unpack)
 static uint32_t mp_unpack(const uint32_t *w, uint32_t parts, uint32_t sb, volatile uint8_t *g1,
-                          volatile uint8_t *g2, uint32_t *step8)
+                          volatile uint8_t *g2, uint32_t *step8, uint32_t *tempo)
 {
     uint32_t key, ntok, nt = 0u, a = MP_KEY_BITS, n, dt, p, L, rleft, rdist, trk;
     uint32_t t, e, x, i, dist, ln, v;
@@ -148,16 +152,24 @@ static uint32_t mp_unpack(const uint32_t *w, uint32_t parts, uint32_t sb, volati
     x = mp_get3(w, a); a = mp_next(a, sb); nt++;
     n = 16u << (x & 3u);
     *step8 = x >> 2 & 1u;
+    *tempo = 0u;
+    if (nt + 5u <= ntok && mp_get3(w, a) == MP_ESC && mp_get3(w, mp_next(a, sb)) == MP_E_EXT) {
+        a = mp_next(mp_next(a, sb), sb);    /* the tempo: ESC EXTEND + 3 tokens */
+        v = 0u;
+#pragma UNROLL(1)
+        for (i = 0u; i < 3u; i++) {
+            v |= mp_get3(w, a) << (3u * i);
+            a = mp_next(a, sb);
+        }
+        nt += 5u;
+        *tempo = v + 1u < MP_TEMPO_MAX ? v + 1u : MP_TEMPO_MAX;
+    }
     dt = n <= 64u ? 2u : 3u;
 #pragma UNROLL(1)
     for (trk = 0u; trk < 2u; trk++) {
         g = g1;
-        if (trk) {                          /* track 2: its key (2 tokens; fewer left: empty) */
-            if (nt + 2u > ntok) break;
-            key = mp_get3(w, a); a = mp_next(a, sb);
-            key |= (mp_get3(w, a) & 1u) << 3; a = mp_next(a, sb);
-            nt += 2u;
-            if (key > 11u) key = 0u;
+        if (trk) {                          /* track 2 (the same key; no token left: empty) */
+            if (nt >= ntok) break;
             g = g2;
         }
         p = 0u;
@@ -275,22 +287,25 @@ static uint32_t mp_unpack(const uint32_t *w, uint32_t parts, uint32_t sb, volati
 
 /* ------------------------------------------------------------------ packer
  * mp_start + mp_run: the model's pack() as a job, a few units per audio
- * call (a unit: one key's base tables, one row of one match pass, one DP
- * slot, or the emit). Same loops, orders and strict comparisons as the
- * model, so the same key and tokens come out (the self-test compares the
- * words). Per key: base tables (note bits, prefix sums, runs), 8 match
- * passes (COPY with shift 0, -1, 1, -2, 2, -3, 3, then RHYTHM), the DP over
- * slots 0..n with back-pointers; the cheapest key's tables stay in one of
- * two buffers. Then the path's moves -> tokens -> words; then the same for
- * track 2 (if not empty), its tokens after track 1's. */
+ * call (a unit: one track's base tables for one key, one row of one match
+ * pass, one DP slot, or one track's emit). Same loops, orders and strict
+ * comparisons as the model, so the same key and tokens come out (the
+ * self-test compares the words). Per key and track (track 2 only if not
+ * empty): base tables (note bits, prefix sums, runs), 8 match passes (COPY
+ * with shift 0, -1, 1, -2, 2, -3, 3, then RHYTHM), the DP over slots 0..n
+ * with back-pointers; the key with the cheapest sum of both tracks keeps
+ * its tables in one of two buffer pairs. Then per track the path's moves
+ * -> tokens -> words, track 2's after track 1's. */
 
 #define MP_INF       0xFFFFu
 #define MP_C_SET     3u
-#define MP_C_KEY2    6u                 /* track 2's key: 2 tokens */
+#define MP_C_TEMPO   15u                /* tempo (not Pedal): ESC EXTEND + 3 tokens */
 #define MP_C_ESC     6u
 #define MP_C_LEN     9u
 #define MP_C_JUMP    9u
 #define MP_C_EXT     9u
+/* END cost of the current track: only track 1 before a track 2 */
+#define MP_ENDC(j)   (!(j)->trk && (j)->has2 ? MP_C_ESC : 0u)
 #define MP_MAXPARTS  5u                 /* Melody Box + 4 storage effects */
 #define MP_NPASS     8u                 /* 7 COPY shifts + RHYTHM */
 #define MP_MV_N 1u                      /* move kinds (0 = none) */
@@ -314,20 +329,19 @@ typedef struct {
 
 typedef struct {
     uint32_t phase;                     /* MP_PH_* */
-    uint32_t n, step8, key, pass, p, cur, bidx, bcost;
-    uint32_t trk, has2, c0, endc;       /* track 0 / 1, track 2 not empty, DP start cost, END cost */
+    uint32_t n, step8, tempo, key, pass, p, cur, bidx, bcost;
+    uint32_t trk, has2;                 /* track 0 / 1, track 2 not empty */
     uint32_t sb;                        /* part 1 is SndBank's */
     uint32_t a, nt;                     /* emit: next bit address, tokens so far */
-    uint8_t g[MP_MAXN];                 /* the grid being packed (normalised) */
-    uint8_t g2[MP_MAXN];                /* track 2's grid (normalised) */
+    uint8_t g[2][MP_MAXN];              /* the tracks' grids (normalised) */
     uint8_t row[2][MP_MAXN + 1];        /* match runs: rows p + 1 and p */
     uint8_t sh[MP_NPITCH + 2];          /* this pass: shifted value, 0xFF = none */
     uint16_t cost[MP_MAXN + 1][8];
     uint32_t moves[MP_MAXN + 1];
-    MpTab tab[2];
+    MpTab tab[2][2];                    /* [buffer pair][track] */
     /* result (phase MP_PH_DONE) */
     uint32_t words[4u * MP_MAXPARTS];
-    uint32_t bits, parts, okey, okey2, err;     /* keys of tracks 1 / 2; err: emitted bits != the DP's */
+    uint32_t bits, parts, okey, err;    /* the key; err: emitted bits != the DP's */
 } MpJob;
 
 #define MP_PH_INIT 1u
@@ -356,11 +370,11 @@ static inline int mp_pass_shift(uint32_t ps)
 }
 
 /* Start a pack job: track grids g, g2 (n = 16, 32, 64 or 128 slots each;
- * g2 0 = empty), step flag, sb (part 1 is SndBank's; its sound bits left
- * 0). */
+ * g2 0 = empty), step flag, tempo code (0 Pedal, 1..211), sb (part 1 is
+ * SndBank's; its sound value bits left 0). */
 MP_COLD(mp_start)
 static void mp_start(MpJob *j, const volatile uint8_t *g, const volatile uint8_t *g2, uint32_t n,
-                     uint32_t step8, uint32_t sb)
+                     uint32_t step8, uint32_t tempo, uint32_t sb)
 {
     volatile MpJob *vj = (volatile MpJob *)j;
     uint32_t i, v, prev = MP_REST, prev2 = MP_REST, has2 = 0u;
@@ -368,21 +382,19 @@ static void mp_start(MpJob *j, const volatile uint8_t *g, const volatile uint8_t
     for (i = 0u; i < n; i++) {          /* normalise */
         v = g[i];
         if (v > MP_NPITCH + 1u || (v == MP_HOLD && prev == MP_REST)) v = MP_REST;
-        vj->g[i] = (uint8_t)v;
+        vj->g[0][i] = (uint8_t)v;
         prev = v;
         v = g2 ? g2[i] : MP_REST;
         if (v > MP_NPITCH + 1u || (v == MP_HOLD && prev2 == MP_REST)) v = MP_REST;
-        vj->g2[i] = (uint8_t)v;
+        vj->g[1][i] = (uint8_t)v;
         prev2 = v;
         if (v != MP_REST) has2 = 1u;
     }
     vj->trk = 0u;
     vj->has2 = has2;
-    vj->c0 = MP_C_SET;
-    vj->endc = has2 ? MP_C_ESC : 0u;
-    vj->okey2 = 0u;
     vj->n = n;
     vj->step8 = step8;
+    vj->tempo = tempo > MP_TEMPO_MAX ? MP_TEMPO_MAX : tempo;
     vj->sb = sb;
     vj->key = 0u;
     vj->cur = 0u;
@@ -392,11 +404,11 @@ static void mp_start(MpJob *j, const volatile uint8_t *g, const volatile uint8_t
     vj->phase = MP_PH_INIT;
 }
 
-/* Key j->key's base tables into tab[j->cur]. */
+/* Key j->key's base tables of the current track into tab[j->cur][j->trk]. */
 MP_INLINE(mp_tables)
 static inline void mp_tables(volatile MpJob *j)
 {
-    volatile MpTab *t = &j->tab[j->cur];
+    volatile MpTab *t = &j->tab[j->cur][j->trk];
     uint32_t n = j->n, p, q, v;
     int cur = MP_START_DEG, d, s;
     t->key = j->key;
@@ -404,8 +416,8 @@ static inline void mp_tables(volatile MpJob *j)
     t->pre[0] = 0u;
 #pragma UNROLL(1)
     for (p = 0u; p < n; p++) {
-        if (j->g[p] >= MP_NOTE) {
-            d = mp_pitch_deg((int)j->g[p] - (int)MP_NOTE, (int)j->key, &s);
+        if (j->g[j->trk][p] >= MP_NOTE) {
+            d = mp_pitch_deg((int)j->g[j->trk][p] - (int)MP_NOTE, (int)j->key, &s);
             t->nc[p] = (uint8_t)(mp_interval_bits(d - cur) + (s ? MP_C_ESC : 0u));
             cur = d;
         } else
@@ -418,7 +430,7 @@ static inline void mp_tables(volatile MpJob *j)
 #pragma UNROLL(1)
     for (p = n; p > 0u; p--) {
         q = p - 1u;
-        v = j->g[q];
+        v = j->g[j->trk][q];
         t->hold_run[q] = v == MP_HOLD ? (uint8_t)(t->hold_run[p] + 1u) : 0u;
         t->rest_run[q] = v == MP_REST ? (uint8_t)(t->rest_run[p] + 1u) : 0u;
         t->note_len[q] = v >= MP_NOTE ? (uint8_t)(1u + t->hold_run[p]) : 0u;
@@ -464,13 +476,13 @@ static inline void mp_pass_start(volatile MpJob *j)
 MP_INLINE(mp_runs_row)
 static inline void mp_runs_row(volatile MpJob *j)
 {
-    volatile MpTab *t = &j->tab[j->cur];
-    uint32_t p = j->p, d, a = j->g[p], b, r, rh = j->pass >= 7u, m;
+    volatile MpTab *t = &j->tab[j->cur][j->trk];
+    uint32_t p = j->p, d, a = j->g[j->trk][p], b, r, rh = j->pass >= 7u, m;
     volatile uint8_t *old = j->row[(p & 1u) ^ 1u], *nw = j->row[p & 1u];
     int s = rh ? 0 : mp_pass_shift(j->pass);
 #pragma UNROLL(1)
     for (d = 1u; d <= p; d++) {
-        b = j->g[p - d];
+        b = j->g[j->trk][p - d];
         m = rh ? ((a >= MP_NOTE) == (b >= MP_NOTE) && (a >= MP_NOTE || a == b)) : (a == j->sh[b]);
         if (m) {
             r = old[d] + 1u;
@@ -504,7 +516,7 @@ static inline void mp_relax(volatile MpJob *j, volatile MpTab *t, uint32_t q, ui
 MP_INLINE(mp_dp_slot)
 static inline void mp_dp_slot(volatile MpJob *j)
 {
-    volatile MpTab *t = &j->tab[j->cur];
+    volatile MpTab *t = &j->tab[j->cur][j->trk];
     uint32_t n = j->n, p = j->p, li, lj, x, c, f, v, r, ln, q, dt = n <= 64u ? 2u : 3u;
     uint32_t cb = 3u * (4u + dt), rb = 3u * (3u + dt);
 #pragma UNROLL(1)
@@ -512,7 +524,7 @@ static inline void mp_dp_slot(volatile MpJob *j)
         c = j->cost[p][li];
         if (c >= MP_INF) continue;
         if (p == n || t->rest_run[p] == n - p) {
-            f = c + (p < n ? j->endc : 0u);
+            f = c + (p < n ? MP_ENDC(j) : 0u);
             if (f < t->best) {
                 t->best = f;
                 t->bp = p;
@@ -520,7 +532,7 @@ static inline void mp_dp_slot(volatile MpJob *j)
             }
             if (p == n) continue;
         }
-        v = j->g[p];
+        v = j->g[j->trk][p];
         if (v >= MP_NOTE) {
 #pragma UNROLL(1)
             for (lj = 0u; lj < 8u; lj++)
@@ -539,7 +551,7 @@ static inline void mp_dp_slot(volatile MpJob *j)
                 if (mp_t.len[lj] <= r)
                     mp_relax(j, t, p + mp_t.len[lj], lj, c + MP_C_ESC + (lj != li ? MP_C_LEN : 0u),
                              MP_MV(MP_MV_R, p, li, 0u));
-            if (p > 0u && j->g[p - 1u] == MP_REST) {
+            if (p > 0u && j->g[j->trk][p - 1u] == MP_REST) {
 #pragma UNROLL(1)
                 for (x = 0u; x < 8u; x++)
                     if (mp_t.len[x] <= r)
@@ -608,19 +620,19 @@ static inline int mp_last_deg(volatile MpJob *j, uint32_t q, int key)
     int s;
 #pragma UNROLL(1)
     for (; q > 0u; q--)
-        if (j->g[q - 1u] >= MP_NOTE)
-            return mp_pitch_deg((int)j->g[q - 1u] - (int)MP_NOTE, key, &s);
+        if (j->g[j->trk][q - 1u] >= MP_NOTE)
+            return mp_pitch_deg((int)j->g[j->trk][q - 1u] - (int)MP_NOTE, key, &s);
     return MP_START_DEG;
 }
 
-/* The current track's best key: DP path -> tokens -> words (track 1:
- * words cleared, its key in bits 0..3, the settings token; track 2: its key
- * tokens, after track 1's tokens); err if the tokens' bits differ from the
- * DP's. */
+/* The current track with the best key: DP path -> tokens -> words (track
+ * 1: words cleared, the key in bits 0..3, the settings token, the tempo if
+ * not Pedal; track 2: after track 1's tokens); err if the tokens' bits
+ * differ from the DP's. */
 MP_INLINE(mp_emit)
 static inline void mp_emit(volatile MpJob *j)
 {
-    volatile MpTab *t = &j->tab[j->bidx];
+    volatile MpTab *t = &j->tab[j->bidx][j->trk];
     uint32_t n = j->n, key = t->key, k = 0u, q, lj, mv, kind, p, li, x, i, dd;
     uint32_t nt0 = j->nt, dt = n <= 64u ? 2u : 3u;
     int cur = MP_START_DEG, d, s;
@@ -640,10 +652,13 @@ static inline void mp_emit(volatile MpJob *j)
         j->words[0] = key;
         j->okey = key;
         mp_put(j, (n == 16u ? 0u : n == 32u ? 1u : n == 64u ? 2u : 3u) | j->step8 << 2);
-    } else {
-        j->okey2 = key;
-        mp_put(j, key & 7u);
-        mp_put(j, key >> 3);
+        if (j->tempo) {
+            mp_put(j, MP_ESC);
+            mp_put(j, MP_E_EXT);
+            dd = j->tempo - 1u;
+#pragma UNROLL(1)
+            for (i = 0u; i < 3u; i++) mp_put(j, dd >> (3u * i) & 7u);
+        }
     }
 #pragma UNROLL(1)
     while (k) {
@@ -660,7 +675,7 @@ static inline void mp_emit(volatile MpJob *j)
             mp_put(j, lj);
         }
         if (kind == MP_MV_N) {
-            d = mp_pitch_deg((int)j->g[p] - (int)MP_NOTE, (int)key, &s);
+            d = mp_pitch_deg((int)j->g[j->trk][p] - (int)MP_NOTE, (int)key, &s);
             mp_note_tokens(j, d, s, cur);
             cur = d;
         } else if (kind == MP_MV_R) {
@@ -688,14 +703,14 @@ static inline void mp_emit(volatile MpJob *j)
             mp_put(j, x);
 #pragma UNROLL(1)
             for (i = p; i < q; i++)
-                if (j->g[i] >= MP_NOTE) {
-                    d = mp_pitch_deg((int)j->g[i] - (int)MP_NOTE, (int)key, &s);
+                if (j->g[j->trk][i] >= MP_NOTE) {
+                    d = mp_pitch_deg((int)j->g[j->trk][i] - (int)MP_NOTE, (int)key, &s);
                     mp_note_tokens(j, d, s, cur);
                     cur = d;
                 }
         }
     }
-    if (t->bp < n && j->endc) {
+    if (t->bp < n && MP_ENDC(j)) {
         mp_put(j, MP_ESC);
         mp_put(j, MP_E_END);
     }
@@ -723,7 +738,7 @@ static inline void mp_finish(volatile MpJob *j)
 }
 
 /* Run the job for up to `units` units; returns 1 once done (result in
- * j->words / bits / parts / okey / okey2 / err). */
+ * j->words / bits / parts / okey / err). */
 MP_COLD(mp_run)
 static uint32_t mp_run(MpJob *jp, uint32_t units)
 {
@@ -732,7 +747,7 @@ static uint32_t mp_run(MpJob *jp, uint32_t units)
     uint32_t i, k;
 #pragma UNROLL(1)
     for (; units; units--) {
-        t = &j->tab[j->cur];
+        t = &j->tab[j->cur][j->trk];
         if (j->phase == MP_PH_INIT) {
             mp_tables(j);
             j->pass = 0u;
@@ -751,7 +766,8 @@ static uint32_t mp_run(MpJob *jp, uint32_t units)
                             j->cost[i][k] = MP_INF;
                             t->frm[i][k] = 0u;
                         }
-                    j->cost[0][MP_L_DEFAULT] = (uint16_t)j->c0;
+                    j->cost[0][MP_L_DEFAULT] =      /* track 1: settings (+ tempo); track 2: none */
+                        (uint16_t)(j->trk ? 0u : MP_C_SET + (j->tempo ? MP_C_TEMPO : 0u));
                     t->best = 0xFFFFFFFFu;
                     t->bp = 0u;
                     t->bli = 0u;
@@ -761,26 +777,26 @@ static uint32_t mp_run(MpJob *jp, uint32_t units)
             }
         } else if (j->phase == MP_PH_DP) {
             mp_dp_slot(j);
-            if (++j->p > j->n) {                /* this key done */
-                if (t->best < j->bcost) {       /* strictly cheaper: keep its buffer */
-                    j->bcost = t->best;
-                    j->bidx = j->cur;
-                    j->cur ^= 1u;
+            if (++j->p > j->n) {                /* this track done */
+                if (!j->trk && j->has2) {       /* track 2, the same key */
+                    j->trk = 1u;
+                    j->phase = MP_PH_INIT;
+                } else {                        /* this key done */
+                    k = j->tab[j->cur][0].best + (j->has2 ? j->tab[j->cur][1].best : 0u);
+                    if (k < j->bcost) {         /* strictly cheaper: keep its buffer pair */
+                        j->bcost = k;
+                        j->bidx = j->cur;
+                        j->cur ^= 1u;
+                    }
+                    j->trk = 0u;
+                    j->phase = ++j->key < 12u ? MP_PH_INIT : MP_PH_EMIT;
                 }
-                j->phase = ++j->key < 12u ? MP_PH_INIT : MP_PH_EMIT;
             }
         } else if (j->phase == MP_PH_EMIT) {
             mp_emit(j);
-            if (!j->trk && j->has2) {           /* track 2: its grid, the keys again */
-#pragma UNROLL(1)
-                for (i = 0u; i < j->n; i++) j->g[i] = j->g2[i];
+            if (!j->trk && j->has2)             /* track 2's tokens next */
                 j->trk = 1u;
-                j->key = 0u;
-                j->bcost = 0xFFFFFFFFu;
-                j->c0 = MP_C_KEY2;
-                j->endc = 0u;
-                j->phase = MP_PH_INIT;
-            } else {
+            else {
                 mp_finish(j);
                 j->phase = MP_PH_DONE;
             }
