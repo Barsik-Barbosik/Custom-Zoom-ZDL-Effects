@@ -181,3 +181,26 @@ Rock organ per sample: ~213 cycles → ~36 cycles.
   return at once when every knob column is as last written, cut it to
   **12..17 %**; the overall peak is back to AutoKnob's range (**~23..31 %**,
   mean **2.5..4 %**).
+
+## 8. Shorter chains when a loop doesn't pipeline
+
+From matujuice's
+[effects pack](https://github.com/matujuice/zoom-ms-zdl-effects-pack)
+(Washout, DJFilter, Takeoff; commit `4f26394`). The numbers are theirs,
+from the cl6x schedules, not measured by us. A loop that isn't software
+pipelined (section 4) costs about its longest chain of dependent
+operations per sample, so the same maths regrouped runs faster. Their
+output stayed within −126 dB of the old code.
+
+| Trick | Their result |
+|---|---|
+| **Work out the part that needs only the filter memories before the input arrives**, so the input reaches the output in one multiply-add: state-variable filter `k1 = a1·m1 − a2·m2`, `k2 = m2 + a2·m1 − a3·m2`, `out = (cb·k1 + cl·k2) + cG·x` with `cG = co + cb·a2 + cl·a3` once per block. A second filter in series no longer waits for the first one's whole sum | 62 → 44 cycles per sample |
+| All-pass `d − g·(v + g·d)` written as `(1 − g²)·d − g·v` | one multiply fewer in the chain |
+| Crossfade `d + e·(dg·d + wg·w − d)` as two gains that ramp: `d + (ga·d + gb·w)`, `ga += dga`, `gb += dgb` per sample. Still exactly dry when wet = dry | 46 → 37 cycles per sample |
+| A filter update regrouped around a per-block constant (`c2 = 1 − f·(f + d)`): three multiplies side by side, not six in a row | 53 → 41 cycles per sample |
+| Ring buffer reads: check once per call whether all 8 reads stay inside the ring, then read with a plain pointer; a wrapping loop only for the rare call at the end. Stores need no wrap when the write position and ring length are multiples of 8 | no wrap test per sample |
+| Independent per-sample work (soft clips) in its own loop unrolled ×2; the sample-to-sample filters in another | two samples side by side |
+
+Unrolling costs size: an unrolled 14-word loop grew their looper from
+31,394 to 32,610 B, past what loads on the pedal, so it was rolled back
+for that effect only. Measure both (section 5).

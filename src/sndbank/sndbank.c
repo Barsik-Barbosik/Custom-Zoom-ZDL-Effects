@@ -1,14 +1,15 @@
 /*
  * SndBank: the sound source for Melody Box (in development). It plays the
- * notes a sequencer sends over the note bus (src/common/notebus/notebus.h)
- * with SongBox's instrument engine, one voice. It has no knobs to play
+ * notes a sequencer sends over two note buses (src/common/notebus/notebus.h)
+ * with SongBox's instrument engine, one voice per bus. It has no knobs to play
  * with: its 9 knobs hold stored data (the patch field widths of Floppy,
  * 13,13,13,8,8,8,8,27,8 bits) and are locked.
  *
- * Bus: the word is this effect's own knob 1 word in the state[31] table
- * row, read every audio call (firmware rows from zmenu.h's table, checked
- * every SB_LOOK calls). A new event counter value is a new event: note > 0
- * = note on with the event's sound number, 0 = note off.
+ * Buses: bus 1 is this effect's own knob 1 word in the state[31] table
+ * row, bus 2 its knob 2 word (the bits above each knob's 13-bit field),
+ * read every audio call (firmware rows from zmenu.h's table, checked every
+ * SB_LOOK calls). Bus b plays voice b. A new event counter value is a new
+ * event: note > 0 = note on with the event's sound number, 0 = note off.
  *
  * Sounds (bus sound number -> SongBox part, each at SongBox's level 50):
  * 0 PB, 1 O1, 2 O2, 3 Sy, 4 Tr (SongBox's bass parts), 5 Or1, 6 Or2, 7 EP,
@@ -19,14 +20,15 @@
  * the state and are built SS_WT_STEP rows per call after a fresh state
  * (~31 ms); the voice plays once they are ready. A note on sets the
  * voice's step (SongBox's ss_trigger maths), opens the gate (open until
- * the note off) and triggers it. The voice is added to both ctx[5]
- * channels (SongBox's clamp to +-1.98); footswitch off = not added.
+ * the note off) and triggers it. The voices are added to both ctx[5]
+ * channels (their sum clamped to +-1.98, as SongBox's); footswitch off =
+ * not added.
  *
  * Lock: a turn is undone by the knob's edit handler (Sb_LockEdit, linker
  * Param.edit; the OS calls it right after it wrote the turned value, for a
  * SysEx knob set too): the shadow goes back into the table and record rows
- * (knob 1's table word: the shadow plus the bus bits last seen, so no bus
- * event is lost). Writes by another effect (the sequencer storing its data,
+ * (knob 1 / 2's table word: the shadow plus that bus's bits last seen, so
+ * no bus event is lost). Writes by another effect (the sequencer storing its data,
  * as zmenu does) don't call the handler: a record value that differs from
  * the shadow and was the same at the previous look is taken into the
  * shadow (a turn is undone long before the next look). The shadow is first
@@ -52,10 +54,11 @@
 
 #pragma CODE_SECTION(Fx_SFX_SndBank, ".audio")
 
-#define SB_MAGIC  0x53424E31u           /* "SBN1"; new value on any state layout change */
+#define SB_MAGIC  0x53424E32u           /* "SBN2"; new value on any state layout change */
 #define SB_LOOK   64u                   /* calls between looks (~12 ms) */
 #define SB_LWAIT  16u                   /* looks before the shadow is taken (~190 ms) */
 #define SB_NK     9u                    /* knobs (columns 2..10) */
+#define SB_NV     2u                    /* voices = buses (knobs 1, 2) */
 #define SB_NSOUND 12u                   /* sounds: SongBox's parts */
 #define SB_LEVEL  10u                   /* SongBox's level 0..19 (10 = x1, shown 50) */
 #define SS_INC0   0.000185392266f       /* note 0's phase step per sample (songbox_sound.h) */
@@ -100,16 +103,16 @@ typedef struct {
     uint32_t magic0;
     uint32_t wait;                      /* calls until the next look */
     uint32_t fw;                        /* zm_fw_ok() at the last look */
-    uint32_t cnt;                       /* bus event counter last taken */
-    uint32_t bus;                       /* bus bits (above the field) last seen */
-    uint32_t snd;                       /* sound number of the last note on */
+    uint32_t cnt[SB_NV];                /* per bus: event counter last taken */
+    uint32_t bus[SB_NV];                /* per bus: its bits (above the field) last seen */
+    uint32_t snd[SB_NV];                /* per voice: sound number of the last note on */
     uint32_t wtn;                       /* wavetable rows built (SS_WT_ROWS: ready) */
-    SsVoice v;                          /* the voice */
+    SsVoice v[SB_NV];                   /* the voices */
     SsInst inst[SS_NREC];               /* records (unpacked by ss_wt_build) */
     SsBlk blk[SS_NREC];                 /* their block steps */
     float acc[8], sf[8];                /* this call's samples, ss_run's scratch */
     uint32_t lslot, lwait, lok;         /* shadow: for slot, looks waited, valid */
-    uint32_t sh[SB_NK];                 /* shadow: record values (knob 1: low bits) */
+    uint32_t sh[SB_NK];                 /* shadow: record values (knobs 1, 2: low bits) */
     uint32_t pend[SB_NK];               /* record values at the last look */
     uint32_t magic1;
 } SbState;
@@ -127,7 +130,7 @@ void Fx_SFX_SndBank(unsigned int *ctx)
     float *fx = (float *)(uintptr_t)ctx[5];
     volatile unsigned int *arena = (volatile unsigned int *)(uintptr_t)ctx[3];
     SbState *st;
-    uint32_t own = (uint32_t)ctx[0], fw, i, w, cnt, note, snd, r, id;
+    uint32_t own = (uint32_t)ctx[0], fw, i, w, cnt, note, snd, r, id, b;
     float inc, s;
 
     *magicDst = *magicSrc;
@@ -174,7 +177,7 @@ void Fx_SFX_SndBank(unsigned int *ctx)
                 if (++st->lwait >= SB_LWAIT) {
 #pragma UNROLL(1)
                     for (i = 0u; i < SB_NK; ++i) {
-                        r = i ? rr[i] : rr[0] & NB_LOWMASK;
+                        r = i < SB_NV ? rr[i] & NB_LOWMASK : rr[i];
                         ((volatile SbState *)st)->sh[i] = r;
                         ((volatile SbState *)st)->pend[i] = r;
                     }
@@ -183,7 +186,7 @@ void Fx_SFX_SndBank(unsigned int *ctx)
             } else {
 #pragma UNROLL(1)
                 for (i = 0u; i < SB_NK; ++i) {
-                    r = i ? rr[i] : rr[0] & NB_LOWMASK;
+                    r = i < SB_NV ? rr[i] & NB_LOWMASK : rr[i];
                     if (r != st->sh[i] && r == st->pend[i])
                         ((volatile SbState *)st)->sh[i] = r;  /* the same twice: another effect's write */
                     ((volatile SbState *)st)->pend[i] = r;
@@ -192,39 +195,45 @@ void Fx_SFX_SndBank(unsigned int *ctx)
         }
     }
 
-    /* the bus, every call */
+    /* the buses, every call */
     fw = st->fw;
     if (fw && own < zm_fws[fw - 1u].slots) {
-        w = ZM_U32(zm_fws[fw - 1u].tab + 44u * own + 4u * NB_COL);
-        cnt = NB_CNT(w);
-        if (cnt) st->bus = w & ~NB_LOWMASK;
-        if (cnt && cnt != st->cnt) {
-            st->cnt = cnt;
-            note = NB_NOTE(w);
-            if (note) {                 /* SongBox's ss_trigger maths */
-                snd = NB_SOUND(w);
-                st->snd = snd < SB_NSOUND ? snd : 0u;
-                inc = SS_INC0;
 #pragma UNROLL(1)
-                while (note >= 12u) { note -= 12u; inc *= 2.0f; }
+        for (b = 0u; b < SB_NV; ++b) {
+            w = ZM_U32(zm_fws[fw - 1u].tab + 44u * own + 4u * (NB_COL + b));
+            cnt = NB_CNT(w);
+            if (cnt) st->bus[b] = w & ~NB_LOWMASK;
+            if (cnt && cnt != st->cnt[b]) {
+                st->cnt[b] = cnt;
+                note = NB_NOTE(w);
+                if (note) {             /* SongBox's ss_trigger maths */
+                    snd = NB_SOUND(w);
+                    st->snd[b] = snd < SB_NSOUND ? snd : 0u;
+                    inc = SS_INC0;
 #pragma UNROLL(1)
-                for (; note; --note) inc *= SS_SEMI;
-                st->v.inc = inc;
-                st->v.gate = 1.0f;
-                st->v.trig = 1u;
-            } else
-                st->v.gate = 0.0f;
+                    while (note >= 12u) { note -= 12u; inc *= 2.0f; }
+#pragma UNROLL(1)
+                    for (; note; --note) inc *= SS_SEMI;
+                    st->v[b].inc = inc;
+                    st->v[b].gate = 1.0f;
+                    st->v[b].trig = 1u;
+                } else
+                    st->v[b].gate = 0.0f;
+            }
         }
     }
 
-    /* the voice (once the wavetables are ready) */
+    /* the voices (once the wavetables are ready) */
     if (st->wtn >= SS_WT_ROWS) {
-        r = sb_c.snd_part[st->snd < SB_NSOUND ? st->snd : 0u];
-        id = sb_c.part_id[r];           /* record | table << 4 */
         for (i = 0u; i < 8u; ++i) st->acc[i] = 0.0f;
-        ss_run(&st->v, &st->inst[id & 15u], &st->blk[id & 15u],
-               (float)(sb_c.part_lvl[r] * SB_LEVEL) * (0.1f / SS_LVL_DIV), 0.0f, st->acc,
-               SB_WT_OF(st) + (id >> 4) * SS_WT_ROWS, st->sf);
+#pragma UNROLL(1)
+        for (b = 0u; b < SB_NV; ++b) {
+            r = sb_c.snd_part[st->snd[b] < SB_NSOUND ? st->snd[b] : 0u];
+            id = sb_c.part_id[r];       /* record | table << 4 */
+            ss_run(&st->v[b], &st->inst[id & 15u], &st->blk[id & 15u],
+                   (float)(sb_c.part_lvl[r] * SB_LEVEL) * (0.1f / SS_LVL_DIV), 0.0f, st->acc,
+                   SB_WT_OF(st) + (id >> 4) * SS_WT_ROWS, st->sf);
+        }
         if (params[0] >= 0.5f) {
             for (i = 0u; i < 8u; ++i) {
                 s = st->acc[i];
@@ -253,7 +262,7 @@ void Sb_LockEdit(uint32_t *state, uint32_t col)
         col - NB_COL < SB_NK) {
         const ZmFw *t = &zm_fws[st->fw - 1u];
         uint32_t c = col - NB_COL, v = st->sh[c], o = 44u * st->lslot + 4u * col;
-        *(volatile uint32_t *)(uintptr_t)(t->tab + o) = c ? v : v | st->bus;
+        *(volatile uint32_t *)(uintptr_t)(t->tab + o) = c < SB_NV ? v | st->bus[c] : v;
         *(volatile uint32_t *)(uintptr_t)(t->rec + o) = v;
         st->pend[c] = v;
     }

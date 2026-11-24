@@ -1599,6 +1599,14 @@ def link(cfg: LinkerConfig) -> None:
     missing = sorted(name for name, idx in undefined.items() if idx not in sym_addr)
     if missing:
         raise ValueError(f"unresolved external(s): {', '.join(missing)}")
+    # A switch (or a dense if / else on an int) can become a jump table: a
+    # .switch section of code addresses reached by an indirect branch. This
+    # linker drops that section, so the branch lands on garbage and freezes
+    # the pedal (matujuice's Mangle), so it fails the build.
+    jump_tables = [s['name'] for s in obj.sections if s['name'].startswith('.switch')]
+    if jump_tables:
+        raise ValueError(f"jump table(s) {', '.join(jump_tables)} in the .obj: "
+                         "replace the switch / dense if-else")
 
     # =====================================================================
     # Apply .text/.audio relocations

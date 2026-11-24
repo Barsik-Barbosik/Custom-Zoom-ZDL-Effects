@@ -595,7 +595,14 @@ static inline uint32_t zm_s_poll(ZmStream *z, unsigned int *ctx)
     t = z->fw ? &zm_fws[z->fw - 1u] : 0;    /* any known OS (MS pedals untested) */
     z->ft = t;
     for (q = 0u; q < ZM_S_PARTS; ++q) z->pslot[q] = ZM_NOSLOT;
+#ifdef ZM_S_SELF
+    /* the own slot's record no longer holds the effect (ZM_S_SELF = its
+     * record word): it is being replaced, the rows may already be another
+     * patch's, so no Floppy is read or marked (the effect should go passive) */
+    if (t && z->slot < t->slots && ZM_U32(t->rec + 44u * z->slot + 4u) == (ZM_S_SELF)) {
+#else
     if (t && z->slot < t->slots) {
+#endif
         /* marked copies first (a repeated marker: the first one), then the
          * unmarked ones: pass 1 the first non-empty is part 1, pass 2 the
          * first of the rest if still none; the others (and repeated

@@ -1,5 +1,28 @@
 # Changelog
 
+## SongBox 1.14.1 (unreleased)
+
+Files in `dist/` and on the Releases page:
+
+| File | Size | Flash blocks | DSP cost | sha256 |
+|---|---|---|---|---|
+| `DrumBox.ZDL` | 31,663 B | 8 | 60 | `27bdfe1fcc277328854f040ae9ed46892accb869ee193f549d31a6757ed06cc0` (1.10.1, unchanged) |
+| `SongBox.ZDL` | 32,230 B | 8 | 52 | `e409b834a6ac7a84cd6cdf7593e056d4705ef6652e1aa6576e29ec48f9305a67` |
+| `Floppy.ZDL` | 3,499 B | 1 | 1 | `83bf4f0bb2b06ce1e8a53f0475ee62a6e1b4a69c307979af52760a338ba8f66f` (1.0.1, unchanged) |
+| `AutoKnb1.ZDL` | 12,146 B | 3 | 6 | `b880b5e5beb07f203f94cdff2e1f5f4c9506da1196158052be57bf314620e463` (1.10.0, unchanged) |
+| `AutoKnb2.ZDL` | 15,726 B | 4 | 10 | `e8ae0e2845f279d9c8cdda043bca310315a60a1817b70e616bf64f88d74adb2c` (1.0.0, unchanged) |
+
+The ZDL header still shows `1.14`.
+
+### SongBox
+
+- **Fix: switching patches could erase a Floppy in the next patch.** For a
+  moment after a patch change SongBox still runs while the pedal already
+  holds the next patch's effects. If that patch had Floppies that belong to
+  another effect, SongBox could take them for its own and overwrite them.
+  SongBox now leaves every Floppy alone once its own place in the patch
+  holds another effect.
+
 ## AutoKnob 1.10.0, AutoKnob 2 1.0.0 (2026-11-22)
 
 Files in `dist/` and on the Releases page:

@@ -4,21 +4,23 @@ SndBank (`SndBank`, SFX 528) plays the notes Melody Box sends to it. Put it
 in the same patch as Melody Box; it finds its notes by itself. On its own
 it is silent and passes the audio through.
 
-- **Sounds:** SongBox's instruments, one note at a time: PB, O1, O2, Sy,
-  Tr (bass) and Or1, Or2, EP, Mrm, Klm, Syn, Plk. Melody Box picks the
-  sound with each note.
-- **No knobs to play with.** The knobs hold stored data and are locked: a
-  turn springs back. Their text is `-`.
+- **Sounds:** SongBox's instruments, two voices (one per Melody Box
+  track), one note at a time each: PB, O1, O2, Sy, Tr (bass) and Or1, Or2,
+  EP, Mrm, Klm, Syn, Plk. Melody Box picks the sound with each note.
+- **No knobs to play with.** The knobs hold Melody Box's saved melody
+  (after Melody Box's own knobs) and the two tracks' sounds, and are
+  locked: a turn springs back. Their text is `-`.
 - **Footswitch off:** silent.
 
-Status: works on the B1Xon 1.30 (G1on family) as a probe with the same
-code; untested on the MS pedals. The sound engine is SongBox's, unchanged.
+Status: one voice works on the B1Xon 1.30 (G1on family); the second
+voice is new and untested. Untested on the MS pedals. The sound engine is
+SongBox's, unchanged.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `sndbank.c` | Audio function `Fx_SFX_SndBank`: note bus, SongBox's engine (one voice), knob lock |
+| `sndbank.c` | Audio function `Fx_SFX_SndBank`: two note buses, SongBox's engine (two voices), knob lock |
 | `build.py` | Builds `SndBank.ZDL` (`--out` required until the first release) |
 
 Shared code: `src/common/notebus/notebus.h` (the note bus format),

@@ -1,19 +1,34 @@
-"""Storage model for the Melody Box steps (grid -> token stream -> Floppy words).
+"""Storage model for the Melody Box steps (grids -> token stream -> storage words).
 
-The editor shows n grid slots (n = 16, 32, 64 or 128): rest, hold (the note
-before goes on) or a note (pitch 0..36, three octaves + 1). Stored is a 3-bit
-token stream of events (note or rest + length in slots), pitch as
-scale-degree steps in a key the packer picks (12 tries), so holds cost nothing
-and small steps cost 3 bits.
+Two tracks; the editor shows n grid slots per track (n = 16, 32, 64 or 128,
+the same for both): rest, hold (the note before goes on) or a note (pitch
+0..36, three octaves + 1). Stored is one 3-bit token stream: track 1's
+events, then track 2's (note or rest + length in slots), pitch as
+scale-degree steps in a key the packer picks per track (12 tries), so holds
+cost nothing and small steps cost 3 bits.
 
-Floppy layout as SongBox (songpack.py): part q in words[4 q .. 4 q + 3], bits
-128 q .. 128 q + 105; the first 4 bits are the key (part 1) or zmenu's part
-marker (extra Floppies), then 34 tokens per part.
+Storage parts, part q in words[4 q .. 4 q + 3] (bits 128 q ..): part 0 =
+Melody Box's own storage knobs 4-9 (8+8+8+8+27+8 = 67 bits: track 1's key in
+bits 0..3, then 21 tokens); parts 1.. = the storage effects after it, 106
+bits each (Floppy's patch field widths). With SndBank in the chain (sb = 1)
+it is part 1: bits 0..3 track 1's sound, 4..7 track 2's sound (SndBank's
+sound numbers; not part of the stream), then 32 tokens (bits 8..103), bits
+104..105 unused. The others (Floppies) in SongBox's Floppy layout
+(songpack.py): the first 4 bits the part marker, then 34 tokens. At most 5
+parts (Melody Box + 4 effects fill the 5 slots). One chain holds both
+tracks.
 
 Stream: settings token first (bits 0..1: n = 16 << code; bit 2: step length,
-0 = 1/16, 1 = 1/8; only playback uses it), then the events. State: degree cur = 7 (the key's tonic in the middle
+0 = 1/16, 1 = 1/8; only playback uses it; both tracks), track 1's events,
+then track 2: its key in 2 tokens (k0 | (k1 & 1) << 3; above 11 reads as 0),
+its events. Track 2 starts where track 1 ended (END, slot n or the tokens
+ran out); fewer than 2 tokens left = track 2 empty. An empty track 2 is
+not written, and the last written track's END is left out (zero tokens read
+as ESC END, and running out of tokens ends a track too).
+Per track the state starts fresh: degree cur = 7 (the key's tonic in the middle
 octave), length L = 2 slots, slot position p. D = distance tokens: 2 for
-n <= 64 (6 bits), 3 for n = 128; distance = value + 1.
+n <= 64 (6 bits), 3 for n = 128; distance = value + 1 (copies and rhythms
+read the own track only).
   1..7          note at degree cur + (t - 4), L slots (4 = the same note)
   0 = ESC, then:
     0 END       the rest of the n slots: rests (zero bits = 16 empty steps)
@@ -48,9 +63,14 @@ MAXN = 128                    # most steps
 NPITCH = 37                   # pitch 0..36
 REST, HOLD = 0, 1             # grid values; a note = 2 + pitch
 KEY_BITS = 4
-NTOK = 34                     # 3-bit tokens per Floppy
-PART_BITS = 3 * NTOK          # 102 token bits per Floppy
-MAX_PARTS = 4
+NTOK = 34                     # 3-bit tokens per storage effect (parts 1..)
+PART_BITS = 3 * NTOK          # 102 token bits per storage effect
+OWN_TOK = 21                  # tokens in part 0 (Melody Box's knobs 4-9)
+OWN_END = KEY_BITS + 3 * OWN_TOK    # 67: part 0's end bit
+SB_SKIP = 8                   # SndBank's part: the two sounds' bits before its tokens
+SB_TOK = 32                   # tokens in SndBank's part
+SB_END = 128 + SB_SKIP + 3 * SB_TOK  # 232: SndBank part's end bit
+MAX_PARTS = 5
 NWORDS = 4 * MAX_PARTS
 INF = 1 << 30
 last_step = 0                 # unpack(): the stream's step length flag
@@ -64,6 +84,7 @@ CUR_MIN, CUR_MAX = -14, 28    # decoder clamp (valid streams stay in -10..24)
 T_ESC = 0
 E_END, E_REST, E_LEN, E_RHY, E_SHARP, E_JUMP, E_COPY, E_EXT = range(8)
 C_SET, C_ESC, C_LEN, C_JUMP, C_EXT = 3, 6, 9, 9, 9  # bits
+C_KEY2 = 6                    # track 2's key: 2 tokens
 
 DEG_OFS = (0, 2, 4, 5, 7, 9, 11)          # major scale
 # semitone above the key (0..11) -> degree | sharp << 3
@@ -132,13 +153,30 @@ def normalise(g: list) -> list:
 
 # ------------------------------------------------------------------ bits
 
-def next_addr(a: int) -> int:
+def next_addr(a: int, sb: int = 0) -> int:
     """Bit address of the token after the one at a (parts 128 bits apart,
-    tokens in bits 4..105 of each)."""
+    tokens in bits 4..66 of part 0, bits 8..103 of SndBank's part 1 (sb),
+    bits 4..105 of the others). A token never ends at bit 232 except in
+    SndBank's part, so only part 1's start needs sb."""
     a += 3
-    if (a & 127) == 106:
-        a += 26
+    if a == OWN_END:
+        a = 128 + (SB_SKIP if sb else KEY_BITS)
+    elif (a & 127) == 106 or a == SB_END:
+        a = (a | 127) + 1 + KEY_BITS
     return a
+
+
+def ntok(parts: int, sb: int = 0) -> int:
+    """Tokens in parts 0 .. parts - 1 (sb: part 1 is SndBank's)."""
+    return OWN_TOK + NTOK * (parts - 1) - (NTOK - SB_TOK if sb and parts > 1 else 0)
+
+
+def need_parts(bits: int, sb: int = 0) -> int:
+    """Parts for `bits` token bits (99: more than MAX_PARTS)."""
+    for k in range(1, MAX_PARTS + 1):
+        if bits <= 3 * ntok(k, sb):
+            return k
+    return 99
 
 
 def put_bits(words: list, pos: int, v: int, w: int) -> None:
@@ -158,22 +196,40 @@ def get_bits(words: list, pos: int, w: int) -> int:
 
 # ------------------------------------------------------------------ unpacker
 
-def unpack(words: list, parts: int = 1) -> list:
-    """Floppy words (4 per part) -> grid of n slots (normalised); the step
-    length flag (0 = 1/16, 1 = 1/8) -> last_step."""
+def unpack(words: list, parts: int = 1, sb: int = 0) -> tuple:
+    """Storage words (4 per part; sb: part 1 is SndBank's) -> (track 1 grid,
+    track 2 grid), n slots each (normalised); the step length flag (0 =
+    1/16, 1 = 1/8) -> last_step."""
     global last_step
-    g = [REST] * MAXN
     key = get_bits(words, 0, KEY_BITS)
     if key > 11:
         key = 0
-    ntok = NTOK * parts
+    nt = ntok(parts, sb)
     st = [KEY_BITS, 0]                      # bit address, tokens read
 
     def tok() -> int:
         t = get_bits(words, st[0], 3)
-        st[0] = next_addr(st[0])
+        st[0] = next_addr(st[0], sb)
         st[1] += 1
         return t
+
+    x = tok()
+    n = 16 << (x & 3)
+    last_step = x >> 2 & 1
+    g1 = track(tok, st, nt, n, key)
+    g2 = [REST] * n
+    if st[1] + 2 <= nt:                     # track 2: key, events
+        key = tok()
+        key |= (tok() & 1) << 3
+        if key > 11:
+            key = 0
+        g2 = track(tok, st, nt, n, key)
+    return g1, g2
+
+
+def track(tok, st: list, ntok: int, n: int, key: int) -> list:
+    """One track's events from the token reader -> grid of n slots."""
+    g = [REST] * MAXN
 
     def last_deg(p: int) -> int:
         q = p - 1
@@ -181,9 +237,6 @@ def unpack(words: list, parts: int = 1) -> list:
             q -= 1
         return pitch_deg(g[q] - 2, key)[0] if q >= 0 else START_DEG
 
-    x = tok()
-    n = 16 << (x & 3)
-    last_step = x >> 2 & 1
     dt = dist_tokens(n)
     p = 0
     cur = START_DEG
@@ -365,13 +418,15 @@ class Tables:
             row = new
 
 
-def dp(t: Tables, path: bool = False):
-    """Cheapest token bits (settings token included); with path the moves."""
+def dp(t: Tables, path: bool = False, c0: int = C_SET, endc: int = C_ESC):
+    """Cheapest token bits (c0: the track's first token(s): track 1's
+    settings, track 2's key; endc: END's cost, 0 for the last track written);
+    with path the moves."""
     g, n = t.g, t.n
     cb, rb = copy_bits(n), rhy_bits(n)
     cost = [[INF] * 8 for _ in range(n + 1)]
     frm = [[None] * 8 for _ in range(n + 1)]
-    cost[0][L_DEFAULT] = C_SET
+    cost[0][L_DEFAULT] = c0
     best, bstate = INF, None
 
     def relax(q: int, lj: int, c: int, mv: tuple) -> None:
@@ -385,7 +440,7 @@ def dp(t: Tables, path: bool = False):
             if c >= INF:
                 continue
             if p == n or t.rest_run[p] == n - p:
-                f = c + (C_ESC if p < n else 0)
+                f = c + (endc if p < n else 0)
                 if f < best:
                     best, bstate = f, (p, li)
                 if p == n:
@@ -444,12 +499,17 @@ def note_tokens(toks: list, d: int, s: int, cur: int) -> None:
     toks.append(i + 4)
 
 
-def emit(t: Tables, step8: int = 0) -> tuple:
-    """DP path -> (token list, token bits)."""
-    best, moves, endp = dp(t, path=True)
+def emit(t: Tables, step8: int = 0, trk: int = 0, endc: int = C_ESC) -> tuple:
+    """DP path -> (token list, token bits). trk 0: the settings token first,
+    1: the key's 2 tokens; endc 0: no END (the last track written)."""
+    c0 = C_KEY2 if trk else C_SET
+    best, moves, endp = dp(t, path=True, c0=c0, endc=endc)
     g, n, key = t.g, t.n, t.key
     dt = dist_tokens(n)
-    toks = [{16: 0, 32: 1, 64: 2, 128: 3}[n] | step8 << 2]
+    if trk:
+        toks = [key & 7, key >> 3]
+    else:
+        toks = [{16: 0, 32: 1, 64: 2, 128: 3}[n] | step8 << 2]
     cur = START_DEG
 
     def dist(d: int) -> list:
@@ -482,37 +542,54 @@ def emit(t: Tables, step8: int = 0) -> tuple:
                     d, s = pitch_deg(g[r] - 2, key)
                     note_tokens(toks, d, s, cur)
                     cur = d
-    if endp < n:
+    if endp < n and endc:
         toks += [T_ESC, E_END]
     assert 3 * len(toks) == best, (3 * len(toks), best)
     return toks, best
 
 
-def pack(g: list, step8: int = 0) -> tuple:
-    """Grid (16 / 32 / 64 / 128 slots) + step length flag (1 = 1/8) -> (words,
-    key, token bits, Floppies needed or 0 = doesn't fit 4)."""
-    g = normalise(g)
-    assert len(g) in (16, 32, 64, 128), len(g)
+def best_key(g: list, c0: int, endc: int) -> Tables:
+    """The key with the cheapest DP (the first of equal ones)."""
     bt, bc = None, INF
     for k in range(12):
         t = Tables(g, k)
-        c = dp(t)
+        c = dp(t, c0=c0, endc=endc)
         if c < bc:
             bt, bc = t, c
-    toks, bits = emit(bt, step8)
-    parts = 0
-    for k in range(1, MAX_PARTS + 1):
-        if bits <= PART_BITS * k:
-            parts = k
-            break
+    return bt
+
+
+def pack(g: list, step8: int = 0, g2: list = None, sb: int = 0) -> tuple:
+    """Track grids (16 / 32 / 64 / 128 slots, both the same; g2 None = empty)
+    + step length flag (1 = 1/8), sb (part 1 is SndBank's; its sound bits
+    left 0) -> (words, key 1, token bits, parts needed or 0 = doesn't fit
+    MAX_PARTS, key 2 (0 if track 2 is empty))."""
+    g = normalise(g)
+    assert len(g) in (16, 32, 64, 128), len(g)
+    g2 = normalise(g2) if g2 is not None else [REST] * len(g)
+    assert len(g2) == len(g)
+    has2 = any(v != REST for v in g2)
+    end1 = C_ESC if has2 else 0
+    bt = best_key(g, C_SET, end1)
+    toks, bits = emit(bt, step8, 0, end1)
+    key2 = 0
+    if has2:
+        bt2 = best_key(g2, C_KEY2, 0)
+        t2, b2 = emit(bt2, 0, 1, 0)
+        toks += t2
+        bits += b2
+        key2 = bt2.key
+    parts = need_parts(bits, sb)
+    if parts > MAX_PARTS:
+        parts = 0
     words = [0] * NWORDS
     if parts:
         put_bits(words, 0, bt.key, KEY_BITS)
         a = KEY_BITS
         for x in toks:
             put_bits(words, a, x, 3)
-            a = next_addr(a)
-    return words, bt.key, bits, parts
+            a = next_addr(a, sb)
+    return words, bt.key, bits, parts, key2
 
 
 # ------------------------------------------------------------------ test melodies
@@ -641,73 +718,149 @@ def random_chromatic(rng: random.Random) -> list:
     return [2 + rng.randrange(NPITCH) for _ in range(64)]
 
 
+def pairs() -> dict:
+    """Track 1 + track 2 (lead + bass) test pairs."""
+    L = named()
+    return {
+        "Lesnik + roots, 8ths": (L["Lesnik bars 17-24, 1/8 grid (64)"], grid_of(
+            " ".join(rep(f"{r}:1", 8) for r in "A3 A3 F3 F3 G3 D3 G3 G3".split()))),
+        "Twinkle + root-fifth, quarters": (L["Twinkle, 8 bars, eighths"], grid_of(
+            " ".join(f"{a}:2 {b}:2 {a}:2 {b}:2" for a, b in
+                     [("C3", "G3"), ("F3", "C4"), ("C3", "G3"), ("G3", "D4")] * 2))),
+        "Ode to Joy + roots, half bars": (L["Ode to Joy, 8 bars, eighths"], grid_of(
+            "C3:4 G3:4 C3:4 G3:4 C3:4 G3:4 G3:4 C3:4 C3:4 G3:4 C3:4 G3:4 C3:4 G3:4 G3:4 C3:4")),
+        "arpeggio + octave 16ths": (L["arpeggio 16ths, up/down, Am F C G"], grid_of(
+            " ".join(rep(f"{r}3:1 {r}4:1", 8) for r in "A F C G".split()))),
+        "blues riff + boogie": (L["blues riff, eighths, A minor pent."], grid_of(
+            rep("A3:2 A3:2 C#4:2 C#4:2 E4:2 E4:2 F#4:2 E4:2", 4))),
+        "synth-pop + funk 16ths": (L["synth-pop, dotted 8ths"], grid_of(
+            rep("C3:1 r:1 C4:1 C3:1 r:2 C3:1 G3:1", 4) + " " + rep("A3:1 r:1 A4:1 A3:1 r:2 A3:1 G3:1", 2)
+            + " " + rep("F3:1 r:1 F4:1 F3:1 r:2 F3:1 G3:1", 2))),
+        "empty + bass only (32)": ([REST] * 32, grid_of(rep("E3:2 r:2 E3:1 E3:1 G3:2", 4))),
+        "Ode (128) + roots": (grid_of(scaled(
+            "E4:2 E4:2 F4:2 G4:2 G4:2 F4:2 E4:2 D4:2 C4:2 C4:2 D4:2 E4:2 E4:3 D4:1 D4:4 "
+            "E4:2 E4:2 F4:2 G4:2 G4:2 F4:2 E4:2 D4:2 C4:2 C4:2 D4:2 E4:2 D4:3 C4:1 C4:4", 2)), grid_of(
+            " ".join(f"{r}:8" for r in "C3 G3 C3 G3 C3 G3 G3 C3 C3 G3 C3 G3 C3 G3 G3 C3".split()))),
+    }
+
+
+def root_bass(rng: random.Random, n: int = 64) -> list:
+    """Roots of a random I / IV / V / vi progression, one bar each: whole
+    notes, 8ths or root-fifth quarters."""
+    key = rng.randrange(7)
+    style = rng.randrange(3)
+    g = []
+    while len(g) < n:
+        r = 2 + (deg_semis(rng.choice((0, 3, 4, 5))) + key) % 12
+        if style == 0:
+            g += [r] + [HOLD] * 15
+        elif style == 1:
+            g += [r, HOLD] * 8
+        else:
+            g += [r, HOLD, HOLD, HOLD, r + 7, HOLD, HOLD, HOLD] * 2
+    return g[:n]
+
+
 # ------------------------------------------------------------------ report
 
-def floppies(bits: int) -> int:
-    """Floppies for `bits` token bits (102 per Floppy; plain: + 4 header)."""
-    for k in range(1, 99):
-        if bits <= PART_BITS * k:
-            return k
-    return 99
-
-
-def check(g: list, step8: int = 0) -> tuple:
-    """Pack, read back with as many Floppies as needed and with 4."""
+def check(g: list, step8: int = 0, g2: list = None, sb: int = 0) -> tuple:
+    """Pack, read back with as many parts as needed and with MAX_PARTS."""
     g = normalise(g)
-    words, key, bits, parts = pack(g, step8)
+    g2 = normalise(g2) if g2 is not None else [REST] * len(g)
+    words, key, bits, parts, key2 = pack(g, step8, g2, sb)
     if parts:
-        assert unpack(words, parts) == g and last_step == step8, g
-        assert unpack(words, MAX_PARTS) == g
-    return words, key, bits, parts
+        assert unpack(words, parts, sb) == (g, g2) and last_step == step8, (g, g2)
+        assert unpack(words, MAX_PARTS, sb) == (g, g2)
+        if sb:                              # the sound bits are not read
+            w = list(words)
+            w[4] |= 0xFF
+            assert unpack(w, parts, sb) == (g, g2)
+    return words, key, bits, parts, key2
 
 
 def main() -> None:
     quick = "--quick" in sys.argv
     rng = random.Random(11)
-    assert unpack([0] * NWORDS, MAX_PARTS) == [REST] * 16
+    assert unpack([0] * NWORDS, MAX_PARTS) == ([REST] * 16, [REST] * 16)
+    for sb in (0, 1):                       # addresses: every bit of the parts once, in order
+        a, seen = KEY_BITS, []
+        for _ in range(ntok(MAX_PARTS, sb)):
+            seen += range(a, a + 3)
+            a = next_addr(a, sb)
+        assert seen == sorted(set(seen)) and len(seen) == 3 * ntok(MAX_PARTS, sb)
 
-    lines = ["# melopack test vectors; grid = n hex bytes (0 rest, 1 hold, 2 + pitch)",
-             "# pack: P <token bits> <key> <step 0 = 1/16, 1 = 1/8> <Floppies> <words, 4 per Floppy, hex> <grid>",
-             "# unpack: U <Floppies> <step> <words, 4 per Floppy, hex> <grid>   (any words, junk incl.)"]
+    lines = ["# melopack test vectors; grid = n hex bytes (0 rest, 1 hold, 2 + pitch); "
+             "grid 1 = track 1, grid 2 = track 2",
+             "# parts: 1 = Melody Box's knobs 4-9 (21 tokens), then 34 tokens per storage effect; "
+             "sb 1: part 2 is SndBank's (32 tokens after 8 sound bits)",
+             "# pack: P <token bits> <key 1> <key 2> <step 0 = 1/16, 1 = 1/8> <sb> <parts> "
+             "<words, 4 per part, hex> <grid 1> <grid 2>",
+             "# unpack: U <sb> <parts> <step> <words, 4 per part, hex> <grid 1> <grid 2>   "
+             "(any words, junk incl.)"]
 
     def gridhex(g: list) -> str:
         return "".join(f"{v:02x}" for v in g)
 
-    print("token bits per melody (+ 4 key bits); 102 token bits per Floppy\n")
-    hdr = f"{'melody':36} {'steps':>5} {'notes':>5} {'P4':>5} {'P6':>5} {'bits':>5}  Fl"
+    def vector(g: list, g2: list, step8: int, sb: int, r: tuple) -> None:
+        words, key, bits, parts, key2 = r
+        if parts:
+            lines.append(f"P {bits} {key} {key2} {step8} {sb} {parts} "
+                         + " ".join(f"{w:08x}" for w in words[:4 * parts])
+                         + f" {gridhex(normalise(g))} {gridhex(normalise(g2))}")
+
+    print("track 1 alone: token bits (+ 4 key bits); parts: 1 = Melody Box (63 token bits), "
+          "2 = + SndBank (159), 3 = + 1 Floppy (261), 4 = + 2 (363), 5 = + 3 (465); "
+          "vectors alternate sb 0 / 1\n")
+    hdr = f"{'melody':36} {'steps':>5} {'notes':>5} {'P4':>5} {'P6':>5} {'bits':>5}  Pt"
     print(hdr)
     print("-" * len(hdr))
+    nv = 0
     for name, g in named().items():
         step8 = 1 if "1/8" in name else 0
-        words, key, bits, parts = check(g, step8)
+        sb = nv & 1
+        nv += 1
+        r = check(g, step8, None, sb)
+        words, key, bits, parts, key2 = r
         ps = [v - 2 for v in g if v >= 2]
         p4 = 4 * len(g) if not ps or max(ps) - min(ps) <= 11 else "-"
         notes = len(ps)
         print(f"{name:36} {len(g):5} {notes:5} {p4:>5} {6 * len(g):5} {bits:5}  "
-              f"{parts if parts else '>4':>2}")
-        if parts:
-            lines.append(f"P {bits} {key} {step8} {parts} "
-                         + " ".join(f"{w:08x}" for w in words[:4 * parts]) + f" {gridhex(normalise(g))}")
+              f"{parts if parts else '>5':>2}")
+        vector(g, [REST] * len(g), step8, sb, r)
+
+    print(f"\n{'track 1 + track 2':36} {'steps':>5} {'alone':>5} {'both':>5}  Pt")
+    print("-" * 57)
+    for name, (g, g2) in pairs().items():
+        step8 = 1 if "1/8" in name else 0
+        sb = nv & 1
+        nv += 1
+        r = check(g, step8, g2, sb)
+        words, key, bits, parts, key2 = r
+        print(f"{name:36} {len(g):5} {pack(g, step8)[2]:5} {bits:5}  {parts if parts else '>5':>2}")
+        vector(g, g2, step8, sb, r)
 
     nr = 12 if quick else 50
-    sets = [("random walk, bars repeat (64)", lambda: random_walk(rng, True)),
-            ("random walk, no repeats (64)", lambda: random_walk(rng, False)),
-            ("random walk, bars repeat (128)", lambda: random_walk(rng, True, 128)),
-            ("random chromatic 16ths (64, worst)", lambda: random_chromatic(rng))]
-    print(f"\n{'set (' + str(nr) + ' each)':36} {'mean bits':>9}  Floppies 1 / 2 / 3 / 4 / more")
+    sets = [("random walk, bars repeat (64)", lambda: (random_walk(rng, True), None)),
+            ("random walk, no repeats (64)", lambda: (random_walk(rng, False), None)),
+            ("random walk, bars repeat (128)", lambda: (random_walk(rng, True, 128), None)),
+            ("random chromatic 16ths (64, worst)", lambda: (random_chromatic(rng), None)),
+            ("random walk + root bass (64)", lambda: (random_walk(rng, True), root_bass(rng)))]
+    print(f"\n{'set (' + str(nr) + ' each), with SndBank':36} {'mean bits':>9}  parts 1 / 2 / 3 / 4 / 5 / more")
     for name, fn in sets:
         tot = 0
-        fit = [0] * 6
+        fit = [0] * 7
         for _ in range(nr):
-            words, key, bits, parts = check(fn())
+            g, g2 = fn()
+            words, key, bits, parts, key2 = check(g, 0, g2, 1)
             tot += bits
-            k = floppies(bits)
-            fit[k if k <= 4 else 5] += 1
+            k = need_parts(bits, 1)
+            fit[k if k <= MAX_PARTS else MAX_PARTS + 1] += 1
         print(f"{name:36} {tot // nr:9}  " + " / ".join(str(x) for x in fit[1:]))
 
     nj = 500 if quick else 5000
-    for i in range(nj):                     # junk: any words decode to a clean grid
+    for i in range(nj):                     # junk: any words decode to clean grids
         parts = 1 + i % MAX_PARTS
+        sb = i >> 1 & 1
         w = [0] * NWORDS
         for j in range(4 * parts):
             w[j] = rng.getrandbits(32)
@@ -715,19 +868,21 @@ def main() -> None:
             a = KEY_BITS
             w = [0] * NWORDS
             put_bits(w, 0, rng.randrange(16), KEY_BITS)
-            for _ in range(NTOK * parts):
+            for _ in range(ntok(parts, sb)):
                 put_bits(w, a, 0 if rng.random() < 0.5 else rng.randrange(8), 3)
-                a = next_addr(a)
-        g = unpack(w, parts)
+                a = next_addr(a, sb)
+        g, g2 = unpack(w, parts, sb)
         assert len(g) in (16, 32, 64, 128) and g == normalise(g), (w, g)
+        assert len(g2) == len(g) and g2 == normalise(g2), (w, g2)
         if i < 100:
-            lines.append(f"U {parts} {last_step} " + " ".join(f"{x:08x}" for x in w[:4 * parts]) + f" {gridhex(g)}")
+            lines.append(f"U {sb} {parts} {last_step} " + " ".join(f"{x:08x}" for x in w[:4 * parts])
+                         + f" {gridhex(g)} {gridhex(g2)}")
 
     out = HERE / "melopack_vectors.txt"
     out.write_bytes(("\r\n".join(lines) + "\r\n").encode("ascii"))
-    print(f"\nall round trips ok (also read with 4 Floppies); {nj} junk streams decode to clean grids")
+    print(f"\nall round trips ok (also read with {MAX_PARTS} parts); {nj} junk streams decode to clean grids")
     print("P4 = plain 4 bit/slot (1 octave only, '-' = wider), P6 = plain 6 bit/slot, "
-          "bits = token stream, Fl = Floppies")
+          "bits = token stream, Pt = parts; alone = track 1 without track 2")
     print(f"vectors -> {out.name}")
 
 

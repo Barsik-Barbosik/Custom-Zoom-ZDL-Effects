@@ -1,17 +1,21 @@
 # Melody Box — note sequencer / player (in development)
 
-Melody Box (`MeloBox`) plays a sequence of notes through SndBank
-(`src/sndbank/`), the sound source, which must be in the same patch.
-Melody Box itself makes no sound and passes the audio through.
+Melody Box (`MeloBox`) plays two tracks of notes (for example a melody
+and a bass line) through SndBank (`src/sndbank/`), the sound source, in the
+same patch. Without SndBank, Melody Box plays both tracks itself with a simple
+built-in voice each (a soft sawtooth synth); the SOUND settings then need
+SndBank. The guitar signal passes through.
 
-- **Knob 1** picks the mode: NOTE (edit the steps) or MENU (settings).
-- **NOTE: up to 128 steps**, shown three at a time on knobs 1-3. A knob's
+- **Knob 1** picks the mode: MENU (settings, the first value), TRACK1 or
+  TRACK2 (edit that track's steps).
+- **TRACK1 / TRACK2: up to 128 steps** per track, shown three at a time on knobs 1-3. A knob's
   name is its step number (two digits; after 99 it counts 00, 01, ...
   again) plus the step's value: `01___` rest, `01~~~` hold (the note
   before goes on), `01_C2` a note, `01C#2` a sharp note. Notes go from C2
   to C5. The list starts with an empty item and ends with `END`.
 - **Knob 3 ("SCROLL")** moves the view: turned right, the knobs show steps
-  01-02-03, then 02-03-04, and so on.
+  01-02-03, then 02-03-04, and so on. Both tracks keep the same view, so
+  switching tracks shows the same steps.
 - **Knob 2** sets the value of the step it shows (rest, hold, C2 … C5).
   After a scroll it jumps to the new step's value.
 - **MENU:** knob 2 picks the setting, the knob names ask its question and
@@ -19,38 +23,64 @@ Melody Box itself makes no sound and passes the audio through.
 
   | Setting | Question | Values |
   |---|---|---|
-  | LENGTH | Number of steps: | 16 (default), 32, 64, 128 |
-  | STEP | Each step is: | 1/16 (default), 1/8 |
-  | SOUND | Play with sound: | SndBank's sounds PB (default), O1, O2, Sy, Tr, Or1, Or2, EP, Mrm, Klm, Syn, Plk |
+  | LENGTH | Number of steps: | 16 (default), 32, 64, 128 (both tracks) |
+  | GRID | Step grid is: | 1/16 (default), 1/8 (both tracks) |
+  | SOUND1 | Track 1 sound: | SndBank's sounds PB (default), O1, O2, Sy, Tr, Or1, Or2, EP, Mrm, Klm, Syn, Plk |
+  | SOUND2 | Track 2 sound: | the same list |
 
-- **Footswitch on plays** the steps in a loop at the pedal tempo; a rest
+- **Footswitch on plays** both tracks in a loop at the pedal tempo; a rest
   is silent, holds make the note before longer. Footswitch off stops.
+- **Knobs 4-9 hold stored data** (the start of the saved melody) and
+  are locked: a turn springs back. Their names are empty, their text is `-`.
 
-Status: the step editor and playback work on the B1Xon 1.30 (G1on
-family). Untested on the MS pedals. The notes are not saved with the
-patch yet: switching patches clears them (settings too).
+Status: the step editor, both tracks, playback over SndBank and the own
+voices work on the B1Xon 1.30 (G1on family). Saving is new and untested.
+Untested on the MS pedals.
 
-## Planned: saving with the patch
+## Saving with the patch
 
-The storage format is designed and tested in a Python model; the effect
-does not use it yet.
+The melody is saved after each change (about half a second after the last
+turn, like SongBox); store the patch as usual to keep it.
+
+- **Where:** Melody Box's own knobs 4-9 first, then SndBank and Floppy
+  effects placed after Melody Box (up to the next effect that saves its own
+  data in Floppies). SndBank also keeps SOUND1 and SOUND2; without SndBank
+  they are not saved.
+- **Too big:** an edit that makes the melody too big for that space is
+  refused: the step (or LENGTH) goes back and knob 2's name shows `FULL`
+  for a moment. Add a Floppy for more space.
+- **Adding or removing** SndBank or a Floppy: the melody you have stays and
+  is saved into the new set. If it doesn't fit any more, `FULL` shows and
+  nothing is saved, but your edits are kept: make the melody smaller step
+  by step until it fits, then it is saved again.
+- **Not with SongBox in the same patch for now:** SongBox would take every
+  Floppy as its own.
+- LENGTH keeps only the steps up to it: steps after a shorter LENGTH are
+  not saved.
 
 - **Up to 128 steps.** Melody length 16, 32, 64 or 128 steps; step
   length 1/16 or 1/8 (8 bars of quarters and eighths fit in 64 steps of
   1/8).
+- **Both tracks in one chain** of storage effects: track 2 follows track 1,
+  so a short bass line takes only the space it needs; an empty track 2
+  takes none.
 - **Each step:** rest, hold (the note before goes on) or a note in a
   3-octave range. A pause before a note is just a rest step; a dotted note
   is a note with holds.
-- **Saved in Floppy effects** placed after Melody Box, packed: lengths and
+- **Saved in Melody Box's own knobs 4-9, then SndBank and Floppy
+  effects** placed after Melody Box, packed: lengths and
   holds cost almost nothing, small steps between notes are cheap, and
   repeated rhythms or bars (also moved up or down the scale) are stored
-  as short references. Typical melodies need 1-2 Floppies.
+  as short references. A typical melody fits Melody Box + SndBank, some
+  need one Floppy more; a melody with a bass line usually needs 1 Floppy
+  (sometimes none, sometimes 2).
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `melodybox.c` | Audio function `Fx_SFX_MeloBox`: step list, knob names, step editing, MENU, playback |
+| `melodybox.c` | Audio function `Fx_SFX_MeloBox`: step lists (2 tracks), knob names, step editing, MENU, playback |
 | `build.py` | Runs `cl6x` and the linker → `MeloBox.ZDL` (SFX, gid 7, fxid 525) |
-| `packer/melopack.py` | Model of the planned storage format: packer, unpacker, size table and tests |
+| `packer/melopack.py` | Model of the storage format (the spec): packer, unpacker, size table and tests |
+| `packer/melopack.h` | The format in C (decoder + packer), checked against the model on the pedal (`build.py --selftest decode` / `pack`) |
 | `packer/melopack_vectors.txt` | Test vectors written by `melopack.py`, for checking the C version |

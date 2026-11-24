@@ -2,8 +2,9 @@
 
   python -B src/sndbank/build.py --out P    # P = scratchpad until the first release
 
-SndBank plays the notes Melody Box sends over the note bus
-(src/common/notebus/notebus.h) with SongBox's instrument engine. Its 9
+SndBank plays the notes Melody Box sends over two note buses
+(src/common/notebus/notebus.h) with SongBox's instrument engine, one voice
+per bus. Its 9
 knobs hold stored data at the Floppy field widths and are locked (own edit
 handler). See sndbank.c.
 """
@@ -26,7 +27,7 @@ ZMENU = PROJECT / "src" / "common" / "zmenu"
 NOTEBUS = PROJECT / "src" / "common" / "notebus"
 SONGBOX = PROJECT / "src" / "songbox"                 # songbox_instr.h, instruments/
 SPACE = 3                                               # --opt_for_space, as SongBox (the engine's loops)
-DSP_COST = 12.0                                         # estimate: one SongBox voice (SongBox: 4 voices + player = 52); not measured
+DSP_COST = 24.0                                         # estimate: two SongBox voices (SongBox: 4 voices + player = 52); not measured
 
 
 def build(out_zdl: Path) -> None:
