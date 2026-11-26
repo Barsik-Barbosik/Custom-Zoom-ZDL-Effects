@@ -62,9 +62,10 @@
 #define AK_U32(a) (*(const volatile uint32_t *)(uintptr_t)(a))
 
 #define AK_ID        ((7u << 24) | 523u)  /* own record word +4 */
-#define AK_FLOPPY    ((7u << 24) | 522u)  /* Floppy: knobs = stored data, never moved */
+#define AK_STORE     ((7u << 24) | 530u)  /* storage group SFX 530-539 (Floppy, SndBank, ..): knobs = stored data, never moved */
 #define AK_AK2       ((7u << 24) | 524u)  /* AutoKnob 2 */
-#define AK_NOGO(id)  ((id) == 0u || (id) == AK_ID || (id) == AK_AK2 || (id) == AK_FLOPPY)
+#define AK_NOGO(id)  ((id) == 0u || (id) == AK_ID || (id) == AK_AK2 || \
+                      (uint32_t)((id) - AK_STORE) < 10u)
 #define AK_CTX0      0x11F03000u      /* per-slot ctx, 212 B (53 words) each (all OSes) */
 #define AK_CTX_STEP  212u
 #define AK_CTX_WORDS 53u
@@ -401,6 +402,12 @@ void ak_limits(volatile AkState *st, const AkFw *f, uint32_t own)
     volatile uint32_t *t = (volatile uint32_t *)(uintptr_t)(f->tab + 44u * own);
     volatile uint32_t *r = (volatile uint32_t *)(uintptr_t)(f->rec + 44u * own);
     uint32_t ts = t[2], m, ch = 0u;
+    /* the own slot no longer holds AutoKnob (being replaced, same patch
+     * number): its columns belong to the new effect, never written */
+    if (r[1] != AK_ID) {
+        st->kslot = AK_NONE;
+        return;
+    }
     m = f->slots - 1u;
     if (d[12u * 2u + 3u] != m) {
         d[12u * 2u + 3u] = m;

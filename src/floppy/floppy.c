@@ -3,7 +3,7 @@
  *
  * Does nothing to the sound. Its 9 knobs exist only so the patch saves
  * their fields (G1on widths 13,13,13,8,8,8,8,27,8 bits); zmenu.h finds this
- * effect's slot by its record word +4 (gid 7 << 24 | fxid 522) and packs the
+ * effect's slot by its record word +4 (gid 7 << 24 | fxid 530) and packs the
  * menu values into its knob columns. Build: python -B build.py
  * --out P (1 flash block: no knob texts, the firmware shows its own
  * numbers). With FL_KNOB_TEXT (build_floppy(knob_text=True)) the knob pages

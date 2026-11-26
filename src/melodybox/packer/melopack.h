@@ -1,4 +1,4 @@
-/* melopack: the Melody Box storage format in C (mirror of melopack.py,
+/* melopack: the MelodyBox storage format in C (mirror of melopack.py,
  * whose module docstring is the spec): the decoder (mp_unpack) and the
  * packer (mp_start + mp_run, a job a few units per call).
  *
@@ -10,7 +10,7 @@
  *
  * Grid slot values: MP_REST, MP_HOLD, MP_NOTE + pitch (pitch 0..36).
  * Storage words: 4 per part, part q in words[4 q .. 4 q + 3] (bits 128 q
- * ..). Part 0 = Melody Box's own storage knobs 4-9 (67 bits): the key
+ * ..). Part 0 = MelodyBox's own storage knobs 4-9 (67 bits): the key
  * in bits 0..3, then 21 tokens (bits 4..66). Parts 1..4 = the storage
  * effects: with SndBank in the chain (sb) it is part 1: bits 0..15 the two
  * tracks' sound values (not read or written here), then 30 tokens (bits
@@ -44,7 +44,7 @@
 #define MP_NOTE      2u                 /* a note = MP_NOTE + pitch */
 #define MP_KEY_BITS  4u
 #define MP_NTOK      34u                /* 3-bit tokens per storage effect (parts 1..) */
-#define MP_OWN_TOK   21u                /* tokens in part 0 (Melody Box's knobs 4-9) */
+#define MP_OWN_TOK   21u                /* tokens in part 0 (MelodyBox's knobs 4-9) */
 #define MP_OWN_END   (MP_KEY_BITS + 3u * MP_OWN_TOK)   /* 67: part 0's end bit */
 #define MP_SB_SKIP   16u                /* SndBank's part: sound value bits before its tokens */
 #define MP_SB_TOK    30u                /* tokens in SndBank's part (they end at bit 106, as the others') */
@@ -306,7 +306,7 @@ static uint32_t mp_unpack(const uint32_t *w, uint32_t parts, uint32_t sb, volati
 #define MP_C_EXT     9u
 /* END cost of the current track: only track 1 before a track 2 */
 #define MP_ENDC(j)   (!(j)->trk && (j)->has2 ? MP_C_ESC : 0u)
-#define MP_MAXPARTS  5u                 /* Melody Box + 4 storage effects */
+#define MP_MAXPARTS  5u                 /* MelodyBox + 4 storage effects */
 #define MP_NPASS     8u                 /* 7 COPY shifts + RHYTHM */
 #define MP_MV_N 1u                      /* move kinds (0 = none) */
 #define MP_MV_R 2u

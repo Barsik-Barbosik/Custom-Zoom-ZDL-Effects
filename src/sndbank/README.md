@@ -1,17 +1,17 @@
-# SndBank — sound source for Melody Box (in development)
+# SndBank — sound source for MelodyBox (in development)
 
-SndBank (`SndBank`, SFX 528) plays the notes Melody Box sends to it. Put it
-in the same patch as Melody Box; it finds its notes by itself. On its own
+SndBank (`SndBank`, SFX 531) plays the notes MelodyBox sends to it. Put it
+in the same patch as MelodyBox; it finds its notes by itself. On its own
 it is silent and passes the audio through.
 
-- **Sounds:** SongBox's instruments, two voices (one per Melody Box
+- **Sounds:** SongBox's instruments, two voices (one per MelodyBox
   track), one note at a time each: PB, Tr (bass) and OJ, OR, EP, Mr,
   Kl, Sy, Pk (SongBox's other bass sounds OJ, OR, Sy are the same
   instruments as these, so they are left out). The sound and volume (00 … 95, 50 = normal) of
-  each voice are stored in SndBank's own knobs; Melody Box sets them. A
+  each voice are stored in SndBank's own knobs; MelodyBox sets them. A
   new volume plays at once, a new sound from the next note.
-- **No knobs to play with.** The knobs hold Melody Box's saved melody
-  (after Melody Box's own knobs) and the two tracks' sounds and volumes, and are
+- **No knobs to play with.** The knobs hold MelodyBox's saved melody
+  (after MelodyBox's own knobs) and the two tracks' sounds and volumes, and are
   locked: a turn springs back. They are named Data1 … Data9 and show
   `DON'T` `TOUCH` `THESE` on each page.
 - **Footswitch off:** silent.

@@ -1,5 +1,5 @@
 /*
- * Melody Box (MeloBox): a note sequencer / player, in development.
+ * MelodyBox (MeloBox): a note sequencer / player, in development.
  *
  * Two tracks of steps. Knob 1 picks the mode: MENU (value 0), TRK1 (1,
  * default) or TRK2 (2): edit that track's steps.
@@ -28,7 +28,7 @@
  *
  * Saving (as SongBox's): the steps and settings are saved in the patch
  * after each change, packed with packer/melopack.h into a storage chain:
- * part 0 = Melody Box's own knobs 4-9, then the storage effects in its
+ * part 0 = MelodyBox's own knobs 4-9, then the storage effects in its
  * owner range (the slots after it up to the next storage user, wrapping, as
  * zmenu's ZM_S_RANGE): SndBank first (it also keeps SOUND1 / SOUND2 in the
  * first 16 bits of its part), then the Floppies in their part marker order
@@ -66,7 +66,7 @@
  * loop again at step 1 (it may start playing before the melody is loaded).
  *
  * Own voices: with no SndBank in the chain (or an unknown firmware) each
- * track plays on one of Melody Box's own simple voices (the notebus probe's:
+ * track plays on one of MelodyBox's own simple voices (the notebus probe's:
  * a sawtooth through a one-pole low-pass, fast attack, slow fall while
  * held, short release), added to both ctx[5] channels; of the SOUND
  * settings only the level is used (taken at a note on).
@@ -95,7 +95,7 @@
 #define ZM_STREAM      1
 #define ZM_DESC        _Fx_SFX_MeloBox_Desc
 #define ZM_MAGIC       0x4D425831u      /* "MBX1" */
-#define ZM_FLOPPY_FXID 522u             /* Floppy: storage parts after SndBank */
+#define ZM_FLOPPY_FXID 530u             /* Floppy: storage parts after SndBank */
 #define ZM_S_RANGE     1                /* own only the Floppies up to the next Floppy user */
 #include "zmenu.h"
 #include "notebus.h"
@@ -134,8 +134,8 @@
                     : MB_NSND * MB_LEVELS - 1u)
 #define MB_NSND   9u                    /* SndBank's sounds (PB, Tr, OJ .. Pk) */
 #define MB_SV(st) ((st)->ov[MB_O_SND] | (st)->ov[MB_O_SND + 1u] << 8)  /* SndBank's voice settings (notebus.h) */
-#define MB_SYN_ID ((7u << 24) | 528u)   /* sound source: SndBank (SFX 528) */
-#define MB_FXID   525u                  /* own effect id (mirrors FXID in build.py) */
+#define MB_SYN_ID ((7u << 24) | 531u)   /* sound source: SndBank (SFX 531) */
+#define MB_FXID   519u                  /* own effect id (mirrors FXID in build.py) */
 #define MB_BASE   36u                   /* MIDI note of pitch 0 (C2: a bass octave) */
 #define MB_GATE   0.75f                 /* note off at this part of the step */
 #define MB_PH_PER_BPM 1.2093726e-05f    /* 16ths per audio call (8 samples) per BPM */

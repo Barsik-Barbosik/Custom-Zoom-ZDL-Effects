@@ -1,8 +1,8 @@
-# Melody Box — note sequencer / player (in development)
+# MelodyBox — note sequencer / player (in development)
 
-Melody Box (`MeloBox`) plays two tracks of notes (for example a melody
+MelodyBox (`MeloBox`) plays two tracks of notes (for example a melody
 and a bass line) through SndBank (`src/sndbank/`), the sound source, in the
-same patch. Without SndBank, Melody Box plays both tracks itself with a simple
+same patch. Without SndBank, MelodyBox plays both tracks itself with a simple
 built-in voice each (a soft sawtooth synth); of the SOUND settings it then
 uses only the volume. The guitar signal passes through.
 
@@ -45,8 +45,8 @@ and the own voices, and saving / loading with the patch work on the B1Xon
 The melody is saved after each change (about half a second after the last
 turn, like SongBox); store the patch as usual to keep it.
 
-- **Where:** Melody Box's own knobs 4-9 first, then SndBank and Floppy
-  effects placed after Melody Box (up to the next effect that saves its own
+- **Where:** MelodyBox's own knobs 4-9 first, then SndBank and Floppy
+  effects placed after MelodyBox (up to the next effect that saves its own
   data in Floppies). TEMPO, LENGTH and GRID are saved with the melody (a
   TEMPO other than Pedal takes a little room). SndBank also keeps SOUND1 and
   SOUND2 (sound and volume); without SndBank they are not saved.
@@ -71,12 +71,12 @@ turn, like SongBox); store the patch as usual to keep it.
 - **Each step:** rest, hold (the note before goes on) or a note in a
   3-octave range. A pause before a note is just a rest step; a dotted note
   is a note with holds.
-- **Saved in Melody Box's own knobs 4-9, then SndBank and Floppy
-  effects** placed after Melody Box, packed: lengths and
+- **Saved in MelodyBox's own knobs 4-9, then SndBank and Floppy
+  effects** placed after MelodyBox, packed: lengths and
   holds cost almost nothing, small steps between notes are cheap (both
   tracks share one key), and
   repeated rhythms or bars (also moved up or down the scale) are stored
-  as short references. A typical melody fits Melody Box + SndBank, some
+  as short references. A typical melody fits MelodyBox + SndBank, some
   need one Floppy more; a melody with a bass line usually needs 1 Floppy
   (sometimes none, sometimes 2).
 
@@ -85,7 +85,7 @@ turn, like SongBox); store the patch as usual to keep it.
 | File | Purpose |
 |---|---|
 | `melodybox.c` | Audio function `Fx_SFX_MeloBox`: step lists (2 tracks), knob names, step editing, MENU, playback |
-| `build.py` | Runs `cl6x` and the linker → `MeloBox.ZDL` (SFX, gid 7, fxid 525) |
+| `build.py` | Runs `cl6x` and the linker → `MeloBox.ZDL` (SFX, gid 7, fxid 519) |
 | `packer/melopack.py` | Model of the storage format (the spec): packer, unpacker, size table and tests |
 | `packer/melopack.h` | The format in C (decoder + packer), checked against the model on the pedal (`build.py --selftest decode` / `pack`) |
 | `packer/melopack_vectors.txt` | Test vectors written by `melopack.py`, for checking the C version |

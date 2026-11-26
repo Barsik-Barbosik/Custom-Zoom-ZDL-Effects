@@ -1,4 +1,4 @@
-"""Storage model for the Melody Box steps (grids -> token stream -> storage words).
+"""Storage model for the MelodyBox steps (grids -> token stream -> storage words).
 
 Two tracks; the editor shows n grid slots per track (n = 16, 32, 64 or 128,
 the same for both): rest, hold (the note before goes on) or a note (pitch
@@ -8,14 +8,14 @@ scale-degree steps in one key for both tracks (the packer tries all 12), so
 holds cost nothing and small steps cost 3 bits.
 
 Storage parts, part q in words[4 q .. 4 q + 3] (bits 128 q ..): part 0 =
-Melody Box's own storage knobs 4-9 (8+8+8+8+27+8 = 67 bits: the key in
+MelodyBox's own storage knobs 4-9 (8+8+8+8+27+8 = 67 bits: the key in
 bits 0..3, then 21 tokens); parts 1.. = the storage effects after it, 106
 bits each (Floppy's patch field widths). With SndBank in the chain (sb = 1)
 it is part 1: bits 0..7 track 1's sound value, 8..15 track 2's (SndBank's
 sound * 20 + level; not part of the stream), then 30 tokens (bits
 16..105). The others (Floppies) in SongBox's Floppy layout
 (songpack.py): the first 4 bits the part marker, then 34 tokens. At most 5
-parts (Melody Box + 4 effects fill the 5 slots). One chain holds both
+parts (MelodyBox + 4 effects fill the 5 slots). One chain holds both
 tracks.
 
 Stream: settings token first (bits 0..1: n = 16 << code; bit 2: step length,
@@ -67,7 +67,7 @@ REST, HOLD = 0, 1             # grid values; a note = 2 + pitch
 KEY_BITS = 4
 NTOK = 34                     # 3-bit tokens per storage effect (parts 1..)
 PART_BITS = 3 * NTOK          # 102 token bits per storage effect
-OWN_TOK = 21                  # tokens in part 0 (Melody Box's knobs 4-9)
+OWN_TOK = 21                  # tokens in part 0 (MelodyBox's knobs 4-9)
 OWN_END = KEY_BITS + 3 * OWN_TOK    # 67: part 0's end bit
 SB_SKIP = 16                  # SndBank's part: the two sound values' bits before its tokens
 SB_TOK = 30                   # tokens in SndBank's part (they end at bit 106, as the others')
@@ -810,7 +810,7 @@ def main() -> None:
 
     lines = ["# melopack test vectors; grid = n hex bytes (0 rest, 1 hold, 2 + pitch); "
              "grid 1 = track 1, grid 2 = track 2",
-             "# parts: 1 = Melody Box's knobs 4-9 (21 tokens), then 34 tokens per storage effect; "
+             "# parts: 1 = MelodyBox's knobs 4-9 (21 tokens), then 34 tokens per storage effect; "
              "sb 1: part 2 is SndBank's (30 tokens after 16 sound value bits)",
              "# pack: P <token bits> <key> <tempo 0 = Pedal, 1..211> <step 0 = 1/16, 1 = 1/8> <sb> "
              "<parts> <words, 4 per part, hex> <grid 1> <grid 2>",
@@ -827,7 +827,7 @@ def main() -> None:
                          + " ".join(f"{w:08x}" for w in words[:4 * parts])
                          + f" {gridhex(normalise(g))} {gridhex(normalise(g2))}")
 
-    print("track 1 alone: token bits (+ 4 key bits); parts: 1 = Melody Box (63 token bits), "
+    print("track 1 alone: token bits (+ 4 key bits); parts: 1 = MelodyBox (63 token bits), "
           "2 = + SndBank (153), 3 = + 1 Floppy (255), 4 = + 2 (357), 5 = + 3 (459); "
           "vectors alternate sb 0 / 1\n")
     hdr = f"{'melody':36} {'steps':>5} {'notes':>5} {'P4':>5} {'P6':>5} {'bits':>5}  Pt"

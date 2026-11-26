@@ -1,5 +1,5 @@
 /*
- * SndBank: the sound source for Melody Box (in development). It plays the
+ * SndBank: the sound source for MelodyBox (in development). It plays the
  * notes a sequencer sends over two note buses (src/common/notebus/notebus.h)
  * with SongBox's instrument engine, one voice per bus. It has no knobs to play
  * with: its 9 knobs hold stored data (the patch field widths of Floppy,
@@ -49,7 +49,7 @@
 #define ZM_STREAM      1
 #define ZM_DESC        _Fx_SFX_SndBank_Desc
 #define ZM_MAGIC       0x53424E31u      /* "SBN1" */
-#define ZM_FLOPPY_FXID 522u             /* unused (no Floppy access) */
+#define ZM_FLOPPY_FXID 530u             /* unused (no Floppy access) */
 #include "zmenu.h"
 #include "notebus.h"
 

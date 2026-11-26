@@ -65,7 +65,7 @@
 #define ZM_STREAM 1
 #define ZM_DESC _Fx_SFX_SongBox_Desc
 #define ZM_MAGIC 0x53505232u            /* 'SPR2' */
-#define ZM_FLOPPY_FXID 522u
+#define ZM_FLOPPY_FXID 530u
 #define ZM_S_SELF ((7u << 24) | 521u)  /* own record word (= SS_ID): zm_s_poll touches no Floppy while being replaced */
 /* Code that runs rarely (loads, packing, edits, knob reads): one copy in
  * .text, called from the audio function, instead of inlined into it (the

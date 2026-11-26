@@ -1,4 +1,4 @@
-"""Build MeloBox.ZDL: Melody Box, a note sequencer / player (SFX 525).
+"""Build MeloBox.ZDL: MelodyBox, a note sequencer / player (SFX 519).
 
   python -B src/melodybox/build.py --out P    # P = scratchpad until the first release
   python -B src/melodybox/build.py --selftest decode|pack --out P   # self-test (see below)
@@ -46,7 +46,7 @@ from screen_image import Canvas  # noqa: E402
 from zdl_build import compile_c, encode_rle, link_common  # noqa: E402
 from zmenu_gen import FLOPPY_MAXES  # noqa: E402
 
-FXID = 525
+FXID = 519
 MAX_K3 = 211                                            # mirrors MB_MAXK3 in melodybox.c
 MAX_VAL = 38                                            # mirrors MB_MAXVAL in melodybox.c
 ZMENU = PROJECT / "src" / "common" / "zmenu"

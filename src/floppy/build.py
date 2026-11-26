@@ -1,4 +1,4 @@
-"""Build FLOPPY.ZDL: the storage companion for zmenu.h menus (SFX + 522).
+"""Build FLOPPY.ZDL: the storage companion for zmenu.h menus (SFX 530).
 
 Floppy is a plain effect with 9 knobs at the patch field maxes and no sound;
 zmenu.h (src/common/zmenu/) in another effect finds it in the chain and packs that

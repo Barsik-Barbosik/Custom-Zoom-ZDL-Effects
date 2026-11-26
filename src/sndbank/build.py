@@ -1,8 +1,8 @@
-"""Build SndBank.ZDL: the sound source for Melody Box (SFX 528, in development).
+"""Build SndBank.ZDL: the sound source for MelodyBox (SFX 531, in development).
 
   python -B src/sndbank/build.py --out P    # P = scratchpad until the first release
 
-SndBank plays the notes Melody Box sends over two note buses
+SndBank plays the notes MelodyBox sends over two note buses
 (src/common/notebus/notebus.h) with SongBox's instrument engine, one voice
 per bus. Its 9
 knobs hold stored data at the Floppy field widths and are locked (own edit
@@ -24,7 +24,7 @@ from screen_image import Canvas  # noqa: E402
 from zdl_build import compile_c, encode_rle, link_common  # noqa: E402
 from zmenu_gen import FLOPPY_MAXES  # noqa: E402
 
-FXID = 528
+FXID = 531
 ZMENU = PROJECT / "src" / "common" / "zmenu"
 NOTEBUS = PROJECT / "src" / "common" / "notebus"
 SONGBOX = PROJECT / "src" / "songbox"                 # songbox_instr.h, instruments/

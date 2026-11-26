@@ -1,5 +1,5 @@
 # melopack test vectors; grid = n hex bytes (0 rest, 1 hold, 2 + pitch); grid 1 = track 1, grid 2 = track 2
-# parts: 1 = Melody Box's knobs 4-9 (21 tokens), then 34 tokens per storage effect; sb 1: part 2 is SndBank's (30 tokens after 16 sound value bits)
+# parts: 1 = MelodyBox's knobs 4-9 (21 tokens), then 34 tokens per storage effect; sb 1: part 2 is SndBank's (30 tokens after 16 sound value bits)
 # pack: P <token bits> <key> <tempo 0 = Pedal, 1..211> <step 0 = 1/16, 1 = 1/8> <sb> <parts> <words, 4 per part, hex> <grid 1> <grid 2>
 # unpack: U <sb> <parts> <step> <tempo> <words, 4 per part, hex> <grid 1> <grid 2>   (any words, junk incl.)
 P 75 0 0 0 0 2 62304100 2838e81c 00000000 00000000 0000ba90 00000000 00000000 00000000 0b010e0012010b0900000b010e011001 00000000000000000000000000000000

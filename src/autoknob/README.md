@@ -39,8 +39,9 @@ The shapes (one cycle at the Rate's speed):
   your setting back. Show is untested on the MS pedals.
 - **Footswitch off or another Slot / Knob:** the knob goes back to its own
   setting.
-- **Never moved: Floppy, another AutoKnob and AutoKnob 2** (Slot shows
-  "---"). Floppy's knobs hold its stored data, such as SongBox's song.
+- **Never moved: Floppy, SndBank, another AutoKnob and AutoKnob 2** (Slot
+  shows "---"). Floppy's and SndBank's knobs hold stored data, such as
+  SongBox's song.
 - **Two knobs at once:** see [AutoKnob 2](../autoknob2/README.md), a
   separate effect with two LFOs.
 - **Removing AutoKnob from the patch** leaves the knob at its last LFO value

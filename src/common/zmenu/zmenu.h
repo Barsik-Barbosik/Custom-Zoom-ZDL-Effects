@@ -525,12 +525,12 @@ static const struct { uint8_t w[9]; } zm_s_widt = { { 13u, 13u, 13u, 8u, 8u, 8u,
 
 #if defined(ZM_S_RANGE) && ZM_S_RANGE
 /* Floppy users (stream-mode effects; slot record word +4): SongBox (SFX 521),
- * MeloBox (SFX 525). Add every new Floppy user here. */
+ * MeloBox (SFX 519). Add every new Floppy user here. */
 #define ZM_S_ID(fx) ((7u << 24) | (fx))
 ZM_INLINE(zm_s_user)
 static inline uint32_t zm_s_user(uint32_t w)
 {
-    return (uint32_t)(w == ZM_S_ID(521u)) | (uint32_t)(w == ZM_S_ID(525u));
+    return (uint32_t)(w == ZM_S_ID(521u)) | (uint32_t)(w == ZM_S_ID(519u));
 }
 #endif
 

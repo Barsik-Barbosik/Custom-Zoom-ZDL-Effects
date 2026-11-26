@@ -83,7 +83,7 @@
 #define ZDL_PTR(type, word) ((type)(uintptr_t)(word))
 #define AK_U32(a) (*(const volatile uint32_t *)(uintptr_t)(a))
 
-#define AK_FLOPPY    ((7u << 24) | 522u)  /* Floppy: knobs = stored data, never moved */
+#define AK_STORE     ((7u << 24) | 530u)  /* storage group SFX 530-539 (Floppy, SndBank, ..): knobs = stored data, never moved */
 #define AK_AK1       ((7u << 24) | 523u)  /* AutoKnob 1.x */
 #define AK_AK2       ((7u << 24) | 524u)  /* AutoKnob 2 release build */
 #ifdef AK_PROBE
@@ -93,7 +93,7 @@
 #endif
 /* never a target: no effect, any AutoKnob (own build, 1.x, 2), Floppy */
 #define AK_NOGO(id)  ((id) == 0u || (id) == AK_ID || (id) == AK_AK1 || (id) == AK_AK2 || \
-                      (id) == AK_FLOPPY)
+                      (uint32_t)((id) - AK_STORE) < 10u)
 #define AK_DESC      _Fx_SFX_AutoKnob_Desc
 #define AK_CTX0      0x11F03000u      /* per-slot ctx, 212 B (53 words) each (all OSes) */
 #define AK_CTX_STEP  212u
@@ -363,6 +363,10 @@ uint32_t ak_sync(volatile AkState *st, const AkFw *f, uint32_t own, uint32_t loa
     volatile unsigned int *d = (volatile unsigned int *)AK_DESC;
     volatile const uint32_t *src = load ? r : t;
     uint32_t i, j, b, c, k, n, x, a, m, ch = 0u;
+
+    /* the own slot no longer holds AutoKnob 2 (being replaced, same patch
+     * number): its columns belong to the new effect, never written */
+    if (r[1] != AK_ID) return 0u;
 
     /* nothing turned (every column as last written): done (the common case;
      * keeps the cold work below to the calls after a turn) */
@@ -930,7 +934,7 @@ void Fx_SFX_AutoKnob(unsigned int *ctx)
         uint32_t redraw = 0u;
         st->cyc ^= 1u;
         if (!st->cyc) return;
-        if (!calm || st->lslot != own) {
+        if (!calm || st->lslot != own || AK_U32(f->rec + 44u * own + 4u) != AK_ID) {
             st->lok = 0u;
             st->lwait = 0u;
             st->lslot = own;

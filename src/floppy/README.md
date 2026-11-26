@@ -27,7 +27,7 @@ comes back wrong there.
 
 `Floppy.ZDL` (3,499 B, from the [Releases](../../../../releases) page or
 `../../dist/`) needs 1 free flash block. It is in the **SFX**
-category (gid 7, fxid 522) and declares a DSP cost of 1. Install it as described in the
+category (gid 7, fxid 530) and declares a DSP cost of 1. Install it as described in the
 [main README](../../README.md#install) and add it to the patch next to the
 effect that uses it.
 

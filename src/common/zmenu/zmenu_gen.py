@@ -33,7 +33,7 @@ import zlib
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 
-FLOPPY_FXID = 522                                          # gid 7 (SFX)
+FLOPPY_FXID = 530                                          # gid 7 (SFX)
 WIDTHS = {
     "g1on": (13, 13, 13, 8, 8, 8, 8, 27, 8),               # HW (MenuPrb stages 10-21), all exact
     # MS pedals: assumed the same as the G1on (untested; Ziddle's patch.rs
