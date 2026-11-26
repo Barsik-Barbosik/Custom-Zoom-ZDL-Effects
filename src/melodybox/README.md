@@ -17,7 +17,8 @@ uses only the volume. The guitar signal passes through.
   01-02-03, then 02-03-04, and so on. Both tracks keep the same view, so
   switching tracks shows the same steps.
 - **Knob 2** sets the value of the step it shows (rest, hold, C2 … C5).
-  After a scroll it jumps to the new step's value.
+  After a scroll it jumps to the new step's value. On steps 01, 05, 09, 13, ...
+  its value text shows a small mark instead of the step number.
 - **MENU:** knob 2 picks the setting, the knob names ask its question and
   knob 3 gives the answer:
 

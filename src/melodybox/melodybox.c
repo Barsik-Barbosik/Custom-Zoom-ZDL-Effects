@@ -7,7 +7,8 @@
  * TRK1 / TRK2: knobs 1-3 show three neighbouring items of the track's
  * list: "" (empty), the steps 1..n (n = the LENGTH setting: 16, 32, 64 or
  * 128, both tracks), "END"; both tracks share the scroll offset. A step's
- * name is its number (2 digits; after 99 again 00, 01, ..) plus its value:
+ * name is its number (2 digits; after 99 again 00, 01, ..; knob 2's text
+ * shows glyph 0x1D + "_" instead on steps 1, 5, 9, ..) plus its value:
  * "01___" rest, "01Hld" hold (the note before goes on), "01_C2" a natural
  * note, "01C#2" a sharp one (octaves 2..5: C2..C5). Knob 3 scrolls: its
  * value is the scroll offset, so turning it right moves the three knobs one
@@ -1045,7 +1046,8 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
 /* ---- knob texts (UI thread) ---- */
 
 /* Knob k (0-based), value v: knob 1 MENU / TRK1 / TRK2; knob 2 its own
- * name (a track: descriptor entry 3 as the audio callback wrote it) or the
+ * name (a track: descriptor entry 3 as the audio callback wrote it; on
+ * steps 1, 5, 9, .. glyph 0x1D + "_" over the step number) or the
  * MENU option; knob 3 MOVE or the MENU option's value (TEMPO: Pedal or
  * the BPM). One shared copy in .text. */
 #pragma CODE_SECTION(mb_text, ".text")
@@ -1064,6 +1066,10 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
         while (n < 7 && nm[n] >= ' ' && nm[n] <= '~') {
             s[n] = (char)nm[n];
             n++;
+        }
+        if (n > 1 && nm[0] <= '9' && st && !(st->off & 3u)) {  /* step 1, 5, 9, ..: a mark for the number */
+            s[0] = 0x1D;
+            s[1] = '_';
         }
         s[n] = 0;
         return n;
