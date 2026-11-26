@@ -13,7 +13,11 @@ uses only the volume. The guitar signal passes through.
   again) plus the step's value: `01___` rest, `01Hld` hold (the note
   before goes on), `01_C2` a note, `01C#2` a sharp note. Notes go from C2
   to C5. The list starts with an empty item and ends with `END`.
-- **Knob 3 ("MOVE")** moves the view: turned right, the knobs show steps
+- **Play position:** while the footswitch is on, knob 3's value (SCRLL)
+  blinks with where playback is: `St:01` (steps 1-4), `SCRLL` (5-16),
+  `St:17` (17-20), `SCRLL`, `St:33`, ..., `S:113`. Turn knob 3 to that
+  step to see it.
+- **Knob 3 ("SCRLL")** moves the view: turned right, the knobs show steps
   01-02-03, then 02-03-04, and so on. Both tracks keep the same view, so
   switching tracks shows the same steps.
 - **Knob 2** sets the value of the step it shows (rest, hold, C2 … C5).
