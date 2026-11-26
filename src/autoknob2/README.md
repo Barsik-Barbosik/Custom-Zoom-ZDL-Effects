@@ -22,8 +22,8 @@ and set that row's two values:
 
 | Row | Value | Values | What it does |
 |---|---|---|---|
-| TARGET | Slot | Off, 1..6 | Which effect (chain position); shows the effect's name. Off = this LFO does nothing |
-| TARGET | Knob | 1..9 | Which of its knobs (up to the effect's last one); shows the knob's name |
+| DEST | Slot | Off, 1..6 | Destination: which effect (chain position); shows the effect's name. Off = this LFO does nothing |
+| DEST | Knob | 1..9 | Which of its knobs (up to the effect's last one); shows the knob's name |
 | WAVE | Shape | Sine, Tri, Saw, Ramp, Sqr, S&H | LFO shape |
 | WAVE | Rate | 0..100 | LFO speed, 0.05 to 10 Hz |
 | RANGE | Low | 0..100 | Lowest value of the sweep, in % of the knob's range |

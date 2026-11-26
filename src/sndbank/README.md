@@ -5,14 +5,15 @@ in the same patch as Melody Box; it finds its notes by itself. On its own
 it is silent and passes the audio through.
 
 - **Sounds:** SongBox's instruments, two voices (one per Melody Box
-  track), one note at a time each: PB, Tr (bass) and Or1, Or2, EP, Mrm,
-  Klm, Syn, Plk (SongBox's other bass sounds O1, O2, Sy are Or1, Or2 and
-  Syn, so they are left out). The sound and volume (00 … 95, 50 = normal) of
+  track), one note at a time each: PB, Tr (bass) and OJ, OR, EP, Mr,
+  Kl, Sy, Pk (SongBox's other bass sounds OJ, OR, Sy are the same
+  instruments as these, so they are left out). The sound and volume (00 … 95, 50 = normal) of
   each voice are stored in SndBank's own knobs; Melody Box sets them. A
   new volume plays at once, a new sound from the next note.
 - **No knobs to play with.** The knobs hold Melody Box's saved melody
   (after Melody Box's own knobs) and the two tracks' sounds and volumes, and are
-  locked: a turn springs back. Their text is `-`.
+  locked: a turn springs back. They are named Data1 … Data9 and show
+  `DON'T` `TOUCH` `THESE` on each page.
 - **Footswitch off:** silent.
 
 Status: both voices, the sounds and their volumes work on the B1Xon 1.30

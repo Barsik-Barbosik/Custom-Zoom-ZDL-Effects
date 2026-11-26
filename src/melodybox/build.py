@@ -3,15 +3,17 @@
   python -B src/melodybox/build.py --out P    # P = scratchpad until the first release
   python -B src/melodybox/build.py --selftest decode|pack --out P   # self-test (see below)
 
-Knob 1 = mode: MENU (0), TRACK1 (1, default) or TRACK2 (2). A track: knobs
+Knob 1 = mode: MENU (0), TRK1 (1, default) or TRK2 (2). A track: knobs
 1-3 show items off .. off + 2 of "" (empty), steps 1..n, "END" (step name =
-2 digits + value: "01___" rest, "01~~~" hold, "01_C2", "01C#2"); knob 2 =
+2 digits + value: "01___" rest, "01Hld" hold, "01_C2", "01C#2"); knob 2 =
 the value of its step (0 rest, 1 hold, 2..38 = C2..C5), knob 3 = scroll
 offset. MENU: knob 2 = option TEMPO / LENGTH / GRID / SOUND1 / SOUND2, knob
 3 = its value (SOUND1 / 2: sound * 20 + level, "EP:70"), the names spell
 the question. Knob maxes change at run time. Knobs
 4-9 = locked storage (the patch field widths 8, 8, 8, 8, 27, 8; names
 Data1..Data6, texts DON'T / TURN / THESE on each page). See melodybox.c.
+The screen image is screen.png (128x64; pixels darker than mid-grey are
+dark).
 
 --selftest decode|pack: writes melodybox_selftest.h (generated, from
 packer/melopack_vectors.txt) and builds with MB_SELFTEST (1 decode, 2 pack;
@@ -40,7 +42,8 @@ PROJECT = HERE.parent.parent                            # Custom-Zoom-ZDL/
 sys.path.insert(0, str(PROJECT / "build"))            # linker, screen_image, zdl_build
 sys.path.insert(0, str(PROJECT / "src" / "common" / "zmenu"))    # zmenu_gen (field widths)
 
-from zdl_build import compile_c, link_common  # noqa: E402
+from screen_image import Canvas  # noqa: E402
+from zdl_build import compile_c, encode_rle, link_common  # noqa: E402
 from zmenu_gen import FLOPPY_MAXES  # noqa: E402
 
 FXID = 525
@@ -51,6 +54,21 @@ PACKER = HERE / "packer"
 NOTEBUS = PROJECT / "src" / "common" / "notebus"
 SPACE = 3                                               # --opt_for_space, as SongBox / SndBank (the packer: size)
 PACK_KEEP_PLAIN = 4     # pack self-test: P lines with 64 steps, one track, 2 parts kept (fit 8 flash blocks)
+KNOB_SLOTS = [(1, 0), (126, 0), (127, 0)]                # blank 1x1 knobs, outside the frame
+SCREEN = HERE / "screen.png"                              # 128x64, pixels darker than mid-grey = dark
+
+
+def make_screen() -> bytes:
+    from PIL import Image
+    img = Image.open(SCREEN).convert("L")
+    assert img.size == (128, 64), f"{SCREEN.name} is {img.size}, need 128x64"
+    c = Canvas()
+    for y in range(64):
+        for x in range(128):
+            c.px(x, y, 1 if img.getpixel((x, y)) <= 127 else 0)
+    for x, y in KNOB_SLOTS:
+        assert not any(c.pixels[y + z][x] for z in range(8)), f"knob slot {x},{y} not light"
+    return encode_rle(c)
 
 
 def fnv(data: bytes) -> int:
@@ -141,7 +159,7 @@ def build(out_zdl: Path, selftest: str = "", probe: bool = False) -> None:
                 "getstr": getstr}
 
     params = [
-        knob("", 2, "GetString_Mb1", 1),               # mode: MENU (0) / TRACK1 (1) / TRACK2 (2)
+        knob("", 2, "GetString_Mb1", 1),               # mode: MENU (0) / TRK1 (1) / TRK2 (2)
         knob("01___", MAX_VAL, "GetString_Mb2"),       # step value / MENU option
         knob("02___", MAX_K3, "GetString_Mb3"),        # scroll / MENU answer
     ]
@@ -171,7 +189,11 @@ def build(out_zdl: Path, selftest: str = "", probe: bool = False) -> None:
         output_path=out_zdl,
         fxid_version=b"0.10",
         flags_byte=1,
-        dsp_cost=3.0,                                   # estimate: two own voices (8 samples each, saw + low-pass); not measured
+        screen_image=make_screen(),
+        # no firmware knobs on the picture: own blank 1x1 knob graphic (11 frames)
+        knob_positions=[(i + 2, x, y) for i, (x, y) in enumerate(KNOB_SLOTS)],
+        knob_bitmap=(1, 1, 11, bytes(11)),
+        dsp_cost=3.0,                                  # estimate: two own voices (8 samples each, saw + low-pass); not measured
         **link_common(),
     ))
     obj.unlink(missing_ok=True)

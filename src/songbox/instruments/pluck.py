@@ -1,4 +1,4 @@
-"""Pluck (keys record only; on the saw's table = Plk): the plain gated
+"""Pluck (keys record only; on the saw's table = Pk): the plain gated
 record of tri.py with a fast decay while the note is held (-60 dB after
 400 ms: a pluck), 2 ms attack, 50 ms release. Also plays its kit's bass,
 unchanged."""

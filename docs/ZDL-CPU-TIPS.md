@@ -36,7 +36,7 @@ cost has to keep it out.
 
 - **A load probe build.** Read TSCL at the start and end of the audio
   call and keep the peak and a running mean per 4,096 calls. Show the
-  numbers on the pedal: DrumBox's probe beeps them at Volume 0 (peak,
+  numbers on the pedal: DrumBox's probe beeps them at Level 0 (peak,
   busiest mean, ctx[3] size, CPU MHz); SongBox's shows them as knob names
   ("A 19/6", "V 28/13", "N 12/1": peak / mean % for the call start, the
   voices and the knob names). Footswitch off resets them.

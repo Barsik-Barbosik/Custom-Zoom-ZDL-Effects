@@ -31,13 +31,13 @@ KNOB_SLOTS = [(1, 0), (126, 0), (127, 0)]                # blank 1x1 knobs, outs
 SCREEN = HERE / "screen.png"                              # 128x64, pixels darker than mid-grey = dark
 
 # Knob menu (mirrors autoknob.c): rows of two values, packed widths
-ROW_SHIFT = [0, 7, 7, 1]                                # A << shift | B (Target: A * 9 + B)
+ROW_SHIFT = [0, 7, 7, 1]                                # A << shift | B (Dest: A * 9 + B)
 ROW_WIDTH = [6, 10, 14, 6]
 SEL_SHIFT = [11, 6]                                     # hidden bits below the row: knob 1 / 4
 # defaults per LFO: Slot Knob Wave Rate Low High Phase Show (Slot 0 = Off)
 DEFAULTS = [[0, 0, 0, 40, 0, 100, 0, 0],                # LFO 1: Off, Show Off
             [0, 0, 0, 40, 0, 100, 0, 0]]                # LFO 2: Off, Show Off
-DEFAULT_ROWS = [0, 0]                                   # Target
+DEFAULT_ROWS = [0, 0]                                   # Dest
 
 
 def rate_hz(k: int) -> float:
@@ -123,10 +123,10 @@ def build(out_zdl: Path, probe: bool) -> None:
 
     params = [
         # page 1: LFO 1, page 2: LFO 2 (selector + the row's two values)
-        sel("*LFO1*", 1, 13, "GetString_AkRow1"),
+        sel("LFO1", 1, 13, "GetString_AkRow1"),
         val("Slot", 2, "GetString_AkVal2"),
         val("Knob", 3, "GetString_AkVal3"),
-        sel("*LFO2*", 4, 8, "GetString_AkRow4"),
+        sel("LFO2", 4, 8, "GetString_AkRow4"),
         val("Slot", 5, "GetString_AkVal5"),
         val("Knob", 6, "GetString_AkVal6"),
         # page 3: locked storage (8, 27, 8-bit patch fields); texts

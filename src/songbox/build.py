@@ -6,7 +6,7 @@
   python -B build.py --probe --out P   # load probe: STATUS shows CPU % (SS_PROBE)
   python -B build.py --x2 --out P      # cost probe: pass-through, all code kept (SS_X2)
   python -B build.py --x3 --out P      # cost probe: all but the player (SS_X3)
-  python -B build.py --w1 --out P      # headroom probe: pass-through + Chords % busy wait (SS_W1)
+  python -B build.py --w1 --out P      # headroom probe: pass-through + Keys % busy wait (SS_W1)
   python -B build.py --rhythms N --out P   # test build: only the first N rhythms
   python -B build.py --cost C --out P      # test build: declared DSP cost C (heavy patch tests)
   python -B build.py --tests        # only regenerate songbox_tests.h (no TI)
@@ -51,12 +51,12 @@ import sets  # noqa: E402  (instrument sets, instruments/)
 
 KNOBS = [  # name, max, default
     ("Bar", 129, 1),  # 129: STATUS after 128 bars
-    ("Chord", 26, 0), ("Rhythm", 2, 0),                  # Chord: END, 24 chords, Drums, Rest
+    ("Chord", 26, 0), ("Rhthm", 2, 0),                  # Chord: END, 24 chords, Drums, Rest
     ("Rhy1", len(PATTERNS), DEFAULTS["Rhy1"]), ("Rhy2", len(PATTERNS), DEFAULTS["Rhy2"]),
     ("Rhy3", len(PATTERNS), DEFAULTS["Rhy3"]),           # 0 Randm, 1.. patterns (patterns.json)
     ("Tempo", 211, 0),  # 0 Pedal (default), 1..211 = 40..250 BPM (max 211: APanDLY law, unclamped)
     ("Bass", len(sets.BASS) * sets.LEVELS - 1, sets.BASS_DEFAULT),      # part * sets.LEVELS + level
-    ("Chords", len(sets.KEYS) * sets.LEVELS - 1, sets.CHORDS_DEFAULT),  # (sets.py BASS / KEYS)
+    ("Keys", len(sets.KEYS) * sets.LEVELS - 1, sets.KEYS_DEFAULT),  # (sets.py BASS / KEYS)
 ]
 
 

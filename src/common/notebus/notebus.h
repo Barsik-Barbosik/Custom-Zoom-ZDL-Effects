@@ -20,8 +20,8 @@
  * sound source's stored knob fields read one after another (knob 1's
  * NB_LOW bits, then knob 2's, ..: bit 13 = knob 2's bit 0) hold one byte
  * per voice, voice v (1..) at bits 8 (v - 1) .. 8 v - 1: its sound value
- * = sound * NB_LEVELS + level (SndBank: sounds 0 PB, 1 Tr, 2 Or1 .. 8
- * Plk, level 0..19 shown x 5, 10 = x1; above 179 = NB_SV_DEF). The driving effect
+ * = sound * NB_LEVELS + level (SndBank: sounds 0 PB, 1 Tr, 2 OJ .. 8
+ * Pk, level 0..19 shown x 5, 10 = x1; above 179 = NB_SV_DEF). The driving effect
  * writes the bytes (table and record rows, keeping the bus bits) when a
  * setting changes; the sound source reads them from its record row a few
  * times a second: a new level plays at once, a new sound from the next

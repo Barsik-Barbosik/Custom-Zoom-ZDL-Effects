@@ -1,19 +1,19 @@
 /*
  * Melody Box (MeloBox): a note sequencer / player, in development.
  *
- * Two tracks of steps. Knob 1 picks the mode: MENU (value 0), TRACK1 (1,
- * default) or TRACK2 (2): edit that track's steps.
+ * Two tracks of steps. Knob 1 picks the mode: MENU (value 0), TRK1 (1,
+ * default) or TRK2 (2): edit that track's steps.
  *
- * TRACK1 / TRACK2: knobs 1-3 show three neighbouring items of the track's
+ * TRK1 / TRK2: knobs 1-3 show three neighbouring items of the track's
  * list: "" (empty), the steps 1..n (n = the LENGTH setting: 16, 32, 64 or
  * 128, both tracks), "END"; both tracks share the scroll offset. A step's
  * name is its number (2 digits; after 99 again 00, 01, ..) plus its value:
- * "01___" rest, "01~~~" hold (the note before goes on), "01_C2" a natural
+ * "01___" rest, "01Hld" hold (the note before goes on), "01_C2" a natural
  * note, "01C#2" a sharp one (octaves 2..5: C2..C5). Knob 3 scrolls: its
  * value is the scroll offset, so turning it right moves the three knobs one
  * item on. Knob 2 edits the value of the step it shows (0 rest, 1 hold,
  * 2..38 = C2..C5); on a scroll it jumps to the new step's value. Knob
- * texts: knob 1 "TRACK1" / "TRACK2", knob 2 its own name, knob 3 "SCROLL".
+ * texts: knob 1 "TRK1" / "TRK2", knob 2 its own name, knob 3 "MOVE".
  *
  * MENU (as SongBox's): knob 2 picks the option (text TEMPO, LENGTH, GRID,
  * SOUND1, SOUND2), the knob names spell its question, knob 3 gives the
@@ -21,7 +21,7 @@
  * value), LENGTH 16 / 32 / 64 / 128 steps and GRID 1/16 or 1/8 (a step's
  * length in playback) for both tracks, SOUND1 / SOUND2 the sound source's
  * sound and its level for track 1 / 2 (value = sound * 20 + level, as
- * SongBox's Bass / Chords knobs; text "EP:70": sound PB .. Plk, level x 5,
+ * SongBox's Bass / Keys knobs; text "EP:70": sound PB .. Pk, level x 5,
  * 00 = silent, 50 = x1, default PB:50). Back on a track, knobs 2 and 3 jump
  * back to the step and its value.
  *
@@ -113,9 +113,9 @@
 #define MB_MAGIC  0x4D425839u           /* "MBX9"; new value on any state layout change */
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
-#define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRACK1 / TRACK2 */
+#define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRK1 / TRK2 */
 #define MB_EDIT   1u                    /* knob 2: the step's value / MENU option */
-#define MB_SCROLL 2u                    /* knob 3: the scroll offset / MENU answer */
+#define MB_MOVE   2u                    /* knob 3: the scroll offset / MENU answer */
 #define MB_NTRK   2u                    /* tracks */
 #define MB_MAXN   128u                  /* most steps */
 #define MB_MAXK3  211u                  /* knob 3 build max (run time: n - 1 / the option's max) */
@@ -131,7 +131,7 @@
 #define MB_SND_DEF NB_SV_DEF            /* PB at level 10 (shown 50, x1) */
 #define MB_OMAX(o) ((o) == MB_O_TEMPO ? MP_TEMPO_MAX : (o) == MB_O_LEN ? 3u : (o) == MB_O_GRID ? 1u \
                     : MB_NSND * MB_LEVELS - 1u)
-#define MB_NSND   9u                    /* SndBank's sounds (PB, Tr, Or1 .. Plk) */
+#define MB_NSND   9u                    /* SndBank's sounds (PB, Tr, OJ .. Pk) */
 #define MB_SV(st) ((st)->ov[MB_O_SND] | (st)->ov[MB_O_SND + 1u] << 8)  /* SndBank's voice settings (notebus.h) */
 #define MB_SYN_ID ((7u << 24) | 528u)   /* sound source: SndBank (SFX 528) */
 #define MB_FXID   525u                  /* own effect id (mirrors FXID in build.py) */
@@ -163,7 +163,7 @@
 typedef struct {
     uint32_t magic0;
     uint32_t posts, postWait;           /* redraws left, calls until the next */
-    uint32_t mode;                      /* 0 MENU, 1 TRACK1, 2 TRACK2 (3: jump to MENU's values) */
+    uint32_t mode;                      /* 0 MENU, 1 TRK1, 2 TRK2 (3: jump to MENU's values) */
     uint32_t off, edit, k3;             /* scroll offset; knob 2 / knob 3 values as last seen */
     uint32_t opt, ov[MB_NOPT];          /* MENU option shown; values: tempo, length code, grid, sounds */
     uint8_t  grid[MB_NTRK][MB_MAXN];    /* step values per track: 0 rest, 1 hold, 2 + pitch */
@@ -219,28 +219,28 @@ static const char mb_letter[13] = ".CCDDEFFGGAAB";
  * characters each. Knob texts (knob 1's = its value), MENU answers, then
  * the MENU questions (the names of knobs 1, 2, 3 per option, one word per
  * knob). */
-#define MB_S_MODE   0u                  /* MENU, TRACK1, TRACK2 */
-#define MB_S_SCROLL 3u
+#define MB_S_MODE   0u                  /* MENU, TRK1, TRK2 */
+#define MB_S_MOVE   3u
 #define MB_S_OPT    4u                  /* TEMPO, LENGTH, GRID, SOUND1, SOUND2 */
 #define MB_S_PEDAL  9u                  /* TEMPO 0 (the others: the BPM digits) */
 #define MB_S_LEN    10u                 /* 16 .. 128 */
 #define MB_S_GRID   14u                 /* 1/16, 1/8 */
-#define MB_S_SND    16u                 /* PB .. Plk (SndBank's sound order) */
+#define MB_S_SND    16u                 /* PB .. Pk (SndBank's sound order) */
 #define MB_S_Q      25u                 /* 3 words per option */
 #define MB_S_FULL   40u                 /* FULL: an edit refused */
 #define MB_VBASE(o) ((o) == MB_O_LEN ? MB_S_LEN : (o) == MB_O_GRID ? MB_S_GRID : MB_S_SND)
 static const char mb_strs[] =
-    "MENU\0" "TRACK1\0" "TRACK2\0" "SCROLL\0"
+    "MENU \0" "TRK1\0" "TRK2\0" "MOVE\0"     /* "MENU ": room for a 6-character option beside it (MS) */
     "TEMPO\0" "LENGTH\0" "GRID\0" "SOUND1\0" "SOUND2\0"
     "Pedal\0"
     "16\0" "32\0" "64\0" "128\0"
     "1/16\0" "1/8\0"
-    "PB\0" "Tr\0" "Or1\0" "Or2\0" "EP\0" "Mrm\0" "Klm\0" "Syn\0" "Plk\0"
+    "PB\0" "Tr\0" "OJ\0" "OR\0" "EP\0" "Mr\0" "Kl\0" "Sy\0" "Pk\0"
     "Song\0" "tempo\0" "is:\0"          /* TEMPO */
-    "Number\0" "of\0" "steps:\0"        /* LENGTH */
+    "Steps\0" "in\0" "song:\0"          /* LENGTH */
     "Step\0" "grid\0" "is:\0"           /* GRID */
-    "Track1\0" "sound\0" "is:\0"        /* SOUND1 */
-    "Track2\0" "sound\0" "is:\0"        /* SOUND2 */
+    "Trk1\0" "sound\0" "is:\0"          /* SOUND1 */
+    "Trk2\0" "sound\0" "is:\0"          /* SOUND2 */
     "FULL\0";
 
 /* String i of the pool. */
@@ -607,9 +607,9 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         if (base == 0u || end <= base + sizeof(MbState)) return;
         st = (volatile MbState *)(end - sizeof(MbState));
     }
-    mode = zm_knob(params[5 + MB_MODE], 2u);         /* 0 MENU, 1 TRACK1, 2 TRACK2 */
+    mode = zm_knob(params[5 + MB_MODE], 2u);         /* 0 MENU, 1 TRK1, 2 TRK2 */
     r2 = zm_knob(params[5 + MB_EDIT], MB_MAXVAL);
-    r3 = zm_knob(params[5 + MB_SCROLL], MB_MAXK3);
+    r3 = zm_knob(params[5 + MB_MOVE], MB_MAXK3);
 
     if (st->magic0 != MB_MAGIC || st->magic1 != MB_MAGIC) {
         st->magic0 = MB_MAGIC;
@@ -766,7 +766,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             v3 = st->off;
         }
         MB_JUMP(MB_EDIT, v2, r2);
-        MB_JUMP(MB_SCROLL, v3, r3);
+        MB_JUMP(MB_MOVE, v3, r3);
         st->edit = r2;
         st->k3 = r3;
     } else if (!mode) {
@@ -775,7 +775,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             st->edit = r2;
             st->opt = r2 >= MB_NOPT ? MB_NOPT - 1u : r2;
             x = st->ov[st->opt];
-            MB_JUMP(MB_SCROLL, x, r3);
+            MB_JUMP(MB_MOVE, x, r3);
             st->k3 = r3;
         } else if (r3 != st->k3) {
             /* MENU: the option's new value */
@@ -816,12 +816,12 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         uint32_t m2 = !st->mode ? MB_NOPT - 1u : MB_MAXVAL;
         uint32_t m3 = !st->mode ? MB_OMAX(st->opt) : n - 1u;
         if (d[12u * (2u + MB_EDIT) + 3u] != m2) d[12u * (2u + MB_EDIT) + 3u] = m2;
-        if (d[12u * (2u + MB_SCROLL) + 3u] != m3) d[12u * (2u + MB_SCROLL) + 3u] = m3;
+        if (d[12u * (2u + MB_MOVE) + 3u] != m3) d[12u * (2u + MB_MOVE) + 3u] = m3;
     }
 
     /* knob k's name. MENU: the option's question word k. A track: item off
      * + k: "" for item 0, "END" after step n, else the step's 2 digits, then
-     * "___" (rest), "~~~" (hold), "_" + a natural note + octave or a sharp
+     * "___" (rest), "Hld" (hold), "_" + a natural note + octave or a sharp
      * note + octave */
     nmax = n;
     grid = st->grid[st->mode ? st->mode - 1u : 0u];
@@ -839,7 +839,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         g = item - 1u < nmax ? grid[item - 1u] : MB_REST;
         if (g > MB_MAXVAL) g = MB_REST;
         if (g == MB_REST) c2 = c3 = c4 = '_';
-        else if (g == MB_HOLD) c2 = c3 = c4 = '~';
+        else if (g == MB_HOLD) { c2 = 'H'; c3 = 'l'; c4 = 'd'; }
         else {
             g -= 2u;                    /* pitch 0..36 */
             o = (g * 43u) >> 9;         /* g / 12, exact for g < 128 */
@@ -1044,9 +1044,9 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
 
 /* ---- knob texts (UI thread) ---- */
 
-/* Knob k (0-based), value v: knob 1 MENU / TRACK1 / TRACK2; knob 2 its own
+/* Knob k (0-based), value v: knob 1 MENU / TRK1 / TRK2; knob 2 its own
  * name (a track: descriptor entry 3 as the audio callback wrote it) or the
- * MENU option; knob 3 SCROLL or the MENU option's value (TEMPO: Pedal or
+ * MENU option; knob 3 MOVE or the MENU option's value (TEMPO: Pedal or
  * the BPM). One shared copy in .text. */
 #pragma CODE_SECTION(mb_text, ".text")
 #pragma FUNC_CANNOT_INLINE(mb_text)
@@ -1089,7 +1089,7 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
             lv -= MB_LEVELS * v;
         }
         p = o == MB_O_TEMPO ? mb_str(MB_S_PEDAL) : mb_str(MB_VBASE(o) + v);
-    } else p = mb_str(MB_S_SCROLL);
+    } else p = mb_str(MB_S_MOVE);
 #pragma UNROLL(1)
     for (; n < 7 && p[n]; n++) s[n] = p[n];
     if (lv < MB_LEVELS) {               /* SOUND: ":" + the level x 5, two digits ("EP:70") */

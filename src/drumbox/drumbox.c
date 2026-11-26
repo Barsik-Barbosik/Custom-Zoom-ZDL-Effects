@@ -89,7 +89,7 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
  * stopped = Skip, count-in = 1 bar played as count bars (closed hat
  * quarters) while it lasts. The knob page passes the patch record's value to the text
  * callback, not the table's, so the audio call tells the callbacks through
- * db_drv (.fardata 4 B, as zmenu's zm_g): set = all knobs but Volume and Kit
+ * db_drv (.fardata 4 B, as zmenu's zm_g): set = all knobs but Level and Kit
  * show "Song". */
 #define DB_SONG_ON  90
 #define DB_SONG_OFF 91
@@ -847,7 +847,7 @@ static inline float db_render(DBState *st, const DBEng *E, int bLo, int bHi)
 /* ------------------------------------------------------------------------
  * Load probe (build.py --probe, never a release build): times every audio
  * call with the C674x time-stamp counter (TSCL, read only) and reports by
- * beeps while the Volume knob is 0. The meter sits right after DBState in
+ * beeps while the Level knob is 0. The meter sits right after DBState in
  * ctx[3]. Footswitch off clears it. Numbers, in order after a 6-s
  * pause: 1 peak call cost, 2 busiest 4096-call average (both % of the
  * time between calls, 5 % per beep), 3 ctx[3] size (64 KB per beep),
@@ -877,7 +877,7 @@ typedef struct DBMeter {
     float    ph;
 } DBMeter;
 
-/* one call while Volume is 0: the beeps, added to the guitar. Number
+/* one call while Level is 0: the beeps, added to the guitar. Number
  * n = n + 1 beeps in groups of 5 (0.6 s between groups), 3 s between
  * numbers, 6 s before number 1. Timing in calls (8 samples). */
 DB_ALWAYS_INLINE(db_pm_report)
@@ -1042,7 +1042,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
 #ifdef DB_FOLLOW
     db_follow(ctx, params, fw);
 #endif
-    /* Pages: BeatA, FillA, LenA / BeatB, FillB, LenB / Tempo, Volume, Kit. */
+    /* Pages: BeatA, FillA, LenA / BeatB, FillB, LenB / Tempo, Level, Kit. */
     float beatAN  = db_param_list(params[DRUMBOX_BEATA_SLOT], DRUMBOX_BEATA_DEFAULT_NORM);
     float fillAN   = db_param_list(params[DRUMBOX_FILLA_SLOT], DRUMBOX_FILLA_DEFAULT_NORM);
     float lenAN    = db_param(params[DRUMBOX_LENA_SLOT],       DRUMBOX_LENA_DEFAULT_NORM);
@@ -1054,10 +1054,10 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     float tempoR  = params[DRUMBOX_TEMPO_SLOT];
     if (tempoR != tempoR || tempoR < 0.0f) tempoR = DRUMBOX_TEMPO_DEFAULT_NORM;
     tempoR = db_clamp(tempoR, 0.0f, DRUMBOX_TEMPO_UI_MAX * 0.01f);
-    float levelN  = db_param(params[DRUMBOX_VOLUME_SLOT],  DRUMBOX_VOLUME_DEFAULT_NORM);
+    float levelN  = db_param(params[DRUMBOX_LEVEL_SLOT],   DRUMBOX_LEVEL_DEFAULT_NORM);
     float kitN    = db_param(params[DRUMBOX_KIT_SLOT],     DRUMBOX_KIT_DEFAULT_NORM);
 #ifdef DB_PROBE
-    /* Volume 0: no drums, beep the numbers (the sequencer waits) */
+    /* Level 0: no drums, beep the numbers (the sequencer waits) */
     if (pm) {
         if (levelN < 0.005f) {
             db_pm_report(pm, fxBuf);
@@ -1072,7 +1072,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         DRUMBOX_TEMPO_AUDIO_MIN + (tempoR - 0.01f) *
         (100.0f * (DRUMBOX_TEMPO_AUDIO_MAX - DRUMBOX_TEMPO_AUDIO_MIN) / (DRUMBOX_TEMPO_UI_MAX - 1));
     float inc = bpm * DB_STEP_PER_BPM;
-    float drumGain = levelN * 1.3f;   /* 1.3: dense patterns with cymbals peak ~0.9 at Volume 70 */
+    float drumGain = levelN * 1.3f;   /* 1.3: dense patterns with cymbals peak ~0.9 at Level 70 */
     /* One beat / fill per knob step, knob 0..150 (values past the end give the last one);
      * must match knob_to_beat() / knob_to_fill() in patterns.py and the names. */
     int beatA = (int)(beatAN * 100.0f + 0.5f);

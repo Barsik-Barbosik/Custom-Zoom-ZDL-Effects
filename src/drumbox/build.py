@@ -14,7 +14,7 @@ Usage:
   python -B build.py --no-init  # without the materializing _init (bisect only)
   python -B build.py --out P    # write the ZDL to P instead
   python -B build.py --gid 7 --out P   # another category (7 = SFX), for testing
-  python -B build.py --probe --out P   # load probe: cycle meter + beep report at Volume 0 (DB_PROBE)
+  python -B build.py --probe --out P   # load probe: cycle meter + beep report at Level 0 (DB_PROBE)
   python -B build.py --no-follow       # without follow mode (DB_FOLLOW: knobs driven by another effect)
   ZDL_MATERIALIZE_INIT_MAX_CALLS=0 python -B build.py   # init frame + ctx[34] only (bisect)
 """

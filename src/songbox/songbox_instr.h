@@ -63,15 +63,15 @@
 }
 #define SS_INST_MASK_INIT { 0x154052CCu, 0x0270224Fu, 0x1AAF8FFCu, 0x0000207Du, 0x0420607Du, 0x18600A25u, 0x00400038u, 0x0523FAF8u, 0x00400020u }   /* ss_inst_mask[SS_NREC]: words differing from the default */
 
-#define SS_LEVELS 20u    /* levels per part (Chords / Bass value = part * SS_LEVELS + level) */
-#define SS_NKEYI 7u    /* chords parts (Chords knob) */
+#define SS_LEVELS 20u    /* levels per part (Keys / Bass value = part * SS_LEVELS + level) */
+#define SS_NKEYI 7u    /* chords parts (Keys knob) */
 #define SS_NBASSI 5u    /* bass parts (Bass knob) */
 /* part names, NUL-terminated (the end of songbox.c's text pool):
  * chords parts, then bass parts */
-#define SS_INSTR_NAMES_INIT "Or1\0" "Or2\0" "EP\0" "Mrm\0" "Klm\0" "Syn\0" "Plk\0" "PB\0" "O1\0" "O2\0" "Sy\0" "Tr"
+#define SS_INSTR_NAMES_INIT "OJ\0" "OR\0" "EP\0" "Mr\0" "Kl\0" "Sy\0" "Pk\0" "PB\0" "OJ\0" "OR\0" "Sy\0" "Tr"
 /* per part (chords parts, then bass parts): instrument (record |
  * wavetable << 4) and level: ss_part_id / ss_part_lvl[SS_NKEYI + SS_NBASSI]
- * (Or1, Or2, EP, Mrm, Klm, Syn, Plk, PB, O1, O2, Sy, Tr)
+ * (OJ, OR, EP, Mr, Kl, Sy, Pk, PB, OJ, OR, Sy, Tr)
  * (level * SS_LVL_DIV, quantized: <= 0.63 % off) */
 #define SS_LVL_DIV 4096.0f
 #define SS_PART_ID_INIT { 0u, 17u, 34u, 51u, 52u, 69u, 70u, 87u, 0u, 17u, 69u, 104u }

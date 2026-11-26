@@ -6,14 +6,14 @@ same patch. Without SndBank, Melody Box plays both tracks itself with a simple
 built-in voice each (a soft sawtooth synth); of the SOUND settings it then
 uses only the volume. The guitar signal passes through.
 
-- **Knob 1** picks the mode: MENU (settings, the first value), TRACK1 or
-  TRACK2 (edit that track's steps).
-- **TRACK1 / TRACK2: up to 128 steps** per track, shown three at a time on knobs 1-3. A knob's
+- **Knob 1** picks the mode: MENU (settings, the first value), TRK1 or
+  TRK2 (edit that track's steps).
+- **TRK1 / TRK2: up to 128 steps** per track, shown three at a time on knobs 1-3. A knob's
   name is its step number (two digits; after 99 it counts 00, 01, ...
-  again) plus the step's value: `01___` rest, `01~~~` hold (the note
+  again) plus the step's value: `01___` rest, `01Hld` hold (the note
   before goes on), `01_C2` a note, `01C#2` a sharp note. Notes go from C2
   to C5. The list starts with an empty item and ends with `END`.
-- **Knob 3 ("SCROLL")** moves the view: turned right, the knobs show steps
+- **Knob 3 ("MOVE")** moves the view: turned right, the knobs show steps
   01-02-03, then 02-03-04, and so on. Both tracks keep the same view, so
   switching tracks shows the same steps.
 - **Knob 2** sets the value of the step it shows (rest, hold, C2 … C5).
@@ -24,10 +24,10 @@ uses only the volume. The guitar signal passes through.
   | Setting | Question | Values |
   |---|---|---|
   | TEMPO | Song tempo is: | Pedal (default: the pedal's tempo), 40 … 250 BPM |
-  | LENGTH | Number of steps: | 16 (default), 32, 64, 128 (both tracks) |
+  | LENGTH | Steps in song: | 16 (default), 32, 64, 128 (both tracks) |
   | GRID | Step grid is: | 1/16 (default), 1/8 (both tracks) |
-  | SOUND1 | Track1 sound is: | SndBank's sound and its volume, shown as `EP:70`: sounds PB (default), Tr, Or1, Or2, EP, Mrm, Klm, Syn, Plk, each at volume 00 (silent) … 95, 50 = normal (default) |
-  | SOUND2 | Track2 sound is: | the same |
+  | SOUND1 | Trk1 sound is: | SndBank's sound and its volume, shown as `EP:70`: sounds PB (default), Tr, OJ (jazz organ), OR (rock organ), EP, Mr (marimba), Kl (kalimba), Sy (synth), Pk (pluck), each at volume 00 (silent) … 95, 50 = normal (default) |
+  | SOUND2 | Trk2 sound is: | the same |
 
 - **Footswitch on plays** both tracks in a loop at the TEMPO setting; a rest
   is silent, holds make the note before longer. Footswitch off stops.

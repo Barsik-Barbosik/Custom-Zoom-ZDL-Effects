@@ -25,7 +25,7 @@
  *
  * Knob menu: knob 1 / 4 picks the row of LFO 1 / 2, knobs 2-3 / 5-6 are
  * that row's two values (names and max rewritten in the descriptor per
- * row), knobs 7-9 are locked storage. Rows: Target (Slot: Off or a chain
+ * row), knobs 7-9 are locked storage. Rows: Dest (Slot: Off or a chain
  * position, text = the effect's name / Knob: text = the knob's name, max =
  * the target's last knob),
  * Wave (Shape: Sine Tri Saw Ramp Sqr S&H / Rate 0..100 = 0.05..10 Hz), Range
@@ -36,7 +36,7 @@
  * two are the knobs the user turns; the other three rows are packed into a
  * 30-bit hidden stream per LFO: LFO 1 = knob 1 bits 0-10 + knob 8 bits
  * 0-18, LFO 2 = knob 4 bits 0-5 + knob 7 + knob 9 + knob 8 bits 19-26
- * (rows in order from bit 0, the visible one left out; Target = Slot * 9 +
+ * (rows in order from bit 0, the visible one left out; Dest = Slot * 9 +
  * Knob in 6 bits, Wave = Shape << 7 | Rate, Range = Low << 7 | High,
  * Other = Phase << 1 | Show). A selector holds row << 11 / 6 | its stream
  * bits, so the knob page points into the row's quarter. ak_sync (edit
@@ -334,11 +334,11 @@ void ak_poke(volatile AkState *st, uint32_t tab, uint32_t ts, uint32_t col, uint
 
 static const uint32_t ak_vmax[AK_NVAL] = { 6u, 8u, AK_NWAVES - 1u, AK_NRATES - 1u, 100u, 100u,
                                            23u, 1u };
-static const uint32_t ak_bsh[AK_NROWS] = { 0u, 7u, 7u, 1u };    /* row = A << bsh | B (Target: A * 9 + B) */
+static const uint32_t ak_bsh[AK_NROWS] = { 0u, 7u, 7u, 1u };    /* row = A << bsh | B (Dest: A * 9 + B) */
 static const uint32_t ak_rw[AK_NROWS] = { 6u, 10u, 14u, 6u };   /* packed row widths */
 static const char ak_vname[AK_NVAL][8] = { "Slot", "Knob", "Shape", "Rate", "Low", "High",
                                            "Phase", "Show" };
-static const char ak_rname[AK_NROWS][8] = { "TARGET", "WAVE", "RANGE", "OTHER" };
+static const char ak_rname[AK_NROWS][8] = { "DEST", "WAVE", "RANGE", "OTHER" };
 
 /* Max of value k (Slot: Off + the OS's chain positions). */
 #pragma FUNC_ALWAYS_INLINE(ak_max)

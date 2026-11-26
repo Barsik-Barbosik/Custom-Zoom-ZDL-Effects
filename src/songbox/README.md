@@ -60,48 +60,50 @@ and (optionally) DrumBox into one patch.
 
 | Page | Knob | Values | Meaning |
 |---|---|---|---|
-| 1 | Bar | MENU, 1–128, STATUS | Bar to edit; MENU and STATUS see below |
+| 1 | Bar | MENU, 1–128, INFO | Bar to edit; MENU and INFO see below |
 | 1 | Chord | END, C–B, Cm–Bm, Drums, Rest | The bar's chord |
-| 1 | Rhythm | Rhy1, Rhy2, Rhy3 | The bar's rhythm |
+| 1 | Rhthm | Rhy1, Rhy2, Rhy3 | The bar's rhythm |
 | 2 | Rhy1 | Randm, 149 patterns ([Patterns](#patterns)) | Pattern played by rhythm 1 |
 | 2 | Rhy2 | as Rhy1 | Pattern played by rhythm 2 |
 | 2 | Rhy3 | as Rhy1 | Pattern played by rhythm 3 |
 | 3 | Tempo | Pedal, 40–250 | Tempo in BPM, 1 BPM steps; Pedal = the pedal's tempo: G1on / G1Xon / B1on / B1Xon the BPM of the settings menu and the rhythm / looper; MS pedals the tap tempo / TEMPO setting; MIDISTOMP the MIDI clock's tempo while it runs. A driven DrumBox follows it (default Pedal) |
-| 3 | Bass | PB:00 – Tr:95 | Bass sound and level (default PB:70): PB = bass guitar (precision bass), O1 = Organ1's bass, O2 = Organ2's bass, Sy = the synth's bass, Tr = triangle bass. Level 00 (off) to 95 in steps of 5, 50 = unchanged. Turning goes through the levels of one sound (PB:00 … PB:95), then the next sound (O1:00). A new sound plays once the knob has rested ~145 ms |
-| 3 | Chords | Or1:00 – Plk:95 | Chords sound and level (default Or1:70), as Bass: Or1 = Organ1 (jazz organ), Or2 = Organ2 (rock organ), EP = electric piano, Mrm = marimba, Klm = kalimba, Syn = synth (two detuned saws, a little drive), Plk = the synth with a short pluck decay |
+| 3 | Bass | PB:00 – Tr:95 | Bass sound and level (default PB:70): PB = bass guitar (precision bass), OJ = the jazz organ's bass, OR = the rock organ's bass, Sy = the synth's bass, Tr = triangle bass. Level 00 (off) to 95 in steps of 5, 50 = unchanged. Turning goes through the levels of one sound (PB:00 … PB:95), then the next sound (OJ:00). A new sound plays once the knob has rested ~145 ms |
+| 3 | Keys | OJ:00 – Pk:95 | Chords sound and level (default OJ:70), as Bass: OJ = jazz organ, OR = rock organ, EP = electric piano, Mr = marimba, Kl = kalimba, Sy = synth (two detuned saws, a little drive), Pk = the synth with a short pluck decay |
 
 ### Writing a song
 
-1. Turn "Bar" to 1 and pick its "Chord" and "Rhythm".
+1. Turn "Bar" to 1 and pick its "Chord" and "Rhthm" (rhythm).
 2. Turn "Bar" one step further: the bar after the song's end shows END.
    - Turn "Chord" there: a new bar with that chord is added.
-   - Turn "Rhythm" there: the last bar is copied with that rhythm.
-3. Repeat. Bars are added one at a time; "Bar" can't go past STATUS.
+   - Turn "Rhthm" there: the last bar is copied with that rhythm.
+3. Repeat. Bars are added one at a time; "Bar" can't go past INFO.
 4. To end the song early, set a bar's chord to END. Bars after it stay in
    memory until MENU → TRIM removes them, but only the bars before it play
    and are saved.
 
 ### MENU (Bar = MENU)
 
-"Chord" picks the option; the knob names spell its question and "Rhythm"
+"Chord" picks the option; the knob names spell its question and "Rhthm"
 gives the answer. OCTAVE and LENGTH are saved with the song; on a patch
 change PLAY goes back to LOOP and OCTAVE / LENGTH to the saved values.
 
 | Option | Question | Values |
 |---|---|---|
-| PLAY | Select play mode: | OFF, ONCE (stop after the last bar), LOOP (default). Not saved: LOOP again after a reload |
-| OCTAVE | Shift chords by: | -1, 0 (default), +1: the chords one octave down / up (the bass stays) |
-| LENGTH | Change chord every: | BAR (default), HALF, BEAT: how long each song bar plays, for songs that change chords within a bar (still 4/4, not a time signature). Rhythms and DrumBox still run in whole bars: each drum bar plays the rhythm of its first song bar (a Rest there silences the drums for the whole bar; use Drums to keep them); a song that ends inside one rests up to its end |
+| PLAY | Play mode is: | OFF, ONCE (stop after the last bar), LOOP (default). Not saved: LOOP again after a reload |
+| OCTAVE | Shift keys by: | -1, 0 (default), +1: the chords one octave down / up (the bass stays) |
+| LENGTH | New chord each: | BAR (default), HALF, BEAT: how long each song bar plays, for songs that change chords within a bar (still 4/4, not a time signature). Rhythms and DrumBox still run in whole bars: each drum bar plays the rhythm of its first song bar (a Rest there silences the drums for the whole bar; use Drums to keep them); a song that ends inside one rests up to its end |
 | TRIM | Trim after END? | NO, YES: after a 5 s countdown ("YES 5" … "YES 1") removes the first END and every bar after it, then shows DONE |
 | CLEAR | Clear the song? | NO, YES: after a 5 s countdown empties the song, then shows DONE |
 
-### STATUS (the position after the last bar)
+### INFO (the position after the last bar)
 
-Read only. The knob names show the song's size in bits, used / capacity,
-and the playing bar ("Size:" "55/106" "B:12"; "Pack" while saving).
-Without Floppy the first two take turns, about 1.5 s each: "Size: 55/0", "Can't save!", "(no  floppy)". The values
-show the playing chord and, after an arrow, the next one ("STATUS" "Am"
-"→  G").
+Read only. The first two knob names take turns, about 1.5 s each: the
+space left in the Floppies in bits ("Free:" "51") and the song's size
+("Used:" "55"); both show "Pack" while saving. The third shows the playing
+bar ("B:12"). Each Floppy holds 102 bits (106 with one Floppy: 4 more for
+the song's key), so Used tells how many Floppies the song needs. Without
+Floppy "Can't save!" takes the place of Free. The values show the playing chord and,
+after an arrow, the next one ("INFO" "Am" "→ G").
 
 ### Messages
 
@@ -288,10 +290,10 @@ and chords swing with it.
   Floppy's knob fields through [zmenu](../common/zmenu/README.md) stream mode.
   The packer runs a few steps per audio call and checks that the stream
   decodes back to the song before writing it.
-- **Sound:** a bass part and a chords part (the Bass and Chords knobs),
+- **Sound:** a bass part and a chords part (the Bass and Keys knobs),
   mono, added to the guitar. An instrument is a record
   (envelope, gains) playing a wavetable; one record can play another
-  file's table (the pluck record plays the saw table as Plk, the kalimba
+  file's table (the pluck record plays the saw table as Pk, the kalimba
   the marimba's sine table). The saw reads its table twice, 0.3 % apart
   (two detuned oscillators), into a little drive; the pluck decays while
   the note is held; marimba and kalimba add a short partial on a second
@@ -311,7 +313,7 @@ and chords swing with it.
 | `build.py` | Generates the headers, runs `cl6x`, then the linker |
 | `instruments/` | `engine.c` (the one instrument engine: a wavetable voice driven by a record, `SsInst` in `engine.h`) and its Python mirror `engine.py`; one `<id>.py` per instrument with its record and wavetable harmonics: `epiano`, `organ1` (jazz organ), `organ2` (rock organ), `pbass` (precision bass; `pbass_model.py` = the string model and its variants); `tri` (triangle synth; the triangle bass), `saw` (two detuned saws), `pluck` (pluck record, played on the saw's table), `marimba`, `kalimba` (record on the marimba's table); `inst_lib.h` C helper |
 | `inst_lib.py` | Helpers shared by the instrument models (sine, decay coefficients, voice) |
-| `sets.py` | The Chords and Bass knobs' instruments (`"record:table"` to pair one file's record with another's wavetable) → `songbox_instr.h` |
+| `sets.py` | The Keys and Bass knobs' instruments (`"record:table"` to pair one file's record with another's wavetable) → `songbox_instr.h` |
 | `proto.py` | Patterns and note increments → `songbox_sound.h`; renders WAV prototypes of each set |
 | `pbass_proto.py` | Renders the precision bass variants of `instruments/pbass_model.py` as WAVs (bass alone, then with electric piano) |
 | `patterns/patterns.json` | The 149 patterns: bass, chords and DrumBox beat / fills (format in `song_patterns.py`) |
@@ -336,10 +338,10 @@ Needs the TI C6000 Code Generation Tools (see the
 ```
 python -B build.py                     # release build -> ../../dist/SongBox.ZDL
 python -B build.py --out PATH          # SongBox.ZDL to PATH
-python -B build.py --probe --out PATH  # with the CPU load meter in STATUS (development)
+python -B build.py --probe --out PATH  # with the CPU load meter in INFO (development)
 python -B build.py --rhythms N --out PATH   # test build with only the first N rhythms
 python -B build.py --cost C --out PATH # test build declaring DSP cost C (heavy patch tests)
-python -B build.py --x2 | --x3 | --w1 --out PATH   # CPU test builds: pass-through / no player / busy wait of Chords %
+python -B build.py --x2 | --x3 | --w1 --out PATH   # CPU test builds: pass-through / no player / busy wait of Keys %
 python -B build.py --tests             # only regenerate songbox_tests.h (no TI needed)
 python -B proto.py [--set EP+PB]       # chords + bass prototypes -> preview/*.wav
 python -B pbass_proto.py               # precision bass variants -> preview/pbass_*.wav

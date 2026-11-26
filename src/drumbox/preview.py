@@ -443,7 +443,7 @@ def main():
     ap.add_argument("--len-b", default=DEFAULT_LEN_B,
                     help=f"LenB knob 0..{len(LENGTHS) - 1} or name ({lengths})")
     ap.add_argument("--bpm", type=float, default=120.0)
-    ap.add_argument("--level", type=float, default=0.7, help="Volume knob 0..1")
+    ap.add_argument("--level", type=float, default=0.7, help="Level knob 0..1")
     ap.add_argument("--bars", type=int, default=8,
                     help="bars to render (default 8 = one 4Bar + 4Bar song)")
     ap.add_argument("--kit", default="0",

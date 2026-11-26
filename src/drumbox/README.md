@@ -59,7 +59,7 @@ in the [main README](../../README.md#install). It is in the **SFX** category
 | 2 | FillB | as FillA | Fill on section B's last bar |
 | 2 | LenB | as LenA | Section B length |
 | 3 | Tempo | Pedal, 40–250 | Tempo in BPM, 1 BPM steps; Pedal = the pedal's tempo: G1on / G1Xon / B1on / B1Xon the BPM of the settings menu and the rhythm / looper; MS pedals the tap tempo / TEMPO setting; MIDISTOMP the MIDI clock's tempo while it runs (default Pedal) |
-| 3 | Volume | 0–100 | Drum level |
+| 3 | Level | 0–100 | Drum level |
 | 3 | Kit | 22 kits, Ac1 to LoBox ([Kits](#kits)) | Drum kit; it renders once the knob has rested ~145 ms |
 
 - **Beat, fill and kit knobs:** one step per entry; the screen shows its
@@ -76,7 +76,7 @@ How the knobs work inside:
 - The DSP gets raw = knob value / 100, whatever the knob's max, so each
   beat, fill, length and kit gets exactly one knob step. `build.py` sets
   the knob maxes from `patterns/patterns.json` and `kits.py`.
-- All knobs but Volume show text through display callbacks (`"getstr"` in
+- All knobs but Level show text through display callbacks (`"getstr"` in
   the manifest → `GetString_Db*` in `drumbox.c`; the two beat, fill and
   length knobs share one callback each).
 
@@ -126,8 +126,8 @@ DrumBox: each bar it sets BeatA, FillA, LenA, LenB and Tempo to the drum
 part of the song bar it plays, and it starts and stops the drums with its
 song. Without SongBox, DrumBox plays as described above.
 
-- **Knobs:** all knobs but Volume and Kit show "Song" while SongBox
-  drives them; turning them changes nothing. Volume and Kit stay yours.
+- **Knobs:** all knobs but Level and Kit show "Song" while SongBox
+  drives them; turning them changes nothing. Level and Kit stay yours.
 - **Start and stop** come from SongBox's footswitch and song.
 - **Count-in:** after a patch change both start with 2 count-in bars
   (closed hat quarters) while DrumBox loads its sounds; then the song

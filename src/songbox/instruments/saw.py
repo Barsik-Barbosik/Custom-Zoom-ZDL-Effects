@@ -1,5 +1,5 @@
 """Saw (keys record + its wavetable; Instr Saw / Saw+B / Saw+T, its table
-also under Plk = pluck:saw): the table's low half at the note plus its
+also under Pk = pluck:saw): the table's low half at the note plus its
 high half on a free phase, the two 0.3 % apart (+-5 cents, a slow beat: two
 detuned oscillators), driven a little into the soft clip (peak in ~0.5: ~8 %
 squash), 5 ms attack, 150 ms release as tri.py. Out x 1 / (1.5 x drive) / 2
@@ -15,7 +15,7 @@ from engine import TWO32, _peak
 ROLE = "keys"
 LEVEL = 0.1
 BASS_LEVEL = 0.18
-GAIN = 1.25             # as another record's table (Plk: +2 dB, it sounded quiet)
+GAIN = 1.25             # as another record's table (Pk: +2 dB, it sounded quiet)
 _PRE = 0.25             # drive: a read's peak into the clip
 _D = 0.003              # detune: second read / first
 REC = dict(pa=(1.0 - _D / 2) * TWO32, pc=(1.0 + _D / 2) * TWO32, r0=1, m2=0,

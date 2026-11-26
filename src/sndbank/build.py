@@ -6,7 +6,8 @@ SndBank plays the notes Melody Box sends over two note buses
 (src/common/notebus/notebus.h) with SongBox's instrument engine, one voice
 per bus. Its 9
 knobs hold stored data at the Floppy field widths and are locked (own edit
-handler). See sndbank.c.
+handler). See sndbank.c. The screen image is screen.png (128x64; pixels
+darker than mid-grey are dark).
 """
 
 from __future__ import annotations
@@ -19,7 +20,8 @@ PROJECT = HERE.parent.parent                            # Custom-Zoom-ZDL/
 sys.path.insert(0, str(PROJECT / "build"))            # linker, screen_image, zdl_build
 sys.path.insert(0, str(PROJECT / "src" / "common" / "zmenu"))    # zmenu_gen (field widths)
 
-from zdl_build import compile_c, link_common  # noqa: E402
+from screen_image import Canvas  # noqa: E402
+from zdl_build import compile_c, encode_rle, link_common  # noqa: E402
 from zmenu_gen import FLOPPY_MAXES  # noqa: E402
 
 FXID = 528
@@ -28,15 +30,31 @@ NOTEBUS = PROJECT / "src" / "common" / "notebus"
 SONGBOX = PROJECT / "src" / "songbox"                 # songbox_instr.h, instruments/
 SPACE = 3                                               # --opt_for_space, as SongBox (the engine's loops)
 DSP_COST = 24.0                                         # estimate: two SongBox voices (SongBox: 4 voices + player = 52); not measured
+KNOB_SLOTS = [(1, 0), (126, 0), (127, 0)]                # blank 1x1 knobs, outside the frame
+SCREEN = HERE / "screen.png"                              # 128x64, pixels darker than mid-grey = dark
+
+
+def make_screen() -> bytes:
+    from PIL import Image
+    img = Image.open(SCREEN).convert("L")
+    assert img.size == (128, 64), f"{SCREEN.name} is {img.size}, need 128x64"
+    c = Canvas()
+    for y in range(64):
+        for x in range(128):
+            c.px(x, y, 1 if img.getpixel((x, y)) <= 127 else 0)
+    for x, y in KNOB_SLOTS:
+        assert not any(c.pixels[y + z][x] for z in range(8)), f"knob slot {x},{y} not light"
+    return encode_rle(c)
 
 
 def build(out_zdl: Path) -> None:
     from linker import LinkerConfig, link, params_from_manifest  # noqa: E402
 
-    params = [{"name": "", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
+    # names Data1..Data9, texts "DON'T TOUCH THESE" on each page
+    params = [{"name": f"Data{k + 1}", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
                "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.0,
-               "edit": "Sb_LockEdit", "getstr": "GetString_SbData"}
-              for w in FLOPPY_MAXES]
+               "edit": "Sb_LockEdit", "getstr": f"GetString_SbData{k % 3 + 1}"}
+              for k, w in enumerate(FLOPPY_MAXES)]
     obj = HERE / "sndbank.obj"
     compile_c(HERE / "sndbank.c", obj, include=[ZMENU, NOTEBUS, SONGBOX], space=SPACE)
     link(LinkerConfig(
@@ -49,6 +67,10 @@ def build(out_zdl: Path) -> None:
         output_path=out_zdl,
         fxid_version=b"0.10",
         flags_byte=1,
+        screen_image=make_screen(),
+        # no firmware knobs on the picture: own blank 1x1 knob graphic (11 frames)
+        knob_positions=[(i + 2, x, y) for i, (x, y) in enumerate(KNOB_SLOTS)],
+        knob_bitmap=(1, 1, 11, bytes(11)),
         dsp_cost=DSP_COST,
         **link_common(),
     ))

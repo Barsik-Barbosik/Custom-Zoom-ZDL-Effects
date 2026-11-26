@@ -14,10 +14,10 @@
  * Voice settings (notebus.h's interface): voice b's sound value is byte b
  * of the stored knob fields (knob 1's 13 bits, then knob 2's), read from
  * the record row at every look (SB_LOOK calls): sound value = sound * 20 +
- * level (as SongBox's Bass / Chords knobs): sounds (-> SongBox part) 0 PB,
- * 1 Tr (SongBox's bass parts), 2 Or1, 3 Or2, 4 EP, 5 Mrm, 6 Klm, 7 Syn, 8
- * Plk (its chords parts; its bass parts O1, O2, Sy are Or1, Or2, Syn at
- * other levels: left out); level 0..19 = SongBox's level (shown x 5, 10 =
+ * level (as SongBox's Bass / Keys knobs): sounds (-> SongBox part) 0 PB,
+ * 1 Tr (SongBox's bass parts), 2 OJ, 3 OR, 4 EP, 5 Mr, 6 Kl, 7 Sy, 8
+ * Pk (its chords parts; its bass parts OJ, OR, Sy are the same
+ * instruments at other levels: left out); level 0..19 = SongBox's level (shown x 5, 10 =
  * x1, 0 = silent); above 179 = PB at level 10. A new
  * level plays at once; a new sound from the next note on (a held note
  * keeps its sound). Engine:
@@ -41,7 +41,7 @@
  * taken SB_LWAIT looks after a fresh state or a slot change (the slot rows
  * load a few calls after a patch change); until then turns pass.
  *
- * Knob names are empty; every knob's text is "-".
+ * Knob names Data1..Data9; texts DON'T / TOUCH / THESE on each page.
  */
 
 #include <stdint.h>
@@ -288,12 +288,25 @@ void Sb_LockEdit(uint32_t *state, uint32_t col)
     ((SbWrite)(uintptr_t)state[7])((float *)(uintptr_t)(state[1] + 12u + 4u * col), 0.0f, k.f);
 }
 
-/* Every knob's text: "-" (the value is stored data). */
-#pragma CODE_SECTION(GetString_SbData, ".text")
-int GetString_SbData(unsigned int v, char *s)
+/* Knob texts (the values are stored data): DON'T / TOUCH / THESE on knobs
+ * 1-3, again on 4-6 and 7-9 (one body per text: the value doesn't say
+ * which knob). */
+static const char sb_sdata[3][6] = { "DON'T", "TOUCH", "THESE" };
+
+#pragma CODE_SECTION(sb_dstr, ".text")
+#pragma FUNC_CANNOT_INLINE(sb_dstr)
+static int sb_dstr(uint32_t i, char *s)
 {
-    (void)v;
-    s[0] = '-';
-    s[1] = 0;
-    return 1;
+    int n = 0;
+#pragma UNROLL(1)
+    for (; sb_sdata[i][n]; n++) s[n] = sb_sdata[i][n];
+    s[n] = 0;
+    return n;
 }
+
+#pragma CODE_SECTION(GetString_SbData1, ".text")
+int GetString_SbData1(unsigned int v, char *s) { (void)v; return sb_dstr(0u, s); }
+#pragma CODE_SECTION(GetString_SbData2, ".text")
+int GetString_SbData2(unsigned int v, char *s) { (void)v; return sb_dstr(1u, s); }
+#pragma CODE_SECTION(GetString_SbData3, ".text")
+int GetString_SbData3(unsigned int v, char *s) { (void)v; return sb_dstr(2u, s); }

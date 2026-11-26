@@ -12,8 +12,8 @@ the table of another (a record-only file: ROLE, LEVEL, REC; a table-only
 file: LOW, HIGH, GAIN), so one record can serve several tables and one
 table several records (pluck.py on saw).
 
-The Chords knob picks a KEYS part, the Bass knob a BASS part, each with a
-level (value = part * LEVELS + level, "Or1:70"). c_header() writes
+The Keys knob picks a KEYS part, the Bass knob a BASS part, each with a
+level (value = part * LEVELS + level, "OJ:70"). c_header() writes
 songbox_instr.h: the table terms (one table per table file used, first use
 order), the records as byte indexes into a pool of distinct words (unpacked
 into the state by ss_wt_build), per part (chords parts, then bass parts) its
@@ -35,41 +35,39 @@ for _d in (HERE, INST_DIR):                             # instrument files impor
     if str(_d) not in sys.path:
         sys.path.append(str(_d))
 
-# chords parts in Chords knob order: knob name -> member
+# chords parts in Keys knob order: knob name -> member
 KEYS = {
-    "Or1": "organ1",                # Organ1: jazz organ
-    "Or2": "organ2",                # Organ2: rock organ
+    "OJ": "organ1",                 # Organ1: jazz organ
+    "OR": "organ2",                 # Organ2: rock organ
     "EP": "epiano",                 # electric piano
-    "Mrm": "marimba",
-    "Klm": "kalimba:marimba",       # kalimba on the marimba's sine table
-    "Syn": "saw",                   # synth: two detuned saws
-    "Plk": "pluck:saw",             # pluck: the saw, -60 dB after 400 ms
+    "Mr": "marimba",
+    "Kl": "kalimba:marimba",        # kalimba on the marimba's sine table
+    "Sy": "saw",                    # synth: two detuned saws
+    "Pk": "pluck:saw",              # pluck: the saw, -60 dB after 400 ms
 }
 # bass parts in Bass knob order: knob name -> member; a keys instrument plays its own bass
 BASS = {
     "PB": "pbass",                  # precision bass (bass guitar)
-    "O1": "organ1",                 # Organ1's bass
-    "O2": "organ2",                 # Organ2's bass
+    "OJ": "organ1",                 # Organ1's bass
+    "OR": "organ2",                 # Organ2's bass
     "Sy": "saw",                    # the synth's (saw) bass
     "Tr": "tri",                    # triangle bass
 }
-# Bass texts <= 5 characters ("PB:70"): two 6-character texts on
-# neighbouring knobs run together on the screen ("PBs 70Or1 70")
+# Knob texts <= 5 characters ("PB:70"): MS pedals right-align values, a
+# 6-character text touches its left neighbour (knob 3 next to knob 2)
 # knob value = part * LEVELS + level; level shown x 5 ("PB:70"), gain =
-# shown / 50 (50 = x1, as the old Volume); defaults Or1:70 / PB:70 (the
+# shown / 50 (50 = x1, as the old Volume); defaults OJ:70 / PB:70 (the
 # old Volume 70)
 LEVELS = 20
-CHORDS_DEFAULT = 0 * LEVELS + 14
+KEYS_DEFAULT = 0 * LEVELS + 14
 BASS_DEFAULT = 0 * LEVELS + 14
 # every instrument level x MASTER: SongBox Volume 70 (now level 70) ~ DrumBox Volume 70
 # (was 7x louder: SongBox 10 sounded like DrumBox 70), then +10 %, then +8 %
 MASTER = 1.19 / 7.0
 LVL_DIV = 4096                              # C levels: bytes, level = byte / LVL_DIV
 
-for _t in list(KEYS) + list(BASS):          # knob text: name + ":70" in 7 characters
-    assert _t.isascii() and 0 < len(_t) <= 4, f"part name {_t!r} over 4 characters"
-for _t in BASS:                             # Bass text <= 5 characters (next to Chords)
-    assert len(_t) <= 2, f"bass name {_t!r} over 2 characters"
+for _t in list(KEYS) + list(BASS):          # knob text: name + ":70" in 5 characters
+    assert _t.isascii() and 0 < len(_t) <= 2, f"part name {_t!r} over 2 characters"
 # every chords x bass pair, by name: (keys member, bass member) (proto.py)
 KITS = {f"{k}+{b}": (KEYS[k], BASS[b]) for k in KEYS for b in BASS}
 
@@ -238,8 +236,8 @@ def c_header(path: Path) -> None:
     top = max(len(KEYS), len(BASS)) * LEVELS
     assert LEVELS == 20 and all((v * 205) >> 12 == v // LEVELS for v in range(top)), \
         "songbox.c: part = v * 205 >> 12 (v / 20)"
-    L += ["", f"#define SS_LEVELS {LEVELS}u    /* levels per part (Chords / Bass value = part * SS_LEVELS + level) */",
-          f"#define SS_NKEYI {len(kmem)}u    /* chords parts (Chords knob) */",
+    L += ["", f"#define SS_LEVELS {LEVELS}u    /* levels per part (Keys / Bass value = part * SS_LEVELS + level) */",
+          f"#define SS_NKEYI {len(kmem)}u    /* chords parts (Keys knob) */",
           f"#define SS_NBASSI {len(bmem)}u    /* bass parts (Bass knob) */",
           "/* part names, NUL-terminated (the end of songbox.c's text pool):",
           " * chords parts, then bass parts */",
