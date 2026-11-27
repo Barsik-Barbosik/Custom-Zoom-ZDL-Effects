@@ -28,27 +28,35 @@ uses only the volume. The guitar signal passes through.
 
   | Setting | Question | Values |
   |---|---|---|
-  | TEMPO | Song tempo is: | Pedal (default: the pedal's tempo), 40 … 250 BPM |
+  | TEMPO | Song tempo is: | Pedal (default: the pedal's tempo), 40 … 250 BPM (not used while SongBox leads) |
   | LENGTH | Steps in song: | 16 (default), 32, 64, 128 (both tracks) |
   | GRID | Step grid is: | 1/16 (default), 1/8 (both tracks) |
   | SOUND1 | Trk1 sound is: | SndBank's sound and its volume, shown as `EP:70`: sounds PB (default), Tr, OJ (jazz organ), OR (rock organ), EP, Mr (marimba), Kl (kalimba), Sy (synth), Pk (pluck), each at volume 00 (silent) … 95, 50 = normal (default) |
   | SOUND2 | Trk2 sound is: | the same |
 
 - **Footswitch on plays** both tracks in a loop at the TEMPO setting; a rest
-  is silent, holds make the note before longer. Footswitch off stops.
+  is silent, holds make the note before longer. Footswitch off stops
+  (while SongBox leads, it only mutes).
 - **Drums:** a [DrumBox](../drumbox/README.md#synced-to-melodybox) in the
   same patch plays its own beats and fills along: at MelodyBox's TEMPO,
   starting at beat 1 with step 1 and stopping with it, kept in time at
   every quarter note. After a patch change MelodyBox waits until DrumBox's
-  kit is ready, then both start. Not with SongBox in the patch (SongBox
-  drives DrumBox).
+  kit is ready, then both start. With a SongBox that has a song, SongBox
+  drives DrumBox instead.
+- **Follows [SongBox](../songbox/README.md):** with a SongBox in the same
+  patch that has a song, SongBox is the clock: MelodyBox plays at the
+  song's position (counted from its bar 1), tempo and swing, and starts
+  and stops with it. The melody starts again at step 1 each time the song
+  loops (a melody shorter than the song repeats inside it). Added while
+  the song plays, MelodyBox comes in at once at the right place. With an
+  empty song MelodyBox leads, as without SongBox.
 - **Knobs 4-9 hold stored data** (the start of the saved melody) and
   are locked: a turn springs back. They are named Data1 … Data6 and show
   `DON'T` `TURN` `THESE` on each page.
 
 Status: the step editor, both tracks, the settings, playback over SndBank
-and the own voices, and saving / loading with the patch work on the B1Xon
-1.30 (G1on family). Untested on the MS pedals.
+and the own voices, saving / loading with the patch, DrumBox following
+and following SongBox work on the B1Xon 1.30 (G1on family). Untested on the MS pedals.
 
 ## Saving with the patch
 

@@ -83,7 +83,7 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
  * play once rendered, nothing until the cache check after a patch switch has
  * passed). Not driven, DrumBox plays as without follow mode. */
 #undef DB_VERSION
-#define DB_VERSION 46u  /* 46: fWord, fAge; 45: kitSel, kitWait; 44: fSkip */
+#define DB_VERSION 48u  /* 48: fYoung dropped; 47: fYoung; 46: fWord, fAge; 45: kitSel, kitWait; 44: fSkip */
 /* LenA markers written by the driving effect (above the Len list, <= 100 so
  * raw = v / 100 survives db_param's clamp): song playing = 1 bar, song
  * stopped = Skip, count-in = 1 bar played as count bars (closed hat
@@ -170,6 +170,12 @@ static const uint32_t db_f_fw[DB_F_NFW * DB_F_W] = {
  * (cache units, 1/16384 each). */
 #define DB_RENDER_CYC 8000u
 #define DB_RENDER_MAX 32
+/* The render budget while another effect's song already plays (driven:
+ * LenA "song on"; synced: the play bit): a slot move (an effect deleted
+ * before this one) gives a fresh arena and a render mid-song, on top of
+ * the sequencer's full voices (a full render there crackles). Stopped, in
+ * the count-in, waiting for the kit or alone: DB_RENDER_CYC. */
+#define DB_RENDER_SLOW 3000u
 /* The kit renders only once the Kit knob has stayed this many calls (~180 us
  * each: ~145 ms), so turning the knob through kits costs no render time. */
 #define DB_KIT_SETTLE 800
@@ -448,26 +454,28 @@ static inline void db_reset_engine(DBState *st, int first)
 DB_ALWAYS_INLINE(db_init_state)
 static inline void db_init_state(DBState *st)
 {
+    /* Clear all of it first: after a slot move or a patch switch the arena
+     * holds another effect's data, and the kit render plays every lane
+     * while it has cleared only the ones from the rendered lane up (a
+     * leftover kind / drum / sample index there froze the pedal).
+     * Volatile word stores: no unrolled uninterruptible store block. */
+    volatile uint32_t *w = (volatile uint32_t *)st;
+    int i;
+    for (i = 0; i < (int)(sizeof(DBState) / 4u); i++)
+        w[i] = 0u;
     st->magic = DB_MAGIC;
     st->version = DB_VERSION;
-    st->running = 0u;
     st->step = 15;
     st->sect = 1;
     st->bar = 15;
-    st->phase = 0.0f;
-    st->swing = 0.0f;
     st->swMask = 1u;
     st->cKit = -1;              /* the first call renders the kit (and stops the players) */
     st->kitSel = -1;
-    st->cur[0] = st->cur[1] = st->cur[2] = st->cur[3] = st->cur[4] = 0u;
     st->fillRng = DB_FILL_RNG_SEED;
-    st->lastFill = 0;
     st->sinceCrash = DB_CRASH_GAP;
     st->beatRng = DB_BEAT_RNG_SEED;
     st->randBeat = -1;
 #ifdef DB_FOLLOW
-    st->fSkip = 0u;
-    st->fWord = 0u;
     st->fAge = DB_SYNC_AGE;
 #endif
 }
@@ -1130,6 +1138,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     int kitKnob = (int)(kitN * 100.0f + 0.5f);
     /* LenA / LenB: one knob step per entry; bars of each section and
      * whether its fill also plays in the middle. */
+    uint32_t rCyc = DB_RENDER_CYC;
 #ifdef DB_FOLLOW
     int lenA, cnt;
     {
@@ -1138,6 +1147,8 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         db_drv = d;
         st->fDrv = d;
         cnt = (k == DB_SONG_CNT);
+        if (!(k == DB_SONG_CNT || k == DB_SONG_OFF || (fSync && !(sw & DB_SYNC_PLAY)))
+            && (k == DB_SONG_ON || fSync)) rCyc = DB_RENDER_SLOW;
         if (d) k = (k != DB_SONG_OFF);
         lenA = DB_LENGTH_FROM_KNOB(k);
     }
@@ -1161,7 +1172,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     /* The kit cache (from the arena's start up to the state): a new kit
      * stops the song and the players and renders again from lane 0 (the
      * start gate restarts the song at beat 1 once it is ready); then render for
-     * DB_RENDER_CYC cycles of this call (footswitch off too, so the kit
+     * rCyc cycles of this call (DB_RENDER_CYC / _SLOW; footswitch off too, so the kit
      * gets ready).
      * Mirror: KitCache in preview.py. */
     int16_t *cache = (int16_t *)base;
@@ -1191,7 +1202,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     }
     for (i = 0; i < DB_RENDER_MAX && st->rLane < DB_NUM_LANES &&
                 st->kitWait >= DB_KIT_SETTLE &&
-                (uint32_t)(TSCL - t0) < DB_RENDER_CYC; i++) {
+                (uint32_t)(TSCL - t0) < rCyc; i++) {
         int r = st->rLane, l = DB_RENDER_LANE(r), d = E->kit_drums[kit * DB_NUM_LANES + l];
         int32_t at = st->rEnd + st->rPos;
         float y;

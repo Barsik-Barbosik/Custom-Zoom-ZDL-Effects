@@ -1,6 +1,7 @@
 /*
  * SongBox -- chord song sequencer: bass and chords (electric piano or organ)
- * play a song edited on the pedal, DrumBox in the same patch follows it.
+ * play a song edited on the pedal, DrumBox in the same patch follows it,
+ * MelodyBox follows its clock (SS_CK_SYNC).
  *
  * Knobs: page 1 the song menu Bar / Chord / Rhthm (Rhythm), page 2 Rhy1..3 (the
  * pattern each rhythm plays, one of patterns/patterns.json, or Randm: a
@@ -11,7 +12,7 @@
  * 50 = x1; drums follow at every level).
  *
  * Sound: bass + keys (sets.py + instruments/) play the saved song while the
- * footswitch is on (MENU PLAY: once or in a loop), added to the guitar.
+ * footswitch is on (in a loop), added to the guitar.
  * Their 16ths swing like the DrumBox beat of the pattern.
  *
  * The song (up to 128 bars, chord + rhythm each) is kept in RAM and saved
@@ -33,12 +34,11 @@
  * the last of them; Bar doesn't go past STATUS
  * (turned further, it jumps back). Rhythm shows "Rhy1".."Rhy3". On MENU Chord
  * picks an option and Rhythm shows its value; the three knob names spell the
- * option's question: PLAY OFF / ONCE / LOOP (Loop after a fresh start),
- * OCTAVE ("Shift chords by:") -1 / 0 / +1 (the chords one octave down / up), LENGTH ("Change
- * chord every:") BAR / HALF / BEAT (a song bar is 16 / 8 / 4 sixteenths; the rhythm
+ * option's question: OCTAVE ("Shift chords by:") -1 / 0 / +1 (the chords one octave down / up), CH/BAR ("Chords
+ * per bar:") 1 / 2 / 4 (a song bar is 16 / 8 / 4 sixteenths; the rhythm
  * patterns and DrumBox still run in whole bars, a song ending inside one
- * rests up to its end; OCTAVE and LENGTH are saved with the song, 3 bits,
- * 6 for -1 or +1 with BEAT; PLAY isn't saved), TRIM NO / YES (YES counts down 5 s, "YES 5" .. "YES 1", then
+ * rests up to its end; OCTAVE and CH/BAR are saved with the song, 3 bits,
+ * 6 for -1 or +1 with BEAT), TRIM NO / YES (YES counts down 5 s, "YES 5" .. "YES 1", then
  * removes the first END and every bar after it and shows DONE; NO or leaving
  * MENU stops it; the knob's third position snaps back to YES), CLEAR NO / YES
  * (the same, then empties the song). STATUS (read only): the first two
@@ -101,11 +101,23 @@
 #define SS_DB_SONG_CNT 92u              /* 1 bar played as count bars (hat quarters) */
 #define SS_COUNT_BARS  2u              /* count-in after a patch change, with DrumBox */
 
+/* The clock MelodyBox follows (melodybox.c MB_SB_*): our own Tempo word in
+ * the table row, above the knob's 8-bit field (the patch record, and so a
+ * save, keeps the value alone; a Tempo turn writes the plain value, the
+ * bits come back at the next call). SS_CK_SYNC while we have a song
+ * (RAM or Floppy; then we lead, footswitch off = stopped; empty: MelodyBox leads),
+ * SS_CK_PLAY while it plays (not in the count-in), the 16th of the drum bar
+ * and the drum bar counted from the song's bar 1 (back to 0 at the wrap). */
+#define SS_CK_SYNC  0x100u
+#define SS_CK_PLAY  0x200u
+#define SS_CK_SSH   10u                 /* 4 bits */
+#define SS_CK_BSH   14u                 /* 7 bits */
+
 #define SS_AUDIO_FUNC Fx_SFX_SongBox
 ZM_EXPAND_PRAGMA(CODE_SECTION(SS_AUDIO_FUNC, ".audio"))
 ZM_EXPAND_PRAGMA(FUNC_INTERRUPT_THRESHOLD(SS_AUDIO_FUNC, 1))
 
-#define SS_MAGIC     0x53535554u       /* bump on a state layout change */
+#define SS_MAGIC     0x53535556u       /* bump on a state layout change */
 /* Patch change (a gap between audio calls, as DrumBox's DB_AWAY_CYC): the
  * song starts again at bar 1 after SS_AWAY_HOLD calls of silence, which also
  * gives DrumBox time for its cache check (else beat 1 would be dropped). */
@@ -153,15 +165,11 @@ typedef struct {
 #define SS_CH_REST  26u
 #define SS_B_END    25u                 /* END bar in cand / bars (never packed); SP_DRUMS 26 */
 
-#define SS_NOPT     5u                  /* MENU options (0..LENGTH: values in ms[]): */
-#define SS_OPT_PLAY 0u                  /* "Play": Rhythm OFF / ONCE / LOOP (not saved) */
-#define SS_OPT_OCT  1u                  /* "Octave": the chords -1 / 0 / +1 octave (saved) */
-#define SS_OPT_LEN  2u                  /* "Length": a song bar 16 / 8 / 4 steps (saved) */
-#define SS_OPT_TRIM 3u                  /* "Trim": Rhythm NO / YES removes the first END and after */
-#define SS_OPT_CLEAR 4u                 /* "Clear": NO / YES empties the song */
-#define SS_PM_OFF   0u                  /* play modes */
-#define SS_PM_ONCE  1u
-#define SS_PM_LOOP  2u
+#define SS_NOPT     4u                  /* MENU options (0..CH/BAR: values in ms[]): */
+#define SS_OPT_OCT  0u                  /* "Octave": the chords -1 / 0 / +1 octave (saved) */
+#define SS_OPT_CPB  1u                  /* "Chords per bar": 1 / 2 / 4, a song bar 16 / 8 / 4 steps (saved) */
+#define SS_OPT_TRIM 2u                  /* "Trim": Rhythm NO / YES removes the first END and after */
+#define SS_OPT_CLEAR 3u                 /* "Clear": NO / YES empties the song */
 
 /* All texts in one pool of NUL-terminated strings (ss_strs, string i =
  * ss_str(k, i)), <= 7 characters each:
@@ -176,42 +184,40 @@ typedef struct {
  * - SS_S_INSTR: the part names (songbox_instr.h): chords parts, then bass
  *   parts. */
 #define SS_S_KNOB   0u
-#define SS_S_WORD   18u
-#define SS_S_CHORD  48u
-#define SS_S_INSTR  62u
+#define SS_S_WORD   15u
+#define SS_S_CHORD  41u
+#define SS_S_INSTR  55u
 #define SS_KNOB_NAMES_INIT \
     "Bar\0"    "Chord\0"  "Rhthm\0" \
-    "Play\0"   "mode\0"   "is:\0"           /* PLAY */ \
     "Shift\0"  "keys\0"   "by:\0"           /* OCTAVE */ \
-    "New\0"    "chord\0"  "each:\0"         /* LENGTH */ \
+    "Chords\0" "per\0"    "bar:\0"          /* CH/BAR */ \
     "Trim\0"   "after\0"  "END?\0"          /* TRIM */ \
     "Clear\0"  "the\0"    "song?\0"         /* CLEAR */
 
 /* Knob texts (SS_S_WORD + SS_W_*) */
-#define SS_W_MENU   5u
-#define SS_W_DASH3  6u
-#define SS_W_END    7u
-#define SS_W_FLOP   8u
-#define SS_W_ERR    9u
-#define SS_W_FULL   10u
-#define SS_W_OFF    11u                 /* 3 values each for PLAY, OCTAVE, LENGTH */
-#define SS_W_NO     20u
-#define SS_W_YES    21u
-#define SS_W_PACK   22u
-#define SS_W_DONE   23u
-#define SS_W_INFO   24u
-#define SS_W_FREE   25u                 /* "Free:" (the Floppies' bits left) */
-#define SS_W_USED   26u                 /* "Used:" (the song's bits) */
-#define SS_W_NOFL   27u                 /* "Can't" "save!" */
-#define SS_W_PEDAL  29u                 /* Tempo 0 */
-#define SS_NWORDS   30u
+#define SS_W_MENU   4u
+#define SS_W_DASH3  5u
+#define SS_W_END    6u
+#define SS_W_FLOP   7u
+#define SS_W_ERR    8u
+#define SS_W_FULL   9u
+#define SS_W_OPTV   10u                 /* 3 values each for OCTAVE, CH/BAR */
+#define SS_W_NO     16u
+#define SS_W_YES    17u
+#define SS_W_PACK   18u
+#define SS_W_DONE   19u
+#define SS_W_INFO   20u
+#define SS_W_FREE   21u                 /* "Free:" (the Floppies' bits left) */
+#define SS_W_USED   22u                 /* "Used:" (the song's bits) */
+#define SS_W_NOFL   23u                 /* "Can't" "save!" */
+#define SS_W_PEDAL  25u                 /* Tempo 0 */
+#define SS_NWORDS   26u
 #define SS_WORDS_INIT \
-    "PLAY\0" "OCTAVE\0" "LENGTH\0" "TRIM\0" "CLEAR\0" \
+    "OCTAVE\0" "CH/BAR\0" "TRIM\0" "CLEAR\0" \
     "MENU \0" /* space: room for a 6-character option beside it (MS) */ \
     "---\0" "END\0" "Flop?\0" "Err\0" "Full\0" \
-    "OFF\0" "ONCE\0" "LOOP\0" \
     "-1\0" "0\0" "+1\0" \
-    "BAR\0" "HALF\0" "BEAT\0" \
+    "1\0" "2\0" "4\0" \
     "NO\0" "YES\0" "Pack\0" \
     "DONE\0" "INFO\0" "Free:\0" "Used:\0" \
     "Can't\0" "save!\0" \
@@ -315,9 +321,8 @@ typedef struct {
     uint32_t pla;                       /* this step's look-ahead is due */
     float pinc[4], pgate[4];            /* the triggers' increments and gates */
     uint32_t dbar;                      /* first song bar of the drum bar playing */
-    uint32_t ms[3];                     /* MENU values: play mode SS_PM_*, octave, length */
+    uint32_t ms[2];                     /* MENU values: octave, length */
     uint32_t fset;                      /* settings code on the Floppy (ss_ms_pre form) */
-    uint32_t done;                      /* Once has played to the end */
     float stepPh;                       /* 16th phase 0..slen */
     float swing, slen;                  /* the drum bar's swing; this 16th's length (1 +- swing) */
     uint32_t swm;                       /* swing step bit: a step with step & swm lasts 1 - swing */
@@ -536,16 +541,16 @@ ZM_INLINE(ss_ms_pre)
 static inline uint32_t ss_ms_pre(const SsState *st)
 {
     uint32_t o = st->ms[SS_OPT_OCT];
-    return (o == 1u ? 0u : o == 2u ? 1u : 2u) + 3u * st->ms[SS_OPT_LEN];
+    return (o == 1u ? 0u : o == 2u ? 1u : 2u) + 3u * st->ms[SS_OPT_CPB];
 }
 
-/* OCTAVE and LENGTH from a settings code c (0..8). */
+/* OCTAVE and CH/BAR from a settings code c (0..8). */
 SS_COLD(ss_ms_set)
 static void ss_ms_set(SsState *st, uint32_t c)
 {
     uint32_t len = c >= 6u ? 2u : c >= 3u ? 1u : 0u, a = c - 3u * len;
     st->ms[SS_OPT_OCT] = a == 0u ? 1u : a == 1u ? 2u : 0u;
-    st->ms[SS_OPT_LEN] = len;
+    st->ms[SS_OPT_CPB] = len;
     st->fset = c;
 }
 
@@ -596,8 +601,8 @@ static inline void ss_fresh(SsState *st, unsigned int *ctx)
     st->clr = 0u; st->clrd = 0u; st->cdone = 0u;
     st->play = 0u; st->fire = 0u;
     st->lastCall = 0u; st->hold = 0u; st->patch = 0xFFFFFFFFu; st->wtn = 0u;
-    st->ms[SS_OPT_PLAY] = SS_PM_LOOP; st->ms[SS_OPT_OCT] = 1u; st->ms[SS_OPT_LEN] = 0u;
-    st->fset = 0u; st->done = 0u; st->dbar = 0u;
+    st->ms[SS_OPT_OCT] = 1u; st->ms[SS_OPT_CPB] = 0u;
+    st->fset = 0u; st->dbar = 0u;
     for (i = 0u; i < sizeof(SsVoice) * 4u; ++i) ((volatile uint8_t *)st->vk)[i] = 0u;
     st->dslot = ZM_NOSLOT; st->dtgt = SS_DB_NONE; st->ddrv = 0u; st->dwait = 0u;
     st->cin = 0u; st->cpend = 0u;
@@ -660,7 +665,7 @@ static void ss_unpack_job(SsState *st)
         /* cut inside an event, or ran out with a later part there */
         st->need = how == SP_END_CUT || (how == SP_END_OUT && st->zm.gap);
         st->full = 0u;
-        ss_ms_set(st, set);             /* saved OCTAVE, LENGTH */
+        ss_ms_set(st, set);             /* saved OCTAVE, CH/BAR */
         st->dtgt = SS_DB_NONE;          /* DrumBox's beat / fill from this song (a load in the count-in) */
         ss_request_pack(st, SS_PK_LOAD);
         st->sum = st->csum;
@@ -764,15 +769,9 @@ static void ss_edit(SsState *st, unsigned int *ctx)
         st->last[SS_K_RHYTHM] = v;
         st->cdone = 0u;
         if (sel == 0u) {                                /* MENU option value */
-            if (st->opt < SS_OPT_TRIM) {                /* PLAY, OCTAVE, LENGTH */
-                st->ms[st->opt] = v;
-                if (st->opt == SS_OPT_PLAY) {           /* new mode: start again at bar 1 */
-                    st->done = 0u;
-                    st->play = 0u;
-                } else {
-                    /* saved with the song: pack it again (refused -> the Floppy's values) */
-                    st->ereq = 1u;
-                }
+            if (st->opt < SS_OPT_TRIM) {                /* OCTAVE, CH/BAR: saved with the song, */
+                st->ms[st->opt] = v;                    /* pack it again (refused -> the Floppy's values) */
+                st->ereq = 1u;
             } else {                                    /* TRIM, CLEAR: YES starts the countdown, NO stops it */
                 if (v == 0u) st->clr = 0u;              /* (only when there is something to remove) */
                 else if (st->clr == 0u && st->cn > e) st->clr = SS_CLR_CALLS;
@@ -916,7 +915,7 @@ static void ss_events(SsState *st, const float *params, uint32_t bar, uint32_t s
     st->parp = st->arp;
     st->palast = st->alast;
     if ((b & 31u) >= SP_REST) {         /* rest, drums bar (or past the end): bass and keys released */
-        if ((step & (15u >> st->ms[SS_OPT_LEN])) == 0u) st->pact = 0x55u;
+        if ((step & (15u >> st->ms[SS_OPT_CPB])) == 0u) st->pact = 0x55u;
         return;
     }
     root = (b & 31u) >> 1;
@@ -1030,7 +1029,7 @@ static void ss_apply(SsState *st, const float *params)
 
 /* Look-ahead, once per step in a call without a note start: the next
  * step's events prepared (the sequencer's step in ss_play, without its
- * stores). Nothing prepared for a count-in or Once's stop; whatever differs
+ * stores). Nothing prepared for a count-in; whatever differs
  * at the step (an edit, a restart) fails the key there and ss_play prepares
  * again. */
 SS_COLD(ss_look)
@@ -1040,10 +1039,9 @@ static void ss_look(SsState *st, const float *params)
     st->pkey = SS_EV_NONE;
     if (st->cin) return;
     if (step == 16u) step = 0u;
-    if ((step & (15u >> st->ms[SS_OPT_LEN])) == 0u && ++bar >= st->pn) {
+    if ((step & (15u >> st->ms[SS_OPT_CPB])) == 0u && ++bar >= st->pn) {
         bar = st->pn;
         if (step == 0u) {
-            if (st->ms[SS_OPT_PLAY] == SS_PM_ONCE) return;
             bar = 0u;
             pass++;
         }
@@ -1143,6 +1141,14 @@ static inline void ss_drums(SsState *st, const float *params)
         } else if (st->dslot < t->slots && ZM_U32(t->rec + 44u * st->dslot + 4u) == SS_DB_ID) {
             ds = st->dslot;
         }
+        if (st->zm.slot < t->slots) {   /* the clock (SS_CK_SYNC); the state as the last call left it */
+            volatile uint32_t *cw = (volatile uint32_t *)(uintptr_t)(t->tab + 44u * st->zm.slot + 4u * (2u + SS_K_TEMPO));
+            b = *cw & 0xFFu;
+            if (st->pn)                 /* a song: we lead (Play OFF = stopped) */
+                b |= SS_CK_SYNC | (st->play && !st->cin ? SS_CK_PLAY : 0u) | st->step << SS_CK_SSH
+                     | (st->dbar >> st->ms[SS_OPT_CPB] & 127u) << SS_CK_BSH;
+            if (*cw != b) *cw = b;
+        }
     }
     st->dslot = ds;                     /* one store: the knob text reads it */
     if (ds == ZM_NOSLOT) {
@@ -1179,12 +1185,12 @@ static inline void ss_drums(SsState *st, const float *params)
         la = SS_DB_SONG_OFF;
         goto wr;
     }
-    /* A drum bar holds k = 1 << LENGTH song bars, the playing one from dbar
+    /* A drum bar holds k = 1 << ms[SS_OPT_CPB] song bars, the playing one from dbar
      * on. Count-in: dbar stays 0, so its last bar's look-ahead is bar 0.
      * Fills count drum bars (dv, dpos), so they come as often at every
-     * LENGTH as at BAR (k = 1: dv = tg): the end fill at drum bar pn of the
+     * CH/BAR as at 1 (k = 1: dv = tg): the end fill at drum bar pn of the
      * song, the middle fill at drum bar 4 of every 8 of a run. */
-    k = 1u << st->ms[SS_OPT_LEN];
+    k = 1u << st->ms[SS_OPT_CPB];
     q = st->dbar < st->pn ? st->dbar : 0u;
     tg = (st->step < SS_DB_AHEAD || st->cin) ? q : (q + k < st->pn ? q + k : 0u);
     /* tg's pass: the next one when the look-ahead wraps to bar 1 */
@@ -1213,7 +1219,7 @@ static inline void ss_drums(SsState *st, const float *params)
             nb = st->bars[s];
             /* the run ends: last bar, a rest, another rhythm, another style
              * (a Randm run at the song's wrap) */
-            if (st->dv + 1u >= st->pn || (e >= st->pn && st->ms[SS_OPT_PLAY] != SS_PM_LOOP)
+            if (st->dv + 1u >= st->pn
                 || (nb & 31u) == SP_REST || (nb >> 5) != rh || ss_style(st, params, s, w + (e >= st->pn)) != sty) {
                 fill = ss_db_style[sty * 2u + 1u];           /* end fill */
                 q = e;                                  /* the next drum bar starts a run */
@@ -1254,9 +1260,8 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
     float inc, s, bg, kg, len;
     uint32_t i, j, ki, bi, lm, ev;
 
-    if (params[0] < 0.5f) st->done = 0u;            /* footswitch off: Once plays again */
     if (st->hold) st->hold--;                       /* after a patch change */
-    if (params[0] < 0.5f || st->pn == 0u || st->ms[SS_OPT_PLAY] == SS_PM_OFF || st->done || st->hold
+    if (params[0] < 0.5f || st->pn == 0u || st->hold
         || st->wtn < SS_WT_ROWS) {
         st->play = 0u;                              /* stopped (or the wavetable not built yet) */
     } else if (!st->play) {                         /* start at bar 1 */
@@ -1305,11 +1310,11 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
     }
     kg = st->pg[0]; bg = st->pg[1];
     ki = st->pid[0]; bi = st->pid[1];
-    lm = 15u >> st->ms[SS_OPT_LEN];                 /* song bar line: step & lm == 0 */
+    lm = 15u >> st->ms[SS_OPT_CPB];                 /* song bar line: step & lm == 0 */
 
     for (i = 0u; i < 8u; ++i) st->acc[i] = 0.0f;
     len = st->slen;                                 /* this 16th's length (swing) */
-    ev = 0u;                                        /* 1 events, 2 Once's stop */
+    ev = 0u;                                        /* 1 events */
     for (i = 0u; i < 8u && st->play; ++i) {
         st->stepPh += inc;
         if (st->stepPh >= len) {
@@ -1325,10 +1330,6 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
                     if (st->step == 0u) {
                         st->bar = 0u;
                         st->pass++;             /* Randm picks again */
-                        if (st->ms[SS_OPT_PLAY] == SS_PM_ONCE) {  /* Once: stop after the last bar */
-                            st->done = 1u; st->play = 0u; st->fire = 0u;
-                            ev = 2u;
-                        }
                     }
                 }
                 if (st->step == 0u) {
@@ -1361,8 +1362,6 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
     if (ev == 1u) SS_PM_OF(st)->ec = SS_PM_OF(st)->cur[7] = TSCL - te;
     SS_PM_OF(st)->info = st->step | ev << 4 | (st->bar & 127u) << 6; }
 #endif
-    if (ev == 2u)
-        for (j = 0u; j < 4u; ++j) st->vk[j].gate = 0.0f;
 #ifdef SS_PROBE
     { uint32_t tv = TSCL;
 #endif
@@ -1574,13 +1573,11 @@ void SS_AUDIO_FUNC(unsigned int *ctx)
     if (away) {
         st->rsk = ~st->rsk;             /* ss_style's run starts again */
         st->play = 0u;
-        st->done = 0u;                  /* Once plays again */
         st->hold = SS_AWAY_HOLD;
         st->cpend = 1u;                 /* count in (if DrumBox is there) */
         st->wtn = 0u;                   /* the wavetable again (ctx[3] lent out) */
-        /* MENU settings: PLAY LOOP; OCTAVE, LENGTH the Floppy's (a load
-         * this call overrides them), defaults without Floppy */
-        st->ms[SS_OPT_PLAY] = SS_PM_LOOP;
+        /* MENU settings: OCTAVE, CH/BAR the Floppy's (a load this call
+         * overrides them), defaults without Floppy */
         ss_ms_set(st, st->zm.nparts ? st->fset : 0u);
     }
     st->patch = i;
@@ -1773,7 +1770,8 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
         if (h >= t) { h = t - 1u; v = SS_LEVELS - 1u; }
         w = SS_S_INSTR + h + (k == SS_K_BASS ? SS_NKEYI : 0u);
         lv = v;
-    } else if (k == SS_K_TEMPO) {       /* "Pedal", BPM */
+    } else if (k == SS_K_TEMPO) {       /* "Pedal", BPM (the table word may carry the clock: SS_CK_SYNC) */
+        v &= 0xFFu;
         if (v == 0u) w = SS_S_WORD + SS_W_PEDAL;
         else v = 39u + (v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v);
     } else if (!st) {
@@ -1808,8 +1806,8 @@ static int ss_text(uint32_t k, uint32_t v, char *s)
     } else if (k == SS_K_RHYTHM) {
         if (sel == 0u) {
             h = st->opt;
-            if (h < SS_OPT_TRIM)        /* OFF / ONCE / LOOP, -1 / 0 / +1, BAR / HALF / BEAT */
-                w = SS_S_WORD + SS_W_OFF + 3u * h + (v > 2u ? 2u : v);
+            if (h < SS_OPT_TRIM)        /* -1 / 0 / +1, 1 / 2 / 4 */
+                w = SS_S_WORD + SS_W_OPTV + 3u * h + (v > 2u ? 2u : v);
             else                        /* TRIM, CLEAR: NO / YES / YES 5 .. YES 1, DONE */
                 w = SS_S_WORD + (v ? SS_W_YES : st->cdone ? SS_W_DONE : SS_W_NO);
         } else if (idx >= st->cn || !SP_HAS_RHY(st->cand[idx] & 31u)) {

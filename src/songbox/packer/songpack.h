@@ -10,7 +10,7 @@
  * More Floppies (parts 1..SP_MAX_PARTS): the stream goes on, 34 tokens per
  * part; part q is words[4 q .. 4 q + 3], its first 4 bits the key (part 1)
  * or the part marker (extra copies, zmenu's; skipped here).
- * Settings (SongBox MENU OCTAVE + LENGTH, a code 0..8; 0 = defaults) first
+ * Settings (SongBox MENU OCTAVE + CH/BAR, a code 0..8; 0 = defaults) first
  * in the stream: code 0..6 one token, 7 / 8 token 7 + 0 / 1 (7 + 2..7 read
  * as 0, free for later).
  *

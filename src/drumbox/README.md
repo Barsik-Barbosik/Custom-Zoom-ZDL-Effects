@@ -157,7 +157,8 @@ How it works inside:
 ### Synced to MelodyBox
 
 With [MelodyBox](../melodybox/README.md) in the same patch (and no
-SongBox: SongBox drives DrumBox itself), DrumBox plays its own song (your
+SongBox with a song: then SongBox drives DrumBox and MelodyBox follows
+SongBox), DrumBox plays its own song (your
 Beat, Fill and Length knobs) on MelodyBox's clock. Without MelodyBox,
 DrumBox plays as described above.
 

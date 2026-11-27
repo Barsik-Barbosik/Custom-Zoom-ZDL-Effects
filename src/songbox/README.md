@@ -5,7 +5,8 @@
 SongBox plays a chord song with bass and chords (organs, electric piano,
 marimba, kalimba, synth or pluck chords with five basses) along with your
 guitar. You write the song on the pedal, bar by bar, and it can drive
-DrumBox in the same patch, so the drums follow the song.
+DrumBox in the same patch, so the drums follow the song, and lead
+MelodyBox, so a melody plays along in time.
 
 - **Songs of up to 128 bars,** each with a chord and one of 3 rhythms.
 - **Chords:** the 24 major and minor chords (sharp names), Drums (only the
@@ -29,6 +30,11 @@ DrumBox in the same patch, so the drums follow the song.
   patch, SongBox sets its beat, fills and tempo for each bar and starts and
   stops it with the song (MS pedals untested). After a patch change both
   start with 2 count-in bars while DrumBox loads its sounds.
+- **Leads MelodyBox:** with [MelodyBox](../melodybox/README.md) in the
+  same patch and a song, MelodyBox plays on SongBox's clock: the same
+  tempo and swing, starting and stopping with the song, and its melody
+  starts again at the song's bar 1 each time the song loops (MS pedals
+  untested).
 - **Tempo: Pedal or 40–250 BPM:** Pedal follows the pedal's own tempo (see
   the Tempo knob).
 - **Sounds:** chords on Organ1 (jazz organ), Organ2 (rock organ), electric
@@ -37,9 +43,9 @@ DrumBox in the same patch, so the drums follow the song.
   chords sound goes with any bass. Bass and chords each have one knob for
   the sound and its level (00–95, 50 = as designed): either can be turned
   off, or both (DrumBox keeps following).
-- **Song settings** (MENU): play once or in a loop, chords an octave up or
-  down, a chord every bar, half bar or beat.
-- **Footswitch on:** the song plays from bar 1. **Off:** it stops.
+- **Song settings** (MENU): chords an octave up or down, a chord every
+  bar, half bar or beat.
+- **Footswitch on:** the song plays from bar 1, in a loop. **Off:** it stops.
 - The guitar passes through at full level, mixed with the instruments.
 
 Version 1.14.1. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
@@ -84,14 +90,13 @@ and (optionally) DrumBox into one patch.
 ### MENU (Bar = MENU)
 
 "Chord" picks the option; the knob names spell its question and "Rhthm"
-gives the answer. OCTAVE and LENGTH are saved with the song; on a patch
-change PLAY goes back to LOOP and OCTAVE / LENGTH to the saved values.
+gives the answer. OCTAVE and CH/BAR are saved with the song; on a patch
+change they go back to the saved values.
 
 | Option | Question | Values |
 |---|---|---|
-| PLAY | Play mode is: | OFF, ONCE (stop after the last bar), LOOP (default). Not saved: LOOP again after a reload |
 | OCTAVE | Shift keys by: | -1, 0 (default), +1: the chords one octave down / up (the bass stays) |
-| LENGTH | New chord each: | BAR (default), HALF, BEAT: how long each song bar plays, for songs that change chords within a bar (still 4/4, not a time signature). Rhythms and DrumBox still run in whole bars: each drum bar plays the rhythm of its first song bar (a Rest there silences the drums for the whole bar; use Drums to keep them); a song that ends inside one rests up to its end |
+| CH/BAR | Chords per bar: | 1 (default), 2, 4: a song bar plays a whole bar, a half or a beat, for songs that change chords within a bar (still 4/4, not a time signature). Rhythms and DrumBox still run in whole bars: each drum bar plays the rhythm of its first song bar (a Rest there silences the drums for the whole bar; use Drums to keep them); a song that ends inside one rests up to its end |
 | TRIM | Trim after END? | NO, YES: after a 5 s countdown ("YES 5" … "YES 1") removes the first END and every bar after it, then shows DONE |
 | CLEAR | Clear the song? | NO, YES: after a 5 s countdown empties the song, then shows DONE |
 
@@ -285,7 +290,7 @@ and chords swing with it.
 ## How it works
 
 - **Storage:** the song is packed into a bit stream (key + 3-bit tokens:
-  OCTAVE and LENGTH, 3 bits (6 for LOW or HIGH with BEAT), then chord
+  OCTAVE and CH/BAR, 3 bits (6 for -1 or +1 with 4 chords per bar), then chord
   degrees, rhythm changes, repeats, section copies) and written to
   Floppy's knob fields through [zmenu](../common/zmenu/README.md) stream mode.
   The packer runs a few steps per audio call and checks that the stream
@@ -302,7 +307,11 @@ and chords swing with it.
   shared pool of values.
 - **DrumBox:** SongBox writes DrumBox's knob values for each bar; DrumBox
   (follow mode) copies them every call. With shorter song bars (MENU
-  LENGTH) a DrumBox bar takes the beat of its first chord bar.
+  CH/BAR) a DrumBox bar takes the beat of its first chord bar.
+- **MelodyBox:** SongBox writes its clock (has a song, playing, the
+  position from the song's bar 1) into the bits above its own Tempo value
+  in the patch's knob table; MelodyBox reads it every call. A saved patch
+  keeps only the Tempo value.
 - **State** lives in the effect's `ctx[3]` memory.
 
 ## Files

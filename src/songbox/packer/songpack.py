@@ -19,7 +19,7 @@ More Floppies (parts = 1..4): the stream goes on, 34 tokens per part. In
 words[] part q takes bits 128 q .. 128 q + 105 (4 words each, as zmenu moves
 them); its first 4 bits are the key (part 1) or the part marker (extra
 copies, written by zmenu, skipped here), then its 34 tokens.
-Settings (SongBox MENU OCTAVE + LENGTH, a code 0..8; 0 = defaults) first in
+Settings (SongBox MENU OCTAVE + CH/BAR, a code 0..8; 0 = defaults) first in
 the stream: code 0..6 one token, 7 / 8 token 7 + 0 / 1 (7 + 2..7 read as 0,
 free for later); start(pre = code).
 COPY and SECT targets don't depend on the key: the prep rows find them once

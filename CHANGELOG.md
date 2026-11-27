@@ -1,12 +1,30 @@
 # Changelog
 
-## Unreleased: DrumBox + MelodyBox
+## Unreleased: SongBox + MelodyBox + DrumBox
 
-DrumBox and MelodyBox must be released together (an older DrumBox doesn't
-sync to MelodyBox).
+SongBox, MelodyBox and DrumBox must be released together (older versions
+don't sync with MelodyBox).
+
+### SongBox
+
+- **Leads MelodyBox:** with a song and a MelodyBox in the patch, MelodyBox
+  plays on SongBox's clock: the same tempo and swing, starting and stopping
+  with the song. The melody starts again at the song's bar 1 each time the
+  song loops (a melody shorter than the song repeats inside it). SongBox
+  still drives DrumBox.
+- **MENU: PLAY removed.** The song always loops while the footswitch is on;
+  footswitch off stops it. This made room for the MelodyBox sync with all
+  149 rhythms.
+- **MENU: LENGTH renamed CH/BAR** ("Chords per bar:" 1 / 2 / 4, were BAR /
+  HALF / BEAT): "LENGTH" read like the song's length. Saved songs keep
+  their setting.
 
 ### DrumBox
 
+- **Fix: the pedal could freeze after an effect was deleted or a patch
+  loaded.** When DrumBox landed in a slot whose memory still held another
+  effect's data, part of its state started from those leftovers. DrumBox
+  now clears its whole state when it starts.
 - **Synced to MelodyBox:** with MelodyBox in the patch, DrumBox plays its own
   song at MelodyBox's tempo, starts and stops with it and stays in time
   (lined up at every quarter note). DrumBox alone and with SongBox play as
@@ -14,6 +32,11 @@ sync to MelodyBox).
 
 ### MelodyBox
 
+- **Follows SongBox:** with a SongBox that has a song in the patch,
+  MelodyBox plays at the song's position, tempo and swing; its own TEMPO
+  setting isn't used and its footswitch only mutes it. Added while the song
+  plays, it comes in at once at the right place. With an empty song,
+  MelodyBox leads as before.
 - **DrumBox follows:** same tempo, starts together at step 1 / beat 1 (after
   a patch change once DrumBox's kit is ready), stops together.
 

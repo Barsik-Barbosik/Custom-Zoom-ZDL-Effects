@@ -61,6 +61,10 @@
 #pragma CODE_SECTION(Fx_SFX_SndBank, ".audio")
 
 #define SB_MAGIC  0x53424E33u           /* "SBN3"; new value on any state layout change */
+#define SB_ID     ((7u << 24) | 531u)  /* own record word (SFX, FXID in build.py) */
+#define SB_WT_STEP 1u                   /* wavetable rows per call (SongBox: SS_WT_STEP 3, ~4,000 cycles, in its
+                                         * count-in); 1 keeps the peak low when SndBank moves to another slot
+                                         * while all play (a delete before it: fresh arena, rebuild) */
 #define SB_LOOK   64u                   /* calls between looks (~12 ms) */
 #define SB_LWAIT  16u                   /* looks before the shadow is taken (~190 ms) */
 #define SB_NK     9u                    /* knobs (columns 2..10) */
@@ -163,7 +167,7 @@ void Fx_SFX_SndBank(unsigned int *ctx)
     if (st->wtn > SS_WT_ROWS) st->wtn = 0u;
     if (st->wtn < SS_WT_ROWS) {
         i = SS_WT_ROWS - st->wtn;
-        if (i > SS_WT_STEP) i = SS_WT_STEP;
+        if (i > SB_WT_STEP) i = SB_WT_STEP;
         ss_wt_build(&sb_c, SB_WT_OF(st), st->wtn, i, (uint32_t *)st->inst, st->blk);
         st->wtn += i;
     }
@@ -173,8 +177,9 @@ void Fx_SFX_SndBank(unsigned int *ctx)
         st->wait = SB_LOOK;
         fw = zm_fw_ok();
         st->fw = fw;
-        if (!fw || own >= zm_fws[fw - 1u].slots || own != st->lslot) {
-            st->lok = 0u;               /* no rows, or moved: wait again */
+        if (!fw || own >= zm_fws[fw - 1u].slots || own != st->lslot
+            || ZM_U32(zm_fws[fw - 1u].rec + 44u * own + 4u) != SB_ID) {
+            st->lok = 0u;               /* no rows, moved, or being replaced: wait again */
             st->lwait = 0u;
             st->lslot = own;
         } else {
@@ -269,7 +274,9 @@ typedef void (*SbWrite)(float *dst, float v, float k);
 /* Edit handler of all 9 knobs (linker Param.edit; entered from the knob's
  * entry stub with A4 = state, B4 = column 2..10). The OS has just written
  * the turned value: put the shadow back into the table and record rows,
- * then the usual state[7] tail call (params unused). */
+ * then the usual state[7] tail call (params unused). Only while the shadow's
+ * slot still holds SndBank: an effect deleted before it moves it, and the
+ * old slot then holds the next effect (its rows would get our values). */
 #pragma FUNC_CANNOT_INLINE(Sb_LockEdit)
 #pragma CODE_SECTION(Sb_LockEdit, ".text")
 void Sb_LockEdit(uint32_t *state, uint32_t col)
@@ -280,9 +287,11 @@ void Sb_LockEdit(uint32_t *state, uint32_t col)
         col - NB_COL < SB_NK) {
         const ZmFw *t = &zm_fws[st->fw - 1u];
         uint32_t c = col - NB_COL, v = st->sh[c], o = 44u * st->lslot + 4u * col;
-        *(volatile uint32_t *)(uintptr_t)(t->tab + o) = c < SB_NV ? v | st->bus[c] : v;
-        *(volatile uint32_t *)(uintptr_t)(t->rec + o) = v;
-        st->pend[c] = v;
+        if (st->lslot < t->slots && ZM_U32(t->rec + 44u * st->lslot + 4u) == SB_ID) {
+            *(volatile uint32_t *)(uintptr_t)(t->tab + o) = c < SB_NV ? v | st->bus[c] : v;
+            *(volatile uint32_t *)(uintptr_t)(t->rec + o) = v;
+            st->pend[c] = v;
+        }
     }
     k.u = 0x44306666u;
     ((SbWrite)(uintptr_t)state[7])((float *)(uintptr_t)(state[1] + 12u + 4u * col), 0.0f, k.f);

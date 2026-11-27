@@ -198,6 +198,13 @@ G1Xon 1.21 firmware; `40` confirmed on a B1Xon 1.30): `42 00 00 N`
 overwrites patch N with an empty patch; `40 lo hi` and `41` delete
 effects from the current patch **and save it**.
 
+`40 lo hi` (after `50`): `lo | hi << 7` is a slot mask, bit i deletes the
+effect in slot i (slot 0 can't be deleted; a bit at or above the slot
+count is refused with `00 0C`). The effects after a deleted one move up a
+slot. The pedal first applies the current patch again (live knob values
+included), deletes, saves the patch to its number and replies with a `28`
+patch dump and `00 00`. `41` deletes every effect but slot 0 the same way.
+
 The file messages follow
 [mungewell/zoom-zt2](https://github.com/mungewell/zoom-zt2)'s protocol
 for the newer pedals; the G1on family answers the same messages for

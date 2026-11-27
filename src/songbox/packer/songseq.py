@@ -5,7 +5,7 @@ Floppy keeps only a packed token stream:
 
   bits 0..3   key (0..11): chord set I ii iii IV V vi bVII of that major key
               (C: C Dm Em F G Am A#)
-  then the settings (SongBox MENU OCTAVE + LENGTH as a code 0..8, 0 = the
+  then the settings (SongBox MENU OCTAVE + CH/BAR as a code 0..8, 0 = the
   defaults; set_tokens()): code 0..6 = one token, 7 / 8 = token 7 + 0 / 1
   (7 + 2..7 read as 0, free for later)
   then 3-bit tokens, LSB first:

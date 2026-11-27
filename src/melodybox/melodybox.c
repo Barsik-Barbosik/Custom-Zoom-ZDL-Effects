@@ -64,10 +64,16 @@
  * longer); a rest is silent. SndBank's slot is looked for at every step
  * start; footswitch off: note offs, stop. A patch's first load starts the
  * loop again at step 1 (it may start playing before the melody is loaded).
- * A DrumBox in the chain (known firmware, no SongBox there) plays its own
+ * A DrumBox in the chain (known firmware, no SongBox leading) plays its own
  * song on our clock (mb_drums): our TEMPO, stopped while we are, started
  * with our step 1 (or at our next bar line), its 16ths put on ours at each
  * quarter.
+ * A SongBox in the chain with a song (RAM or Floppy) is the master: we play
+ * on its clock (its Tempo table word, songbox.c SS_CK_SYNC): while it plays,
+ * at its position (16ths from its song's bar 1, wrapped at our length), so
+ * its tempo and swing; our TEMPO and the footswitch's start / stop aren't
+ * used (footswitch off mutes). SongBox drives DrumBox then; with an empty
+ * song we lead, as without SongBox.
  *
  * Own voices: with no SndBank in the chain (or an unknown firmware) each
  * track plays on one of MelodyBox's own simple voices (the notebus probe's:
@@ -115,7 +121,7 @@
 #define MB_MAGIC  0x4D425439u           /* "MBT9": the self-test build's layout */
 #define MB_TUNITS 1u                    /* self-test: packer units per call */
 #else
-#define MB_MAGIC  0x4D425843u           /* "MBXC"; new value on any state layout change */
+#define MB_MAGIC  0x4D425844u           /* "MBXD"; new value on any state layout change */
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
 #define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRK1 / TRK2 */
@@ -150,6 +156,12 @@
 #define MB_DB_R     0x2000u             /* flipped at each start at step 1: DrumBox starts its song again */
 #define MB_DB_READY 0x4000u             /* set by DrumBox: kit rendered (a start waits for it) */
 #define MB_DB_WAIT  65536u              /* calls a start waits for it at most (~11.9 s; an older DrumBox) */
+#define MB_SB_COL   8u                  /* SongBox's Tempo word in its row (2 + knob index 6): its clock */
+#define MB_SB_SYNC  0x100u              /* songbox.c SS_CK_*: a song can play, */
+#define MB_SB_PLAY  0x200u              /* it plays (not in the count-in), */
+#define MB_SB_SSH   10u                 /* the 16th of the drum bar (4 bits), */
+#define MB_SB_BSH   14u                 /* the drum bar from the song's bar 1 (7 bits) */
+#define MB_SB_HOLD  64u                 /* calls the last clock word stays (a Tempo turn writes the plain value) */
 #define MB_BASE   36u                   /* MIDI note of pitch 0 (C2: a bass octave) */
 #define MB_GATE   0.75f                 /* note off at this part of the step */
 #define MB_PH_PER_BPM 1.2093726e-05f    /* 16ths per audio call (8 samples) per BPM */
@@ -204,6 +216,7 @@ typedef struct {
     uint32_t rw[MB_NW], pw[MB_NW], cw[MB_NW];  /* storage words: this poll, the previous, last loaded / saved */
     uint32_t sov[3];                    /* TEMPO, LENGTH, GRID as last saved (= ov[0..2]) */
     uint32_t dslot, dt, dwait;          /* DrumBox: slot (MB_NOSLOT none); MB_DB_T, MB_DB_R as last written; calls waited */
+    uint32_t sbslot, sbw, sbage;        /* SongBox: slot (MB_NOSLOT none), its last clock word, calls since */
     uint8_t  sgrid[MB_NTRK][MB_MAXN];   /* the grids as last saved (a refused edit goes back) */
     uint8_t  vgrid[MB_NTRK][MP_MAXN];   /* the packer's result decoded again */
     MpJob    job;                       /* the packer */
@@ -273,9 +286,11 @@ static inline const char *mb_str(uint32_t i)
 
 /* Send one note event (note 0 = off) of track t to the sound source found
  * at the step start: bus t + 1 = the source's knob t + 1 word. No source:
- * to the track's own voice. */
-#pragma FUNC_ALWAYS_INLINE(mb_send)
-static inline void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
+ * to the track's own voice. Out of line: called at note events only, from
+ * five places (inlined, each copy cost ~140 B). */
+#pragma FUNC_CANNOT_INLINE(mb_send)
+#pragma CODE_SECTION(mb_send, ".text")
+static void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
 {
     volatile uint32_t *w;
     uint32_t cnt, oct;
@@ -290,6 +305,14 @@ static inline void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
             st->vtgt[t] = 1.0f;
         } else
             st->vgate[t] = 0u;
+        return;
+    }
+    /* still SndBank there? (a delete before it moves it within the step:
+     * the old slot then holds the next effect: this event is dropped, the
+     * own voices play until the next step start finds SndBank again) */
+    if (st->slot >= zm_fws[st->fw - 1u].slots
+        || ZM_U32(zm_fws[st->fw - 1u].rec + 44u * st->slot + 4u) != MB_SYN_ID) {
+        st->slot = MB_NOSLOT;
         return;
     }
     w = (volatile uint32_t *)(uintptr_t)(zm_fws[st->fw - 1u].tab + 44u * st->slot + 4u * (NB_COL + t));
@@ -600,8 +623,10 @@ static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
     }
 }
 
-/* DrumBox in the chain (the first one; none while a SongBox is there: it
- * drives DrumBox) plays its own song (its knobs as set) on our clock:
+/* DrumBox in the chain (the first one; none while SongBox leads, i.e. its
+ * clock word carries MB_SB_SYNC: it drives DrumBox then, and DrumBox's
+ * Tempo word gets its record's value back once) plays its own song (its
+ * knobs as set) on our clock:
  * DrumBox's synced mode (DB_SYNC in drumbox.c). Its Tempo word in the table
  * row := TEMPO | MB_DB_SYNC, MB_DB_PLAY while we play (loaded: before the
  * load the loop starts again), the quarter of our bar reached, MB_DB_T
@@ -614,16 +639,20 @@ static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
 MB_COLD(mb_drums)
 static void mb_drums(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t flip)
 {
-    uint32_t s, id, ds = MB_NOSLOT, w;
+    uint32_t s, id, ds = MB_NOSLOT, w, sb = MB_NOSLOT;
     volatile uint32_t *tb, *rc;
 #pragma UNROLL(1)
     for (s = 0u; s < t->slots; s++) {
         id = ZM_U32(t->rec + 44u * s + 4u);
-        if (id == MB_SB_ID) {
-            ds = MB_NOSLOT;
-            break;
-        }
+        if (id == MB_SB_ID && sb == MB_NOSLOT) sb = s;      /* its clock: we follow it while it leads */
         if (id == MB_DB_ID && ds == MB_NOSLOT && s != me) ds = s;
+    }
+    st->sbslot = sb;
+    if (sb != MB_NOSLOT && st->sbage < MB_SB_HOLD) {
+        if (st->dslot < t->slots && ZM_U32(t->rec + 44u * st->dslot + 4u) == MB_DB_ID)
+            *(volatile uint32_t *)(uintptr_t)(t->tab + 44u * st->dslot + 4u * MB_DB_TEMPO)
+                = ZM_U32(t->rec + 44u * st->dslot + 4u * MB_DB_TEMPO);
+        ds = MB_NOSLOT;
     }
     st->dslot = ds;
     if (ds == MB_NOSLOT) return;
@@ -659,6 +688,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     volatile unsigned int *arena = (volatile unsigned int *)(uintptr_t)ctx[3];
     volatile MbState *st;
     uint32_t mode, r2, r3, k, n, x, tens, i, g, changed = 0u, fw, own, nmax, t;
+    uint32_t sbw = 0u;                  /* SongBox's clock word while we follow it (0: our own clock) */
     volatile uint8_t *grid;
 #ifndef MB_SELFTEST
     const ZmFw *dz = 0;                 /* rows for DrumBox (own slot, known firmware) */
@@ -678,19 +708,24 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     r3 = zm_knob(params[5 + MB_SCRLL], MB_MAXK3);
 
     if (st->magic0 != MB_MAGIC || st->magic1 != MB_MAGIC) {
+        /* Clear all of it first: after a slot move or a patch switch the
+         * arena holds another effect's data, and a field missed below would
+         * keep it (DrumBox froze the pedal that way). Volatile word stores:
+         * no unrolled uninterruptible store block. Every field not set
+         * below starts at 0. */
+        volatile uint32_t *w = (volatile uint32_t *)st;
+#pragma UNROLL(1)
+        for (i = 0u; i < sizeof(MbState) / 4u; i++)
+            w[i] = 0u;
         st->magic0 = MB_MAGIC;
-        st->posts = 0u;
-        st->postWait = 0u;
 #pragma UNROLL(1)
         for (i = 0u; i < MB_MAXN; i++) {
             st->grid[0][i] = MB_REST;
             st->grid[1][i] = MB_REST;
         }
-        /* MENU: the option knob 2 shows in the patch (the load's jump keeps it) */
+        /* MENU: the option knob 2 shows in the patch (the load's jump keeps it);
+         * options at 0: TEMPO Pedal, LENGTH 16 steps, GRID 1/16 */
         st->opt = mode ? MB_O_TEMPO : r2 >= MB_NOPT ? MB_NOPT - 1u : r2;
-        st->ov[MB_O_TEMPO] = 0u;        /* Pedal */
-        st->ov[MB_O_LEN] = 0u;          /* 16 steps */
-        st->ov[MB_O_GRID] = 0u;         /* 1/16 */
         st->ov[MB_O_SND] = MB_SND_DEF;  /* PB at 50, both tracks */
         st->ov[MB_O_SND + 1u] = MB_SND_DEF;
         st->off = r3 > 15u ? 15u : r3;
@@ -698,51 +733,15 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         st->mode = mode ? mode : 3u;    /* MENU: the knobs jump to its values below */
         st->edit = r2;
         st->k3 = r3;
-        st->play = 0u;
-        st->step = 0u;
         st->len = 16u;
-        st->ph = 0.0f;
-        st->fw = 0u;
         st->slot = MB_NOSLOT;
-        st->cnt[0] = st->cnt[1] = 0u;
-        st->on[0] = st->on[1] = 0u;
-#pragma UNROLL(1)
-        for (t = 0u; t < MB_NTRK; t++) {
-            st->vph[t] = 0u;
-            st->vinc[t] = 0u;
-            st->vgate[t] = 0u;
-            st->venv[t] = 0.0f;
-            st->vtgt[t] = 0.0f;
-            st->vlp[t] = 0.0f;
-            st->vgn[t] = 0.0f;
-        }
-        st->lk = 0u;
-        st->lfw = 0u;
         st->lslot = (uint32_t)ctx[0];
-        st->lwait = 0u;
-        st->lok = 0u;
 #ifndef MB_SELFTEST
-        st->sv = 0u;
-        st->pk = 0u;
-        st->pwait = 0u;
-        st->snd = 0u;
-        st->tick = 0u;
-        st->last = 0u;
         st->psig = 0xFFFFFFFFu;
         st->ppatch = 0xFFFFFFFFu;
-        st->full = 0u;
-        st->over = 0u;
         st->dslot = MB_NOSLOT;
-        st->dt = 0u;
-        st->dwait = 0u;
-#else
-        st->ti = 0u;
-        st->tres = 0u;
-        st->trep = 0u;
-#if MB_SELFTEST == 2
-        st->pi = 0u;
-        st->pgo = 0u;
-#endif
+        st->sbslot = MB_NOSLOT;
+        st->sbage = MB_SB_HOLD;
 #endif
         st->magic1 = MB_MAGIC;
     }
@@ -804,6 +803,23 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             *(volatile uint32_t *)(uintptr_t)(zm_fws[fw - 1u].tab + x + 4u * MB_DB_TEMPO)
                 = ZM_U32(zm_fws[fw - 1u].rec + x + 4u * MB_DB_TEMPO);
         st->dslot = MB_NOSLOT;
+    }
+    /* Being replaced or removed (known OS, our slot's record is another
+     * effect's or none): nothing more outside the own state, no knob names /
+     * maxes in the descriptor, no redraw posts, no note words (removing
+     * MelodyBox while it was on froze the pedal; the audio passes through). */
+    if (fw && !own) return;
+    /* SongBox in the chain (slot from mb_drums): its clock word, every call;
+     * the last one with MB_SB_SYNC stays MB_SB_HOLD calls (a turn of its
+     * Tempo knob writes the plain value for a call) */
+    if (own && st->sbslot < zm_fws[fw - 1u].slots
+        && ZM_U32(zm_fws[fw - 1u].rec + 44u * st->sbslot + 4u) == MB_SB_ID) {
+        x = ZM_U32(zm_fws[fw - 1u].tab + 44u * st->sbslot + 4u * MB_SB_COL);
+        if (x & MB_SB_SYNC) {
+            st->sbw = x;
+            st->sbage = 0u;
+        } else if (st->sbage < MB_SB_HOLD) st->sbage++;
+        if (st->sbage < MB_SB_HOLD) sbw = st->sbw;
     }
     n = 16u << st->ov[MB_O_LEN];
 #endif
@@ -1005,11 +1021,31 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     }
 #endif
 
-    /* playback: footswitch on plays both tracks' steps over the note bus */
-    if (params[0] >= 0.5f) {
-        uint32_t start = 0u, s;
+    /* playback: footswitch on plays both tracks' steps over the note bus.
+     * Following SongBox (sbw): it plays while SongBox plays, our step = its
+     * 16ths (GRID 1/8: 8ths) from the song's bar 1, wrapped at our length
+     * (so its tempo, swing and song wrap are ours; added mid-song we start
+     * at once in place); the footswitch only mutes. */
+    {
+        uint32_t start = 0u, stop = 0u, s, on = params[0] >= 0.5f;
         int b;
-        if (!st->play && MB_DWAIT) {    /* DrumBox's kit renders (after a patch change): both start once it's ready */
+        if (sbw) {
+            if (!(sbw & MB_SB_PLAY)) stop = st->play;
+            else {
+                s = (sbw >> MB_SB_SSH & 15u) | (sbw >> MB_SB_BSH & 127u) << 4;
+                if (st->ov[MB_O_GRID]) s >>= 1;
+                s &= n - 1u;            /* n = 16 << LENGTH */
+                if (!st->play || s != st->step) {
+                    st->play = 1u;
+                    st->step = s;
+                    st->ph = 0.0f;
+                    st->len = n;
+                    start = 1u;
+                }
+            }
+        } else if (!on) {
+            stop = st->play;
+        } else if (!st->play && MB_DWAIT) {     /* DrumBox's kit renders (after a patch change): both start once it's ready */
         } else if (!st->play) {         /* start at step 1 */
             st->play = 1u;
 #ifndef MB_SELFTEST
@@ -1020,13 +1056,18 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             st->ph = 0.0f;
             st->len = n;
             start = 1u;
-        } else {
-            x = st->fw;                 /* TEMPO, Pedal: the pedal tempo (as SongBox's ss_pedal_bpm) */
-            b = st->ov[MB_O_TEMPO] ? 39 + (int)st->ov[MB_O_TEMPO] :
+        }
+        if (st->play && !start && !stop) {
+            /* the step's position (note offs at MB_GATE); TEMPO (following:
+             * SongBox's Tempo value, the same code), Pedal: the pedal tempo
+             * (as SongBox's ss_pedal_bpm) */
+            x = st->fw;
+            t = sbw ? (sbw & 0xFFu) : st->ov[MB_O_TEMPO];
+            b = t ? 39 + (int)t :
                 x ? (int)ZM_U32(zm_fws[x - 1u].mstride ? zm_fws[x - 1u].cursor + 8u : MB_G1_BPM) : 120;
             st->ph += (float)(b >= 40 && b <= 250 ? b : 120)
                       * (st->ov[MB_O_GRID] ? 0.5f * MB_PH_PER_BPM : MB_PH_PER_BPM);
-            if (st->ph >= 1.0f) {       /* the next step */
+            if (!sbw && st->ph >= 1.0f) {   /* own clock: the next step */
                 st->ph -= 1.0f;
                 if (++st->step >= st->len) {
                     st->step = 0u;
@@ -1035,7 +1076,21 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
                 start = 1u;
             }
         }
-        if (start) {                    /* step start: the sound source */
+        if (stop) {                     /* footswitch off (SongBox stopped): stop */
+            st->play = 0u;
+            MB_DRUMS(0u);               /* DrumBox stops too (as both Len on Skip) */
+            if (st->mode) {             /* knob 3: SCRLL again */
+                st->posts = ZM_POSTS;
+                st->postWait = 0u;
+            }
+#pragma UNROLL(1)
+            for (t = 0u; t < MB_NTRK; t++)
+                if (st->on[t]) {
+                    mb_send(st, t, 0u);
+                    st->on[t] = 0u;
+                }
+        }
+        if (st->play && start) {        /* step start: the sound source */
             st->fw = x = zm_fw_ok();
             st->slot = MB_NOSLOT;
             if (x && own) {
@@ -1056,10 +1111,15 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             }
         }
 #pragma UNROLL(1)
-        for (t = 0u; t < MB_NTRK; t++) {
+        for (t = 0u; t < MB_NTRK && st->play; t++) {
             grid = st->grid[t];
             g = grid[st->step];
-            if (start) {                /* step start: the note */
+            if (!on) {                  /* following, footswitch off: muted */
+                if (st->on[t]) {
+                    mb_send(st, t, 0u);
+                    st->on[t] = 0u;
+                }
+            } else if (start) {         /* step start: the note */
                 if (g >= 2u && g <= MB_MAXVAL) {
                     mb_send(st, t, MB_BASE + g - 2u);
                     st->on[t] = 1u;
@@ -1075,19 +1135,6 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
                 }
             }
         }
-    } else if (st->play) {              /* footswitch off: stop */
-        st->play = 0u;
-        MB_DRUMS(0u);                   /* DrumBox stops too (as both Len on Skip) */
-        if (st->mode) {                 /* knob 3: SCRLL again */
-            st->posts = ZM_POSTS;
-            st->postWait = 0u;
-        }
-#pragma UNROLL(1)
-        for (t = 0u; t < MB_NTRK; t++)
-            if (st->on[t]) {
-                mb_send(st, t, 0u);
-                st->on[t] = 0u;
-            }
     }
 
     /* the own voices: level steps once per call, ramps linearly over the 8
@@ -1315,7 +1362,9 @@ typedef void (*MbWrite)(float *dst, float v, float k);
 
 /* Edit handler of knobs 4-9 (linker Param.edit; A4 = state, B4 = column
  * 5..10). The OS has just written the turned value: put the shadow back
- * into the table and record rows, then the usual state[7] tail call. */
+ * into the table and record rows, then the usual state[7] tail call. Only
+ * while the shadow's slot still holds MelodyBox: an effect deleted before
+ * it moves it, and the old slot then holds the next effect. */
 #pragma FUNC_CANNOT_INLINE(Mb_LockEdit)
 #pragma CODE_SECTION(Mb_LockEdit, ".text")
 void Mb_LockEdit(uint32_t *state, uint32_t col)
@@ -1326,9 +1375,11 @@ void Mb_LockEdit(uint32_t *state, uint32_t col)
         col - MB_SCOL < MB_NS) {
         const ZmFw *t = &zm_fws[st->lfw - 1u];
         uint32_t c = col - MB_SCOL, v = st->sh[c], o = 44u * st->lslot + 4u * col;
-        *(volatile uint32_t *)(uintptr_t)(t->tab + o) = v;
-        *(volatile uint32_t *)(uintptr_t)(t->rec + o) = v;
-        st->pend[c] = v;
+        if (st->lslot < t->slots && ZM_U32(t->rec + 44u * st->lslot + 4u) == ZM_S_ID(MB_FXID)) {
+            *(volatile uint32_t *)(uintptr_t)(t->tab + o) = v;
+            *(volatile uint32_t *)(uintptr_t)(t->rec + o) = v;
+            st->pend[c] = v;
+        }
     }
     k.u = 0x44306666u;
     ((MbWrite)(uintptr_t)state[7])((float *)(uintptr_t)(state[1] + 12u + 4u * col), 0.0f, k.f);
