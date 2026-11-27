@@ -83,7 +83,7 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
  * play once rendered, nothing until the cache check after a patch switch has
  * passed). Not driven, DrumBox plays as without follow mode. */
 #undef DB_VERSION
-#define DB_VERSION 45u  /* 45: kitSel, kitWait; 44: fSkip */
+#define DB_VERSION 46u  /* 46: fWord, fAge; 45: kitSel, kitWait; 44: fSkip */
 /* LenA markers written by the driving effect (above the Len list, <= 100 so
  * raw = v / 100 survives db_param's clamp): song playing = 1 bar, song
  * stopped = Skip, count-in = 1 bar played as count bars (closed hat
@@ -95,7 +95,31 @@ DB_EXPAND_PRAGMA(FUNC_CANNOT_INLINE(db_name))
 #define DB_SONG_OFF 91
 #define DB_SONG_CNT 92
 static volatile int db_drv = 0;
-#define DB_ALONE (!st->fDrv)  /* not driven: start gate */
+/* Synced (MelodyBox): a sequencer in the chain keeps DrumBox's own song
+ * (its knobs as set) on its clock through the Tempo word of this slot's
+ * table row: bits 0..7 the Tempo value, above them DB_SYNC (synced), _PLAY
+ * (playing; stopped plays as both Len on Skip), the quarter of its bar it
+ * reached (_QSH, 2 bits), _T, flipped at each quarter (and as a
+ * heartbeat while stopped) and _R, flipped when its song starts again at
+ * its step 1 (also without a stop: a patch's first load). DrumBox sets
+ * _READY in that word while its kit is rendered and checked (the
+ * sequencer waits for it before a start), written only while the own
+ * slot's record holds DrumBox (DB_ID). A flip of _R or
+ * turning synced restarts DrumBox's song (no count-in, section A's bar 0),
+ * at the sequencer's next bar line. Each flip of _T while playing puts the 16th clock on
+ * that quarter's start (quarters: the swing's long / short steps cancel
+ * within them); a song not running starts at a flip to quarter 0 (its bar
+ * line). Synced as driven: no start gate, no count-in, footswitch off keeps
+ * the clock; the knob texts stay. A word unchanged for DB_SYNC_AGE calls
+ * (the sequencer left the chain) ends it. */
+#define DB_SYNC      0x100u
+#define DB_SYNC_PLAY 0x200u
+#define DB_SYNC_QSH  10
+#define DB_SYNC_T    0x1000u
+#define DB_SYNC_R    0x2000u    /* >> 10: fSkip bit 3 */
+#define DB_SYNC_READY 0x4000u   /* written by DrumBox */
+#define DB_SYNC_AGE  32768u     /* calls, ~5.9 s */
+#define DB_ALONE (!(st->fDrv | fSync))  /* not driven or synced: start gate */
 /* Count-in: on its own, 2 bars when the song starts while the kit still
  * renders (countN = count bars left; a kit change later gets none, lanes
  * join when rendered); driven, while LenA holds DB_SONG_CNT */
@@ -113,23 +137,25 @@ static volatile int db_drv = 0;
  * table rows (44 B per slot, col 2.. = knobs), the slot count, the OS's
  * tempo word (int BPM 40..250: G1on the one global BPM of the settings
  * menu, rhythm and looper; MS the patch TEMPO that tap tempo writes, and
- * MIDISTOMP's MIDI clock in whole BPM). DrumBox only reads its own row and
- * these words, so a short fingerprint can't do harm elsewhere. */
+ * MIDISTOMP's MIDI clock in whole BPM), the patch record rows (word +4 =
+ * the slot's effect id). DrumBox only reads its own rows and these words
+ * (and writes its own table row's Tempo word while synced, after the id
+ * check), so a short fingerprint can't do harm elsewhere. */
 #define DB_F_NFW 4u
-#define DB_F_W   9u
+#define DB_F_W   10u
 static const uint32_t db_f_fw[DB_F_NFW * DB_F_W] = {
     /* G1on / G1Xon 1.21, B1on / B1Xon 1.30 (HW) */
     0xC00B05CCu, 0x02C53A2Bu, 0xC00B05D0u, 0x01C50628u, 0xC009B278u, 0x0200736Du,
-    0x1181B370u, 5u, 0x1181BB2Cu,
+    0x1181B370u, 5u, 0x1181BB2Cu, 0x1181B160u,
     /* MS-70CDR 2.10 (untested; zmenu's static rows) */
     0xC00CBF4Cu, 0x02E7442Bu, 0xC00CBF50u, 0x01E74228u, 0xC00BB168u, 0x1021BC13u,
-    0xC009C1A0u, 6u, 0xC009C06Cu,
+    0xC009C1A0u, 6u, 0xC009C06Cu, 0xC009BF58u,
     /* MS-50G 3.10 (untested) */
     0xC00CC68Cu, 0x02E9C02Bu, 0xC00CC690u, 0x01E9BE28u, 0xC00AB784u, 0x1041E013u,
-    0xC009C1A0u, 6u, 0xC009C06Cu,
+    0xC009C1A0u, 6u, 0xC009C06Cu, 0xC009BF58u,
     /* MS-60B 2.10 (untested) */
     0xC00BC50Cu, 0x02EA982Bu, 0xC00BC510u, 0x01EA9628u, 0xC009B5E4u, 0x1041E413u,
-    0xC008C838u, 4u, 0xC008C75Cu,
+    0xC008C838u, 4u, 0xC008C75Cu, 0xC008C6A0u,
 };
 /* Tempo knob value 0 (before 40 BPM): follow the pedal's tempo */
 #define DB_TEMPO_PEDAL 0u
@@ -278,8 +304,9 @@ typedef struct DBState {
     int32_t  vIdx[2 * DB_NUM_LANES], vRem[2 * DB_NUM_LANES];
     float    vGain[2 * DB_NUM_LANES], vStep[2 * DB_NUM_LANES];
 #ifdef DB_FOLLOW
-    /* follow: both Len on Skip; driven (db_drv's copy: no address load) */
-    uint32_t fSkip, fDrv;
+    /* follow: both Len on Skip; driven (db_drv's copy: no address load);
+     * synced: the Tempo word as last seen, calls since it changed */
+    uint32_t fSkip, fDrv, fWord, fAge;
 #endif
 } DBState;
 
@@ -440,6 +467,8 @@ static inline void db_init_state(DBState *st)
     st->randBeat = -1;
 #ifdef DB_FOLLOW
     st->fSkip = 0u;
+    st->fWord = 0u;
+    st->fAge = DB_SYNC_AGE;
 #endif
 }
 
@@ -473,19 +502,22 @@ static inline float db_pedal_bpm(const uint32_t *t)
 #ifdef DB_FOLLOW
 /* This slot's table row (written by another effect, or by the OS after a
  * knob turn) goes into params[] as raw = value / 100, every call (a value
- * written before this effect's first call counts too). Unknown OS: nothing. */
+ * written before this effect's first call counts too); bits 8.. of a word
+ * are left out (the Tempo word's sync bits). Returns the Tempo word.
+ * Unknown OS: nothing, 0. */
 DB_ALWAYS_INLINE(db_follow)
-static inline void db_follow(unsigned int *ctx, float *params, const uint32_t *t)
+static inline uint32_t db_follow(unsigned int *ctx, float *params, const uint32_t *t)
 {
     uint32_t slot = (uint32_t)ctx[0], k, v;
     volatile const uint32_t *row;
-    if (!t || slot >= t[7]) return;
+    if (!t || slot >= t[7]) return 0u;
     row = (volatile const uint32_t *)(uintptr_t)(t[6] + 44u * slot + 8u);
     for (k = 0u; k < 9u; k++) {
-        v = row[k];
+        v = row[k] & 0xFFu;
         if (v <= DRUMBOX_TEMPO_UI_MAX)
             params[5u + k] = (float)(int32_t)v * 0.01f;
     }
+    return row[DRUMBOX_TEMPO_SLOT - 5u];
 }
 #endif
 
@@ -1040,7 +1072,17 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
 
     const uint32_t *fw = db_fw();
 #ifdef DB_FOLLOW
-    db_follow(ctx, params, fw);
+    /* synced: a flip of _T while playing (only from a synced word) */
+    uint32_t sw = db_follow(ctx, params, fw), fSync, ev;
+    ev = ((sw ^ st->fWord) & DB_SYNC_T) && (st->fWord & DB_SYNC);
+    if (sw != st->fWord) {
+        st->fWord = sw;
+        st->fAge = 0u;
+    } else if (st->fAge < DB_SYNC_AGE) {
+        st->fAge++;
+    }
+    fSync = (sw & DB_SYNC) && st->fAge < DB_SYNC_AGE;
+    ev = ev && fSync && (sw & DB_SYNC_PLAY);
 #endif
     /* Pages: BeatA, FillA, LenA / BeatB, FillB, LenB / Tempo, Level, Kit. */
     float beatAN  = db_param_list(params[DRUMBOX_BEATA_SLOT], DRUMBOX_BEATA_DEFAULT_NORM);
@@ -1105,6 +1147,9 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     int lenB = DB_LENGTH_FROM_KNOB((int)(lenBN * 100.0f + 0.5f));
     int barsA = lenA & 255, midA = lenA >> 8;
     int barsB = lenB & 255, midB = lenB >> 8;
+#ifdef DB_FOLLOW
+    if (fSync && !(sw & DB_SYNC_PLAY)) barsA = barsB = 0;  /* synced, stopped: as both Skip */
+#endif
     int kit = DB_KIT_FROM_KNOB(kitKnob);
     /* The engine tables' address goes through the state with a volatile
      * read, so cl6x loads it once instead of rebuilding it (MVKL/MVKH +
@@ -1216,13 +1261,30 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
     }
 
 #ifdef DB_FOLLOW
-    /* both Len on Skip <-> a length, or driven <-> alone: restart now (the
-     * next sample is beat 1) */
+    /* synced: _READY (kit rendered, cache checked) into the own Tempo word,
+     * only while the own slot's record holds DrumBox (being replaced: the
+     * row is the next effect's) */
+    if (fSync) {
+        uint32_t slot = (uint32_t)ctx[0];
+        uint32_t r = (st->rLane >= DB_NUM_LANES && !st->ckWait) ? DB_SYNC_READY : 0u;
+        if ((sw & DB_SYNC_READY) != r
+            && *(volatile const uint32_t *)(uintptr_t)(fw[9] + 44u * slot + 4u) == DB_ID) {
+            sw ^= DB_SYNC_READY;
+            *(volatile uint32_t *)(uintptr_t)(fw[6] + 44u * slot + 8u + 4u * (DRUMBOX_TEMPO_SLOT - 5u)) = sw;
+            st->fWord = sw;
+        }
+    }
+    /* both Len on Skip <-> a length, or driven <-> alone, alone -> synced,
+     * a flip of the synced _R: restart now (the next sample is beat 1;
+     * synced: at the next bar line). fSkip bits: 0 Skip, 1 driven, 2 synced,
+     * 3 the last synced _R (kept while not synced). */
     {
-        uint32_t sk = (barsA == 0 && barsB == 0) | st->fDrv << 1;   /* or driven <-> alone */
-        if (sk != st->fSkip) {
+        uint32_t sk = (barsA == 0 && barsB == 0) | st->fDrv << 1 | fSync << 2
+                      | (fSync ? (sw >> 10 & 8u) : (st->fSkip & 8u));
+        uint32_t c = sk ^ st->fSkip;
+        if (c) {
             st->fSkip = sk;
-            st->running = 0u;
+            if ((c & 3u) | (c & sk & 4u) | (c & 8u)) st->running = 0u;
         }
     }
 #endif
@@ -1231,7 +1293,7 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
      * in place (the driver's bar lines don't move). */
     if (params[0] < 0.5f) {
 #ifdef DB_FOLLOW
-        if (st->fDrv) {
+        if (st->fDrv | fSync) {
             drumGain = 0.0f;
         } else
 #endif
@@ -1246,6 +1308,10 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
          * cache and, after a gap, the cache check has passed; with lanes
          * still rendering the bars are count-in bars (below) */
         if (DB_ALONE && (!(st->rMask & 4u) || st->ckWait)) return;     /* driven: no gate */
+#ifdef DB_FOLLOW
+        /* synced, playing: start at its bar line (a flip to quarter 0) */
+        if (fSync && (sw & DB_SYNC_PLAY) && !(ev && !(sw >> DB_SYNC_QSH & 3u))) return;
+#endif
         /* Park at the end of the last step so the next sample fires step 0. */
         st->running = 1u;
         st->countN = DB_CN_START;
@@ -1266,6 +1332,19 @@ void DB_AUDIO_FUNC(unsigned int *ctx)
         st->randBeat = -1;      /* Randm picks a new beat at bar 0 */
     }
 
+#ifdef DB_FOLLOW
+    /* synced: the clock onto the quarter's start (q * 4): there already,
+     * its phase from 0; else its first 16th fires with the next sample */
+    if (ev) {
+        int s = (int)(sw >> DB_SYNC_QSH & 3u) << 2;
+        if (st->step != s) {
+            st->step = (s - 1) & 15;
+            st->phase = ((uint32_t)st->step & st->swMask) ? (1.0f - st->swing) : (1.0f + st->swing);
+        } else {
+            st->phase = 0.0f;
+        }
+    }
+#endif
     for (i = 0; i < 8; i++) {
         float len = ((uint32_t)st->step & st->swMask) ? (1.0f - st->swing) : (1.0f + st->swing);
         st->phase += inc;

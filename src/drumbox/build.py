@@ -139,6 +139,9 @@ def main() -> None:
         manifest["gid"] = int(sys.argv[sys.argv.index("--gid") + 1])
         manifest["audio_func_name"] = f"Fx_{GID_PREFIX[manifest['gid']]}_{manifest['effect_name']}"
         cflags.append(f"--define=DB_AUDIO_FUNC={manifest['audio_func_name']}")
+    if follow:
+        # own slot record word +4 ((gid << 24) | fxid): synced mode writes its row only while it holds this
+        cflags.append(f"--define=DB_ID=0x{(manifest['gid'] << 24) | manifest['fxid']:X}u")
 
     src_c = HERE / "drumbox.c"
     obj = HERE / "drumbox.obj"

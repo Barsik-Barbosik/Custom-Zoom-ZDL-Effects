@@ -64,6 +64,10 @@
  * longer); a rest is silent. SndBank's slot is looked for at every step
  * start; footswitch off: note offs, stop. A patch's first load starts the
  * loop again at step 1 (it may start playing before the melody is loaded).
+ * A DrumBox in the chain (known firmware, no SongBox there) plays its own
+ * song on our clock (mb_drums): our TEMPO, stopped while we are, started
+ * with our step 1 (or at our next bar line), its 16ths put on ours at each
+ * quarter.
  *
  * Own voices: with no SndBank in the chain (or an unknown firmware) each
  * track plays on one of MelodyBox's own simple voices (the notebus probe's:
@@ -111,7 +115,7 @@
 #define MB_MAGIC  0x4D425439u           /* "MBT9": the self-test build's layout */
 #define MB_TUNITS 1u                    /* self-test: packer units per call */
 #else
-#define MB_MAGIC  0x4D425839u           /* "MBX9"; new value on any state layout change */
+#define MB_MAGIC  0x4D425843u           /* "MBXC"; new value on any state layout change */
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
 #define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRK1 / TRK2 */
@@ -136,6 +140,16 @@
 #define MB_SV(st) ((st)->ov[MB_O_SND] | (st)->ov[MB_O_SND + 1u] << 8)  /* SndBank's voice settings (notebus.h) */
 #define MB_SYN_ID ((7u << 24) | 531u)   /* sound source: SndBank (SFX 531) */
 #define MB_FXID   519u                  /* own effect id (mirrors FXID in build.py) */
+#define MB_DB_ID  ((7u << 24) | 520u)   /* DrumBox (SFX 520): follows the playback */
+#define MB_SB_ID  ((7u << 24) | 521u)   /* SongBox (SFX 521): drives DrumBox itself */
+#define MB_DB_TEMPO 8u                  /* DrumBox's Tempo word in its row (2 + knob index) */
+#define MB_DB_SYNC  0x100u              /* its sync bits (drumbox.c DB_SYNC ..): synced, */
+#define MB_DB_PLAY  0x200u              /* playing, the quarter of our bar (2 bits), */
+#define MB_DB_QSH   10u
+#define MB_DB_T     0x1000u             /* flipped at each quarter / poll while stopped */
+#define MB_DB_R     0x2000u             /* flipped at each start at step 1: DrumBox starts its song again */
+#define MB_DB_READY 0x4000u             /* set by DrumBox: kit rendered (a start waits for it) */
+#define MB_DB_WAIT  65536u              /* calls a start waits for it at most (~11.9 s; an older DrumBox) */
 #define MB_BASE   36u                   /* MIDI note of pitch 0 (C2: a bass octave) */
 #define MB_GATE   0.75f                 /* note off at this part of the step */
 #define MB_PH_PER_BPM 1.2093726e-05f    /* 16ths per audio call (8 samples) per BPM */
@@ -189,6 +203,7 @@ typedef struct {
     uint32_t pslot[MP_MAXPARTS];        /* slot of part q (part 0: the own) */
     uint32_t rw[MB_NW], pw[MB_NW], cw[MB_NW];  /* storage words: this poll, the previous, last loaded / saved */
     uint32_t sov[3];                    /* TEMPO, LENGTH, GRID as last saved (= ov[0..2]) */
+    uint32_t dslot, dt, dwait;          /* DrumBox: slot (MB_NOSLOT none); MB_DB_T, MB_DB_R as last written; calls waited */
     uint8_t  sgrid[MB_NTRK][MB_MAXN];   /* the grids as last saved (a refused edit goes back) */
     uint8_t  vgrid[MB_NTRK][MP_MAXN];   /* the packer's result decoded again */
     MpJob    job;                       /* the packer */
@@ -584,9 +599,56 @@ static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
         }
     }
 }
+
+/* DrumBox in the chain (the first one; none while a SongBox is there: it
+ * drives DrumBox) plays its own song (its knobs as set) on our clock:
+ * DrumBox's synced mode (DB_SYNC in drumbox.c). Its Tempo word in the table
+ * row := TEMPO | MB_DB_SYNC, MB_DB_PLAY while we play (loaded: before the
+ * load the loop starts again), the quarter of our bar reached, MB_DB_T
+ * flipped with flip (at each quarter; at each poll while stopped as a
+ * heartbeat) and MB_DB_R (flipped at each start). DrumBox puts its 16ths on
+ * each flipped quarter's start, starts its song again at a flip of MB_DB_R
+ * and starts at a flip to quarter 0. Loaded: its record's Tempo := TEMPO (both
+ * 0 = Pedal, else BPM = 39 + value; its page shows it, a save keeps it);
+ * before that the record's value. */
+MB_COLD(mb_drums)
+static void mb_drums(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t flip)
+{
+    uint32_t s, id, ds = MB_NOSLOT, w;
+    volatile uint32_t *tb, *rc;
+#pragma UNROLL(1)
+    for (s = 0u; s < t->slots; s++) {
+        id = ZM_U32(t->rec + 44u * s + 4u);
+        if (id == MB_SB_ID) {
+            ds = MB_NOSLOT;
+            break;
+        }
+        if (id == MB_DB_ID && ds == MB_NOSLOT && s != me) ds = s;
+    }
+    st->dslot = ds;
+    if (ds == MB_NOSLOT) return;
+    tb = (volatile uint32_t *)(uintptr_t)(t->tab + 44u * ds + 4u * MB_DB_TEMPO);
+    rc = (volatile uint32_t *)(uintptr_t)(t->rec + 44u * ds + 4u * MB_DB_TEMPO);
+    w = *rc & 0xFFu;
+    if (st->sv) {
+        w = st->ov[MB_O_TEMPO];
+        if (*rc != w) *rc = w;
+    }
+    if (flip) st->dt ^= MB_DB_T;
+    w |= MB_DB_SYNC | st->dt | (*tb & MB_DB_READY);    /* DrumBox's bit kept */
+    if (st->play && st->sv)             /* the quarter: 16ths into the bar / 4 */
+        w |= MB_DB_PLAY | ((st->ov[MB_O_GRID] ? st->step << 1 : st->step) >> 2 & 3u) << MB_DB_QSH;
+    if (*tb != w) *tb = w;
+}
 #define MB_EDITED(st) ((st)->pk = 1u, (st)->pwait = MB_PK_WAIT)
+#define MB_DRUMS(go) do { if (dz) mb_drums(st, dz, (uint32_t)ctx[0], (go)); } while (0)
+/* a start waits (loaded) while DrumBox's kit isn't ready, up to MB_DB_WAIT calls */
+#define MB_DWAIT (dz && st->sv && st->dslot < dz->slots && ++st->dwait < MB_DB_WAIT \
+                  && !(ZM_U32(dz->tab + 44u * st->dslot + 4u * MB_DB_TEMPO) & MB_DB_READY))
 #else
 #define MB_EDITED(st) ((void)0)
+#define MB_DRUMS(go) ((void)0)
+#define MB_DWAIT 0
 #endif
 
 void Fx_SFX_MeloBox(unsigned int *ctx)
@@ -598,6 +660,9 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     volatile MbState *st;
     uint32_t mode, r2, r3, k, n, x, tens, i, g, changed = 0u, fw, own, nmax, t;
     volatile uint8_t *grid;
+#ifndef MB_SELFTEST
+    const ZmFw *dz = 0;                 /* rows for DrumBox (own slot, known firmware) */
+#endif
 
     *magicDst = *magicSrc;              /* audio passes through untouched */
 
@@ -667,6 +732,9 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         st->ppatch = 0xFFFFFFFFu;
         st->full = 0u;
         st->over = 0u;
+        st->dslot = MB_NOSLOT;
+        st->dt = 0u;
+        st->dwait = 0u;
 #else
         st->ti = 0u;
         st->tres = 0u;
@@ -723,6 +791,20 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
      * mode 3: the knobs jump below) */
     if (own) mb_store(st, &zm_fws[fw - 1u], (uint32_t)ctx[0]);
     if (st->full) st->full--;
+    /* DrumBox: stopped every call until loaded (after a patch change the OS
+     * fills the rows from the records a few calls late), while stopped at
+     * each poll (a heartbeat); being replaced: DrumBox's Tempo word back to
+     * its record's (no sync bits: on its own at once) */
+    if (own) {
+        dz = &zm_fws[fw - 1u];
+        if (!st->sv || (!st->play && st->tick == 0u)) MB_DRUMS(st->sv);
+    } else if (fw && st->dslot < zm_fws[fw - 1u].slots) {
+        x = 44u * st->dslot;
+        if (ZM_U32(zm_fws[fw - 1u].rec + x + 4u) == MB_DB_ID)
+            *(volatile uint32_t *)(uintptr_t)(zm_fws[fw - 1u].tab + x + 4u * MB_DB_TEMPO)
+                = ZM_U32(zm_fws[fw - 1u].rec + x + 4u * MB_DB_TEMPO);
+        st->dslot = MB_NOSLOT;
+    }
     n = 16u << st->ov[MB_O_LEN];
 #endif
 
@@ -927,8 +1009,13 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     if (params[0] >= 0.5f) {
         uint32_t start = 0u, s;
         int b;
-        if (!st->play) {                /* start at step 1 */
+        if (!st->play && MB_DWAIT) {    /* DrumBox's kit renders (after a patch change): both start once it's ready */
+        } else if (!st->play) {         /* start at step 1 */
             st->play = 1u;
+#ifndef MB_SELFTEST
+            st->dt ^= MB_DB_R;          /* DrumBox: its song from the start (also without a stop) */
+            st->dwait = 0u;
+#endif
             st->step = 0u;
             st->ph = 0.0f;
             st->len = n;
@@ -961,6 +1048,8 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             }
             if (st->slot != MB_NOSLOT)  /* SndBank plays: the own voices stop */
                 st->vgate[0] = st->vgate[1] = 0u;
+            /* DrumBox: our position, a flip at each quarter (4 16ths, 2 8ths) */
+            MB_DRUMS(!((st->ov[MB_O_GRID] ? st->step << 1 : st->step) & 3u));
             if (!(st->step & 11u) && st->mode) {    /* step 0 or 4 of 16: knob 3's text (position / SCRLL) */
                 st->posts = ZM_POSTS;
                 st->postWait = 0u;
@@ -988,6 +1077,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         }
     } else if (st->play) {              /* footswitch off: stop */
         st->play = 0u;
+        MB_DRUMS(0u);                   /* DrumBox stops too (as both Len on Skip) */
         if (st->mode) {                 /* knob 3: SCRLL again */
             st->posts = ZM_POSTS;
             st->postWait = 0u;
