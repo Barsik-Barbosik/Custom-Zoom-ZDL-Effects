@@ -36,6 +36,12 @@ uses only the volume. The guitar signal passes through.
 
 - **Footswitch on plays** both tracks in a loop at the TEMPO setting; a rest
   is silent, holds make the note before longer. Footswitch off stops.
+- **Drums:** a [DrumBox](../drumbox/README.md#synced-to-melodybox) in the
+  same patch plays its own beats and fills along: at MelodyBox's TEMPO,
+  starting at beat 1 with step 1 and stopping with it, kept in time at
+  every quarter note. After a patch change MelodyBox waits until DrumBox's
+  kit is ready, then both start. Not with SongBox in the patch (SongBox
+  drives DrumBox).
 - **Knobs 4-9 hold stored data** (the start of the saved melody) and
   are locked: a turn springs back. They are named Data1 … Data6 and show
   `DON'T` `TURN` `THESE` on each page.

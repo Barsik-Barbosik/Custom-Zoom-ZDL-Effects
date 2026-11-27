@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased: DrumBox + MelodyBox
+
+DrumBox and MelodyBox must be released together (an older DrumBox doesn't
+sync to MelodyBox).
+
+### DrumBox
+
+- **Synced to MelodyBox:** with MelodyBox in the patch, DrumBox plays its own
+  song at MelodyBox's tempo, starts and stops with it and stays in time
+  (lined up at every quarter note). DrumBox alone and with SongBox play as
+  before.
+
+### MelodyBox
+
+- **DrumBox follows:** same tempo, starts together at step 1 / beat 1 (after
+  a patch change once DrumBox's kit is ready), stops together.
+
 ## SongBox 1.14.1 (unreleased)
 
 Files in `dist/` and on the Releases page:

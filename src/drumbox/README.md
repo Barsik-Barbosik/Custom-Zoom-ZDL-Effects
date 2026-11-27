@@ -28,6 +28,9 @@ started and stopped with the footswitch.
 - **Follows [SongBox](../songbox/README.md)** in the same patch: SongBox
   then sets the beats, fills and tempo for each bar and starts and stops
   the drums with its song ([Follow mode](#follow-mode-songbox)).
+- **Plays along with [MelodyBox](../melodybox/README.md)** in the same
+  patch: DrumBox plays its own beats and fills at MelodyBox's tempo, and
+  starts and stops with it ([Synced to MelodyBox](#synced-to-melodybox)).
 
 ## Install
 
@@ -150,6 +153,38 @@ How it works inside:
 - LenA carries the song's state in values above the Length list: 90 =
   playing (one bar at a time), 91 = stopped, 92 = count-in bar.
 - `build.py --no-follow` builds DrumBox without follow mode.
+
+### Synced to MelodyBox
+
+With [MelodyBox](../melodybox/README.md) in the same patch (and no
+SongBox: SongBox drives DrumBox itself), DrumBox plays its own song (your
+Beat, Fill and Length knobs) on MelodyBox's clock. Without MelodyBox,
+DrumBox plays as described above.
+
+- **Tempo** follows MelodyBox's TEMPO setting; DrumBox's Tempo knob shows
+  it, and a saved patch keeps it.
+- **Start and stop** come from MelodyBox's footswitch: the drums start at
+  beat 1 together with MelodyBox's step 1 and stop with it.
+- **Waiting for the kit:** while DrumBox renders its kit (after a patch
+  change, or when DrumBox was just added), MelodyBox waits, then both start
+  together.
+- **In time:** DrumBox lines up with MelodyBox at every quarter note, so a
+  tempo change or a long play doesn't move them apart.
+- **DrumBox added while MelodyBox plays** joins at MelodyBox's next bar
+  line.
+- **DrumBox's footswitch off** mutes the drums, but they keep their place:
+  on again, they come back in time.
+- **All knobs stay yours** (no "Song" texts); turning DrumBox's own Tempo
+  knob has no lasting effect (MelodyBox sets it).
+- **Pedals:** as for follow mode (works on the B1Xon; the MS pedals
+  untested). Needs a DrumBox and a MelodyBox from the same release.
+
+How it works inside: MelodyBox writes DrumBox's Tempo value into the
+patch's knob table (as SongBox does) with extra bits above it: synced,
+playing, the quarter of its bar, a bit flipped at each quarter and one
+flipped at each start. DrumBox sets a "kit ready" bit in the same word,
+only while its own slot still holds DrumBox. A word that stops changing
+for about 6 seconds (MelodyBox left the patch) ends it.
 
 ### Beats
 
