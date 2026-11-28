@@ -65,7 +65,8 @@ padded to 4 bytes at the item's end. Readers skip types they don't know.
 Planned: the names of a drum kit's notes (a sequencer shows them instead of
 note names).
 
-Draft (published by Floppy in development, not read by any effect yet):
+In development (published by Floppy and SndBank, read by MelodyBox to find
+its storage):
 
 | Type | Name | Entries |
 |---|---|---|

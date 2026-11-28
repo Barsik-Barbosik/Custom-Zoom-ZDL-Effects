@@ -59,7 +59,7 @@
                                          * byte 0 kind, bytes 1..3 the name (ASCII 0x20..0x7E, NUL padded) */
 #define FI_CHANNELS 2u                  /* count 1, width 4: bit c = MIDI channel c + 1 is played */
 /* type 3: planned (a drum kit's note names) */
-#define FI_DATA     4u                  /* DRAFT (Floppy publishes it, no reader yet): storage knobs other effects may write,
+#define FI_DATA     4u                  /* storage knobs other effects may write (Floppy, SndBank; MelodyBox reads it),
                                          * width 4: byte 0 knob 1..9, byte 1 the patch field's bits,
                                          * byte 2 low bits the publisher keeps (others leave them),
                                          * byte 3 flags (0) */
