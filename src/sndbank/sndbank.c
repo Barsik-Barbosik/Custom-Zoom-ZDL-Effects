@@ -1,15 +1,16 @@
 /*
  * SndBank: the sound source for MelodyBox (in development). It plays the
- * notes a sequencer sends over two note buses (src/common/notebus/notebus.h)
- * with SongBox's instrument engine, one voice per bus. It has no knobs to play
- * with: its 9 knobs hold stored data (the patch field widths of Floppy,
- * 13,13,13,8,8,8,8,27,8 bits) and are locked.
+ * notes other effects send over the MIDI bus (src/common/midibus/midibus.h)
+ * with SongBox's instrument engine: MIDI channel 1 plays voice 1, channel 2
+ * voice 2. It has no knobs to play with: its 9 knobs hold stored data (the
+ * patch field widths of Floppy, 13,13,13,8,8,8,8,27,8 bits) and are locked.
  *
- * Buses: bus 1 is this effect's own knob 1 word in the state[31] table
- * row, bus 2 its knob 2 word (the bits above each knob's 13-bit field),
- * read every audio call (firmware rows from zmenu.h's table, checked every
- * SB_LOOK calls). Bus b plays voice b. A new event counter value is a new
- * event: note > 0 = note on, 0 = note off.
+ * MIDI in: read every audio call (also with the footswitch off). Note on
+ * (velocity > 0; velocity not used yet) plays the note on its channel's
+ * voice (one note per voice: a new note replaces the held one); note off
+ * (or note on with velocity 0) ends it only if it is the held note. A
+ * sender that disappears (removed, replaced, set up again) releases the
+ * notes it held. Other messages are ignored.
  *
  * Voice settings (notebus.h's interface): voice b's sound value is byte b
  * of the stored knob fields (knob 1's 13 bits, then knob 2's), read from
@@ -32,9 +33,8 @@
  *
  * Lock: a turn is undone by the knob's edit handler (Sb_LockEdit, linker
  * Param.edit; the OS calls it right after it wrote the turned value, for a
- * SysEx knob set too): the shadow goes back into the table and record rows
- * (knob 1 / 2's table word: the shadow plus that bus's bits last seen, so
- * no bus event is lost). Writes by another effect (the sequencer storing its data,
+ * SysEx knob set too): the shadow goes back into the table and record
+ * rows. Writes by another effect (the sequencer storing its data,
  * as zmenu does) don't call the handler: a record value that differs from
  * the shadow and was the same at the previous look is taken into the
  * shadow (a turn is undone long before the next look). The shadow is first
@@ -52,6 +52,7 @@
 #define ZM_FLOPPY_FXID 530u             /* unused (no Floppy access) */
 #include "zmenu.h"
 #include "notebus.h"
+#include "midibus.h"
 
 /* rarely run engine code: one copy in .text, called (as SongBox's SS_COLD) */
 #define SB_DO_PRAGMA(x) _Pragma(#x)
@@ -60,7 +61,7 @@
 
 #pragma CODE_SECTION(Fx_SFX_SndBank, ".audio")
 
-#define SB_MAGIC  0x53424E33u           /* "SBN3"; new value on any state layout change */
+#define SB_MAGIC  0x53424E34u           /* "SBN4"; new value on any state layout change */
 #define SB_ID     ((7u << 24) | 531u)  /* own record word (SFX, FXID in build.py) */
 #define SB_WT_STEP 1u                   /* wavetable rows per call (SongBox: SS_WT_STEP 3, ~4,000 cycles, in its
                                          * count-in); 1 keeps the peak low when SndBank moves to another slot
@@ -68,7 +69,7 @@
 #define SB_LOOK   64u                   /* calls between looks (~12 ms) */
 #define SB_LWAIT  16u                   /* looks before the shadow is taken (~190 ms) */
 #define SB_NK     9u                    /* knobs (columns 2..10) */
-#define SB_NV     2u                    /* voices = buses (knobs 1, 2) */
+#define SB_NV     2u                    /* voices = MIDI channels 1, 2 (settings in knobs 1, 2) */
 #define SB_NSOUND 9u                    /* sounds: SongBox's parts without the duplicates */
 #define SS_INC0   0.000185392266f       /* note 0's phase step per sample (songbox_sound.h) */
 #define SS_SEMI   1.05946309f           /* one semitone up (songbox_sound.h) */
@@ -106,15 +107,16 @@ static const SsConst sb_c = {
 #include "instruments/inst_lib.h"
 #include "instruments/engine.c"         /* ss_wt_build, ss_run */
 
-/* State at the ctx[3] arena's end, magic at both ends; the wavetables
- * right below it (SB_WT_OF). */
+/* State at the ctx[3] arena's end (64-B aligned, the MIDI in state
+ * first), magic at both ends; the wavetables right below it (SB_WT_OF). */
 typedef struct {
+    MbIn in;                            /* MIDI in (midibus.h), 256 B */
     uint32_t magic0;
     uint32_t wait;                      /* calls until the next look */
     uint32_t fw;                        /* zm_fw_ok() at the last look */
-    uint32_t cnt[SB_NV];                /* per bus: event counter last taken */
-    uint32_t bus[SB_NV];                /* per bus: its bits (above the field) last seen */
-    uint32_t snd[SB_NV];                /* per voice: sound number of the last note on */
+    uint32_t note[SB_NV];               /* per voice: the held note (0x80 | note), 0 = none */
+    uint32_t from[SB_NV];               /* per voice: slot of the sender of the held note */
+    uint32_t snd[SB_NV];              /* per voice: sound number of the last note on */
     uint32_t nsnd[SB_NV], lvl[SB_NV];   /* per voice: the settings' sound (next note on), level */
     uint32_t wtn;                       /* wavetable rows built (SS_WT_ROWS: ready) */
     SsVoice v[SB_NV];                   /* the voices */
@@ -140,7 +142,7 @@ void Fx_SFX_SndBank(unsigned int *ctx)
     float *fx = (float *)(uintptr_t)ctx[5];
     volatile unsigned int *arena = (volatile unsigned int *)(uintptr_t)ctx[3];
     SbState *st;
-    uint32_t own = (uint32_t)ctx[0], fw, i, w, cnt, note, snd, r, id, b;
+    uint32_t own = (uint32_t)ctx[0], fw, i, w, note, snd, r, id, b;
     float inc, s;
 
     *magicDst = *magicSrc;
@@ -149,14 +151,15 @@ void Fx_SFX_SndBank(unsigned int *ctx)
     {
         uintptr_t base = (uintptr_t)arena[0];
         uintptr_t end = (uintptr_t)arena[1] & ~(uintptr_t)7u;
-        if (base == 0u || end <= base + sizeof(SbState) + SB_WT_BYTES + 8u) return;
-        st = (SbState *)((end - sizeof(SbState)) & ~(uintptr_t)7u);
+        if (base == 0u || end <= base + sizeof(SbState) + SB_WT_BYTES + 128u) return;
+        st = (SbState *)((end - sizeof(SbState)) & ~(uintptr_t)63u);
     }
     if (st->magic0 != SB_MAGIC || st->magic1 != SB_MAGIC) {
         volatile uint8_t *b = (volatile uint8_t *)st;
 #pragma UNROLL(1)
         for (i = 0u; i < sizeof(SbState); ++i) b[i] = 0u;
         st->lslot = own;
+        st->in.chmask = (1u << SB_NV) - 1u;     /* channels 1, 2 */
         st->lvl[0] = st->lvl[1] = NB_SV_DEF;    /* until the first look */
         st->magic0 = SB_MAGIC;
         st->magic1 = SB_MAGIC;
@@ -219,29 +222,38 @@ void Fx_SFX_SndBank(unsigned int *ctx)
         }
     }
 
-    /* the buses, every call */
-    fw = st->fw;
-    if (fw && own < zm_fws[fw - 1u].slots) {
+    /* MIDI in, every call (channel c + 1 = voice c: chmask passes 1, 2) */
+    {
+        MbIn *mi = &st->in;             /* a plain local pointer: keeps midibus inlined */
+        uint32_t ms, d1, d2;
+        mb_in_poll(mi, ctx);
+        w = mb_in_gone(mi);
 #pragma UNROLL(1)
-        for (b = 0u; b < SB_NV; ++b) {
-            w = ZM_U32(zm_fws[fw - 1u].tab + 44u * own + 4u * (NB_COL + b));
-            cnt = NB_CNT(w);
-            if (cnt) st->bus[b] = w & ~NB_LOWMASK;
-            if (cnt && cnt != st->cnt[b]) {
-                st->cnt[b] = cnt;
-                note = NB_NOTE(w);
-                if (note) {             /* SongBox's ss_trigger maths */
-                    st->snd[b] = st->nsnd[b];
-                    inc = SS_INC0;
+        for (b = 0u; b < SB_NV; ++b)    /* its sender gone: the held note ends */
+            if (st->note[b] && (w >> st->from[b] & 1u)) {
+                st->note[b] = 0u;
+                st->v[b].gate = 0.0f;
+            }
 #pragma UNROLL(1)
-                    while (note >= 12u) { note -= 12u; inc *= 2.0f; }
+        while (mb_in_next(mi, &ms, &d1, &d2)) {
+            b = ms & 15u;
+            r = ms & 0xF0u;
+            if (r == 0x90u && d2) {     /* note on: SongBox's ss_trigger maths */
+                st->note[b] = 0x80u | d1;
+                st->from[b] = mi->from;
+                st->snd[b] = st->nsnd[b];
+                note = d1;
+                inc = SS_INC0;
 #pragma UNROLL(1)
-                    for (; note; --note) inc *= SS_SEMI;
-                    st->v[b].inc = inc;
-                    st->v[b].gate = 1.0f;
-                    st->v[b].trig = 1u;
-                } else
-                    st->v[b].gate = 0.0f;
+                while (note >= 12u) { note -= 12u; inc *= 2.0f; }
+#pragma UNROLL(1)
+                for (; note; --note) inc *= SS_SEMI;
+                st->v[b].inc = inc;
+                st->v[b].gate = 1.0f;
+                st->v[b].trig = 1u;
+            } else if ((r == 0x80u || r == 0x90u) && st->note[b] == (0x80u | d1)) {
+                st->note[b] = 0u;       /* note off of the held note */
+                st->v[b].gate = 0.0f;
             }
         }
     }
@@ -288,7 +300,7 @@ void Sb_LockEdit(uint32_t *state, uint32_t col)
         const ZmFw *t = &zm_fws[st->fw - 1u];
         uint32_t c = col - NB_COL, v = st->sh[c], o = 44u * st->lslot + 4u * col;
         if (st->lslot < t->slots && ZM_U32(t->rec + 44u * st->lslot + 4u) == SB_ID) {
-            *(volatile uint32_t *)(uintptr_t)(t->tab + o) = c < SB_NV ? v | st->bus[c] : v;
+            *(volatile uint32_t *)(uintptr_t)(t->tab + o) = v;
             *(volatile uint32_t *)(uintptr_t)(t->rec + o) = v;
             st->pend[c] = v;
         }

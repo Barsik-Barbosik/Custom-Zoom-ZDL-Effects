@@ -1125,6 +1125,19 @@ static inline float ss_pedal_bpm(const ZmFw *t)
     return (b >= 40 && b <= 250) ? (float)b : 120.0f;
 }
 
+/* The Tempo knob's value (0 = Pedal): on a known OS from our own table
+ * word's 8-bit field. params[] is made by the OS from the whole word, and
+ * after a chain change (an effect deleted / moved) that word still carries
+ * the clock bits (SS_CK_*): a huge value, clamped to 250 BPM. Else params. */
+#pragma FUNC_ALWAYS_INLINE(ss_tempo)
+static inline uint32_t ss_tempo(const SsState *st, const ZmFw *t, const float *params)
+{
+    uint32_t v;
+    if (!t || st->zm.slot >= t->slots) return zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX);
+    v = ZM_U32(t->tab + 44u * st->zm.slot + 4u * (2u + SS_K_TEMPO)) & 0xFFu;
+    return v > SS_TEMPO_MAX ? SS_TEMPO_MAX : v;
+}
+
 /* Find DrumBox; write its knobs for the player's state (see SS_DB_ID). */
 SS_COLD(ss_drums)
 static inline void ss_drums(SsState *st, const float *params)
@@ -1238,7 +1251,7 @@ static inline void ss_drums(SsState *st, const float *params)
     la = st->cin > (uint32_t)(st->step >= SS_DB_AHEAD) ? SS_DB_SONG_CNT : SS_DB_SONG_ON;
 wr:
     /* Tempo also in the record: DrumBox's page shows it, a save keeps it */
-    ss_db_col(st, t, SS_DB_TEMPO, zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX), 1u);
+    ss_db_col(st, t, SS_DB_TEMPO, ss_tempo(st, t, params), 1u);
     ss_db_col(st, t, SS_DB_LENB, 0u, 0u);
     ss_db_col(st, t, SS_DB_BEATA, st->dbeat, 0u);
     ss_db_col(st, t, SS_DB_FILLA, st->dfill, 0u);
@@ -1287,7 +1300,7 @@ static inline void ss_play(SsState *st, unsigned int *ctx)
 #else
     ss_drums(st, params);
 #endif
-    j = zm_knob(params[5u + SS_K_TEMPO], SS_TEMPO_MAX);     /* 0 = Pedal */
+    j = ss_tempo(st, zm_s_fw(&st->zm), params);             /* 0 = Pedal */
     inc = (j ? (float)(39u + j) : ss_pedal_bpm(zm_s_fw(&st->zm))) * SS_STEP_PER_BPM;
     /* Keys (j 0), Bass (j 1): value = part * 20 + level. The level acts at
      * once; the part changes once the knob has settled (turning it through

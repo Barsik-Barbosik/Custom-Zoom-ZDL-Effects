@@ -52,17 +52,25 @@
  * (a storage effect added or removed): the melody in RAM is
  * packed into it; until a save (or load) succeeds a melody that doesn't
  * fit is not refused (over: the edits stay, FULL shows, nothing is
- * written), so it can be made smaller step by step. Unknown firmware:
- * nothing is loaded or saved.
+ * written), so it can be made smaller step by step. A SndBank before
+ * MelodyBox with no MelodyBox between it and the previous storage user is
+ * ours moved out of the owner range (MelodyBox moved behind it): the
+ * stored melody can't be read whole, so nothing is loaded or saved (sv 0,
+ * the RAM melody plays on, DrumBox keeps its own tempo) until it is back
+ * in range. Unknown firmware: nothing is loaded or saved.
  *
  * Playback (footswitch on): the n steps of both tracks in a loop, a step =
  * a 16th or an 8th at the TEMPO setting: Pedal = the pedal tempo (the
  * firmware's global BPM, 120 if unknown). A note goes as a note on (pitch
- * p = MIDI MB_BASE + p, the track's sound) over the note bus (notebus.h) to the sound source SndBank
- * (MB_SYN_ID) in the chain, track 1 on bus 1, track 2 on bus 2 (one voice
- * each), a note off at MB_GATE of its last step (holds after it make it
- * longer); a rest is silent. SndBank's slot is looked for at every step
- * start; footswitch off: note offs, stop. A patch's first load starts the
+ * p = MIDI MB_BASE + p, velocity MB_VEL) over the MIDI bus (midibus.h) to
+ * the sound source SndBank (MB_SYN_ID) in the chain, track 1 on MIDI
+ * channel 1, track 2 on channel 2 (one voice each; a new note's note on
+ * follows the held note's note off), a note off at MB_GATE of its last
+ * step (holds after it make it longer); a rest is silent. The port block
+ * is the arena's last MB_PORT bytes (the state lies below it); it is kept
+ * up every call while the own slot's record is ours. SndBank's slot is
+ * looked for at every step start (no SndBank: the own voices); footswitch
+ * off: note offs, stop. A patch's first load starts the
  * loop again at step 1 (it may start playing before the melody is loaded).
  * A DrumBox in the chain (known firmware, no SongBox leading) plays its own
  * song on our clock (mb_drums): our TEMPO, stopped while we are, started
@@ -109,6 +117,7 @@
 #define ZM_S_RANGE     1                /* own only the Floppies up to the next Floppy user */
 #include "zmenu.h"
 #include "notebus.h"
+#include "midibus.h"
 #include "melopack.h"
 #include <c6x.h>                        /* TSCL */
 #ifdef MB_SELFTEST
@@ -121,7 +130,7 @@
 #define MB_MAGIC  0x4D425439u           /* "MBT9": the self-test build's layout */
 #define MB_TUNITS 1u                    /* self-test: packer units per call */
 #else
-#define MB_MAGIC  0x4D425844u           /* "MBXD"; new value on any state layout change */
+#define MB_MAGIC  0x4D425846u           /* "MBXF"; new value on any state layout change */
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
 #define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRK1 / TRK2 */
@@ -163,6 +172,7 @@
 #define MB_SB_BSH   14u                 /* the drum bar from the song's bar 1 (7 bits) */
 #define MB_SB_HOLD  64u                 /* calls the last clock word stays (a Tempo turn writes the plain value) */
 #define MB_BASE   36u                   /* MIDI note of pitch 0 (C2: a bass octave) */
+#define MB_VEL    100u                  /* note on velocity */
 #define MB_GATE   0.75f                 /* note off at this part of the step */
 #define MB_PH_PER_BPM 1.2093726e-05f    /* 16ths per audio call (8 samples) per BPM */
 #define MB_G1_BPM 0x1181BB2Cu           /* G1on family: the global BPM int */
@@ -186,8 +196,11 @@
 #define MB_FL_MARK  11u                 /* Floppy part marker: MB_FL_MARK + its place 1..4 */
 #define MB_NW       (4u * MP_MAXPARTS)  /* storage words */
 
-/* State at the ctx[3] arena's end, magic at both ends. */
+/* State right below the MIDI port block at the ctx[3] arena's end (64-B
+ * aligned, the MIDI out state first), magic at both ends. */
 typedef struct {
+    MbOut out;                          /* MIDI out (midibus.h) */
+    uint32_t bus;                       /* 1: the port is ours this call (mb_out_tick ran) */
     uint32_t magic0;
     uint32_t posts, postWait;           /* redraws left, calls until the next */
     uint32_t mode;                      /* 0 MENU, 1 TRK1, 2 TRK2 (3: jump to MENU's values) */
@@ -197,7 +210,7 @@ typedef struct {
     uint32_t play, step, len;           /* playing, step 0.., loop length in steps */
     float    ph;                        /* position in the step, 0..1 */
     uint32_t fw, slot;                  /* zm_fw_ok() and the sound source's slot, at the step start */
-    uint32_t cnt[MB_NTRK], on[MB_NTRK]; /* per track: bus event counter last sent, a note is on */
+    uint32_t mnote[MB_NTRK], on[MB_NTRK];   /* per track: MIDI note sent last, a note is on */
     uint32_t vph[MB_NTRK], vinc[MB_NTRK], vgate[MB_NTRK];  /* own voice per track: phase, step per sample, note held */
     float    venv[MB_NTRK], vtgt[MB_NTRK], vlp[MB_NTRK];   /* own voice per track: level, its target, low-pass */
     float    vgn[MB_NTRK];              /* own voice per track: gain (SOUND's level, at the note on) */
@@ -208,6 +221,7 @@ typedef struct {
     uint32_t pk, pwait, snd;            /* packer: 0 idle, 1 waiting, 2 running; calls left; a SOUND to write */
     uint32_t tick, last;                /* calls to the next poll; TSCL at the previous call */
     uint32_t np, sb, sig;               /* chain as polled: parts, SndBank is part 1, layout */
+    uint32_t sbout;                     /* chain as polled: our SndBank is outside the owner range (mb_chain) */
     uint32_t psig, ppatch;              /* the previous poll's layout and patch number */
     uint32_t csig, cpatch;              /* as last loaded / saved */
     uint32_t full, over;                /* calls left of the FULL name; the RAM melody may not fit (no refusals) */
@@ -284,15 +298,16 @@ static inline const char *mb_str(uint32_t i)
     return p;
 }
 
-/* Send one note event (note 0 = off) of track t to the sound source found
- * at the step start: bus t + 1 = the source's knob t + 1 word. No source:
- * to the track's own voice. Out of line: called at note events only, from
- * five places (inlined, each copy cost ~140 B). */
+/* Send one note event (note 0 = off) of track t: with a sound source found
+ * at the step start over the MIDI bus on channel t + 1 (the held note's
+ * note off first, then the new note on), else to the track's own voice.
+ * st->on[t]: a note is held (the caller's). Out of line: called at note
+ * events only, from five places (inlined, each copy cost ~140 B). */
 #pragma FUNC_CANNOT_INLINE(mb_send)
 #pragma CODE_SECTION(mb_send, ".text")
 static void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
 {
-    volatile uint32_t *w;
+    MbOut *mo;
     uint32_t cnt, oct;
     if (!st->fw || st->slot == MB_NOSLOT) {
         if (note) {                     /* the track's own voice */
@@ -307,18 +322,15 @@ static void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
             st->vgate[t] = 0u;
         return;
     }
-    /* still SndBank there? (a delete before it moves it within the step:
-     * the old slot then holds the next effect: this event is dropped, the
-     * own voices play until the next step start finds SndBank again) */
-    if (st->slot >= zm_fws[st->fw - 1u].slots
-        || ZM_U32(zm_fws[st->fw - 1u].rec + 44u * st->slot + 4u) != MB_SYN_ID) {
-        st->slot = MB_NOSLOT;
-        return;
+    /* the bus: only into the own port, so no check of SndBank's slot (a
+     * removed SndBank just stops listening; the next step start finds out) */
+    if (!st->bus) return;               /* the own slot is being replaced */
+    mo = (MbOut *)&st->out;             /* a plain local pointer: keeps midibus inlined */
+    if (st->on[t]) mb_out_msg(mo, 0x80u | t, st->mnote[t], 64u);
+    if (note) {
+        mb_out_msg(mo, 0x90u | t, note, MB_VEL);
+        st->mnote[t] = note;
     }
-    w = (volatile uint32_t *)(uintptr_t)(zm_fws[st->fw - 1u].tab + 44u * st->slot + 4u * (NB_COL + t));
-    cnt = st->cnt[t] >= 15u ? 1u : st->cnt[t] + 1u;
-    st->cnt[t] = cnt;
-    *w = (*w & NB_LOWMASK) | NB_EVENT(cnt, note);
 }
 
 #ifndef MB_SELFTEST
@@ -363,6 +375,23 @@ static void mb_chain(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t 
             st->pslot[1] = s;
             sb = 1u;
             np = 2u;
+        }
+    }
+    /* none in range: a SndBank before us, back to the previous storage user,
+     * is ours moved out of the range (as after moving MelodyBox behind it)
+     * unless that user is another MelodyBox (then it is that one's) */
+    st->sbout = 0u;
+    if (!sb) {
+        f = 0u;                         /* a SndBank seen before us */
+#pragma UNROLL(1)
+        for (i = 1u; i < ns; i++) {
+            s = me >= i ? me - i : me + ns - i;
+            id = ZM_U32(t->rec + 44u * s + 4u);
+            if (zm_s_user(id)) {
+                if (id != ZM_S_ID(MB_FXID)) st->sbout = f;
+                break;
+            }
+            if (id == MB_SYN_ID) f = 1u;
         }
     }
 #pragma UNROLL(1)
@@ -575,6 +604,11 @@ static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
         st->tick = 0u;
         patch = ZM_U32(t->patch);
         mb_chain(st, t, me, st->sv && patch == st->cpatch && !st->settle);  /* markers: loaded, settled */
+        if (st->sbout) {                /* our SndBank out of range: the stored melody can't be read whole */
+            st->sv = 0u;                /* no load, no saves (the RAM melody plays on) until it is back */
+            st->psig = 0xFFFFFFFFu;     /* then two polls again */
+            return;
+        }
         same = st->sig == st->psig && patch == st->ppatch && !st->unset;
         if (st->settle) st->settle--;
         x = 0u;
@@ -633,9 +667,10 @@ static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
  * flipped with flip (at each quarter; at each poll while stopped as a
  * heartbeat) and MB_DB_R (flipped at each start). DrumBox puts its 16ths on
  * each flipped quarter's start, starts its song again at a flip of MB_DB_R
- * and starts at a flip to quarter 0. Loaded: its record's Tempo := TEMPO (both
- * 0 = Pedal, else BPM = 39 + value; its page shows it, a save keeps it);
- * before that the record's value. */
+ * and starts at a flip to quarter 0. Tempo bits: loaded our TEMPO (both 0
+ * = Pedal, else BPM = 39 + value), before that its record's value. Only the
+ * table word: DrumBox's record (its knob as saved) is never written, so a
+ * wrong load or a chain change can't change its saved tempo. */
 MB_COLD(mb_drums)
 static void mb_drums(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t flip)
 {
@@ -658,11 +693,7 @@ static void mb_drums(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t 
     if (ds == MB_NOSLOT) return;
     tb = (volatile uint32_t *)(uintptr_t)(t->tab + 44u * ds + 4u * MB_DB_TEMPO);
     rc = (volatile uint32_t *)(uintptr_t)(t->rec + 44u * ds + 4u * MB_DB_TEMPO);
-    w = *rc & 0xFFu;
-    if (st->sv) {
-        w = st->ov[MB_O_TEMPO];
-        if (*rc != w) *rc = w;
-    }
+    w = st->sv ? st->ov[MB_O_TEMPO] : *rc & 0xFFu;
     if (flip) st->dt ^= MB_DB_T;
     w |= MB_DB_SYNC | st->dt | (*tb & MB_DB_READY);    /* DrumBox's bit kept */
     if (st->play && st->sv)             /* the quarter: 16ths into the bar / 4 */
@@ -699,9 +730,9 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     if (!arena) return;
     {
         uintptr_t base = (uintptr_t)arena[0];
-        uintptr_t end = (uintptr_t)arena[1] & ~(uintptr_t)3u;
-        if (base == 0u || end <= base + sizeof(MbState)) return;
-        st = (volatile MbState *)(end - sizeof(MbState));
+        uintptr_t end = (uintptr_t)arena[1] & ~(uintptr_t)7u;     /* as midibus.h's port */
+        if (base == 0u || end <= base + MB_PORT + sizeof(MbState) + 64u) return;
+        st = (volatile MbState *)((end - MB_PORT - sizeof(MbState)) & ~(uintptr_t)63u);
     }
     mode = zm_knob(params[5 + MB_MODE], 2u);         /* 0 MENU, 1 TRK1, 2 TRK2 */
     r2 = zm_knob(params[5 + MB_EDIT], MB_MAXVAL);
@@ -750,6 +781,13 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     fw = zm_fw_ok();
     own = fw && (uint32_t)ctx[0] < zm_fws[fw - 1u].slots       /* and the own slot's record is still ours */
           && ZM_U32(zm_fws[fw - 1u].rec + 44u * (uint32_t)ctx[0] + 4u) == ZM_S_ID(MB_FXID);  /* (else being replaced: the rows aren't ours) */
+
+    /* MIDI out: the port's heartbeat every call while the slot is ours (being
+     * replaced: the area is the next effect's, hands off) */
+    {
+        MbOut *mo = (MbOut *)&st->out;  /* a plain local pointer: keeps midibus inlined */
+        st->bus = own && mb_out_tick(mo, ctx, MB_F_OUT) ? 1u : 0u;
+    }
 
     /* lock of the storage knobs: a look every MB_LOOK calls */
     if (st->lk) st->lk--;

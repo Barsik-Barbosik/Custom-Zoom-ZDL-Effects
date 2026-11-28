@@ -67,11 +67,11 @@
 #define MB_EXPAND_PRAGMA(x) MB_DO_PRAGMA(x)
 #define MB_INLINE(f) MB_EXPAND_PRAGMA(FUNC_ALWAYS_INLINE(f))
 
-#define MB_MAGIC   0x4944494Du          /* "MIDI" */
+#define MB_PMAGIC  0x4944494Du          /* "MIDI" (port magic) */
 #define MB_VERSION 2u                   /* 2: seal word (1: probes only) */
 #define MB_PORT    128u                 /* port block: the area's last 128 B */
 #define MB_RING    64u                  /* ring bytes (power of 2) */
-#define MB_NS      6u                   /* slots scanned (the most on a known pedal) */
+#define MB_NSLOT   6u                   /* slots scanned (the most on a known pedal) */
 #define MB_SCAN    16u                  /* calls between scans (receiver) / port checks (sender) */
 #define MB_F_OUT   1u                   /* info flags */
 #define MB_F_IN    2u
@@ -121,7 +121,7 @@ typedef struct {
     uint32_t drops;                     /* bytes lost to ring overflow */
     uint32_t skipped;                   /* channel messages filtered out */
     uint32_t pad[6];
-    MbInSlot sl[MB_NS];
+    MbInSlot sl[MB_NSLOT];
 } MbIn;
 
 /* The port block of the area whose descriptor is at d, or 0. Pure reads. */
@@ -157,14 +157,14 @@ static inline volatile MbPort *mb_out_tick(MbOut *o, const unsigned int *ctx, ui
         if (a) {
             p = (volatile MbPort *)(uintptr_t)a;
             o->ep = p->count ^ p->seal; /* the port's epoch (or junk) */
-            if (p->magic != MB_MAGIC || p->info != info) {
+            if (p->magic != MB_PMAGIC || p->info != info) {
                 o->ep += MB_EPOCH;      /* a new stream: never the old epoch */
                 p->magic = 0u;
                 p->info = info;
                 p->count = 0u;
                 p->seal = o->ep;
                 p->hb = 0u;
-                p->magic = MB_MAGIC;    /* last */
+                p->magic = MB_PMAGIC;    /* last */
             }
             o->hb = p->hb;
             o->count = p->count;
@@ -239,7 +239,7 @@ static inline void mb_in_poll(MbIn *in, const unsigned int *ctx)
         uint32_t own = (uint32_t)ctx[0], d3 = (uint32_t)ctx[3], info, h, e, ok;
         in->scan = MB_SCAN - 1u;
 #pragma UNROLL(1)
-        for (s = 0u; s < MB_NS; ++s) {
+        for (s = 0u; s < MB_NSLOT; ++s) {
             bit = 1u << s;
             a = s == own ? 0u : mb_port_at(d3 + 12u * s - 12u * own);
             p = (volatile MbPort *)(uintptr_t)a;
@@ -247,7 +247,7 @@ static inline void mb_in_poll(MbIn *in, const unsigned int *ctx)
             c = 0u;
             e = 0u;
             ok = 0u;
-            if (a && p->magic == MB_MAGIC) {    /* the rest only behind a magic */
+            if (a && p->magic == MB_PMAGIC) {    /* the rest only behind a magic */
                 info = p->info;
                 h = p->hb;
                 c = p->count;

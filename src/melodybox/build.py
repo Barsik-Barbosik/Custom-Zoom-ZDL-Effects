@@ -52,6 +52,7 @@ MAX_VAL = 38                                            # mirrors MB_MAXVAL in m
 ZMENU = PROJECT / "src" / "common" / "zmenu"
 PACKER = HERE / "packer"
 NOTEBUS = PROJECT / "src" / "common" / "notebus"
+MIDIBUS = PROJECT / "src" / "common" / "midibus"
 SPACE = 3                                               # --opt_for_space, as SongBox / SndBank (the packer: size)
 PACK_KEEP_PLAIN = 4     # pack self-test: P lines with 64 steps, one track, 2 parts kept (fit 8 flash blocks)
 KNOB_SLOTS = [(1, 0), (126, 0), (127, 0)]                # blank 1x1 knobs, outside the frame
@@ -178,7 +179,7 @@ def build(out_zdl: Path, selftest: str = "", probe: bool = False) -> None:
         defines = [f"MB_SELFTEST={2 if pack else 1}"]
     if probe:                                           # knobs 4-9 show the EDITED differences (G1on)
         defines.append("MB_DIRTY=1")
-    compile_c(HERE / "melodybox.c", obj, include=[ZMENU, NOTEBUS, PACKER], defines=defines, space=SPACE)
+    compile_c(HERE / "melodybox.c", obj, include=[ZMENU, NOTEBUS, MIDIBUS, PACKER], defines=defines, space=SPACE)
     link(LinkerConfig(
         effect_name="MeloBox",
         audio_func_name="Fx_SFX_MeloBox",

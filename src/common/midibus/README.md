@@ -21,7 +21,7 @@ DIN MIDI.
 | Port version | 2 |
 | Tested | B1Xon 1.30 (G1on family), with probe effects: order, drops, bursts, running status, channel filter, merging two senders, both chain orders, and deleting, replacing and moving effects while they send |
 | Untested | the MS pedals (MS-50G, MS-60B, MS-70CDR). Their firmware builds the slot descriptors the same way (see below), so it should work there, but it has not run on one |
-| Used by | no released effect yet |
+| Used by | MelodyBox (sends its two tracks on channels 1 and 2) and SndBank (plays them), both in development, not released; tested on the B1Xon including deleting and moving MelodyBox while it plays |
 
 ## How an effect finds the other slots
 

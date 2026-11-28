@@ -7,9 +7,10 @@ SndBank's **voice settings**: the sound and level per voice, stored in
 SndBank's own knob fields.
 
 notebus is small and fixed: one receiver found by its effect id, two buses,
-one note per bus per call. For MIDI between any effects (channels,
-velocity, clock, many senders and listeners) see
-[midibus](../midibus/README.md).
+one note per bus per call. **MeloBox and SndBank now send their notes over
+[midibus](../midibus/README.md)** (MIDI channels 1 and 2), which has
+channels, velocity, clock and many senders and listeners. Of notebus they
+still use the **voice settings**; the bus words below are no longer used.
 
 `notebus.h` holds only the word layout (macros). The firmware table
 addresses come from [zmenu](../zmenu/README.md)'s `ZmFw` table.
@@ -18,9 +19,9 @@ addresses come from [zmenu](../zmenu/README.md)'s `ZmFw` table.
 
 | | |
 |---|---|
-| Tested | B1Xon 1.30 (G1on family): bus 1 and bus 2 (MeloBox's two tracks), voice settings |
+| Tested | B1Xon 1.30 (G1on family): bus 1 and bus 2 (MeloBox's two tracks, before midibus), voice settings |
 | Untested | MS pedals (MS-50G, MS-60B, MS-70CDR) |
-| Used by | MeloBox (sender) and SndBank (receiver), both in development, not released |
+| Used by | voice settings: MeloBox (writes) and SndBank (reads), both in development, not released. Bus words: no effect now |
 
 ## The bus words
 
