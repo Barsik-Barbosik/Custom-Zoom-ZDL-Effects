@@ -18,6 +18,9 @@ knob values.
   their order in the chain doesn't matter.
 - **Don't turn its knobs:** that changes the stored data. Copying or saving
   the patch is safe.
+- **Announces its knobs** in an [fxinfo](../common/fxinfo/README.md) info
+  block (a data item: knobs 1-9 and their bits), so effects can find it
+  without knowing its id (in development; not in the released 1.0.x).
 
 Version 1.0.1. Status: works on the G1Xon 1.21 and B1Xon 1.30 (G1on family). Untested on the MS pedals
 (MS-70CDR 2.10, MS-50G 3.10, MS-60B 2.10): please report if saved data
@@ -35,7 +38,7 @@ effect that uses it.
 
 | File | Purpose |
 |---|---|
-| `floppy.c` | Audio function `Fx_SFX_Floppy`: only the magic shuttle; optional knob texts (`FL_KNOB_TEXT`) |
+| `floppy.c` | Audio function `Fx_SFX_Floppy`: the magic shuttle and the fxinfo data item; optional knob texts (`FL_KNOB_TEXT`) |
 | `build.py` | Runs `cl6x` and the linker → `../../dist/Floppy.ZDL` |
 | `screen.png` | The 128x64 screen image |
 | `screen.py` | Loads and checks `screen.png` (knob slots, RLE size); `--gen` redraws it |

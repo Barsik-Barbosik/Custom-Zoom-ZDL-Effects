@@ -42,7 +42,8 @@ def build_floppy(out_zdl: Path, maxes: tuple[int, ...] | None = None, defines: l
     obj = HERE / "floppy.obj"
     if knob_text:
         defines = [*defines, "FL_KNOB_TEXT"]
-    compile_c(HERE / "floppy.c", obj, defines=sorted(set(defines)))
+    compile_c(HERE / "floppy.c", obj, include=[PROJECT / "src" / "common" / "fxinfo"],
+              defines=sorted(set(defines)))
     link(LinkerConfig(
         effect_name="Floppy",
         audio_func_name="Fx_SFX_Floppy",

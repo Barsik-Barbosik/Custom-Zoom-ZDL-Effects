@@ -110,8 +110,10 @@ static const SsConst sb_c = {
 };
 
 /* The info block's record (fxinfo.h): the sounds (names in sound order,
- * as snd_part), the played channels. */
-#define SB_NREC (3u + SB_NSOUND)
+ * as snd_part), the played channels, the storage knobs (DATA: 1-9 at the
+ * G1on field widths; the voice settings = the first 16 bits, knob 1's 13
+ * and knob 2's low 3 (notebus.h NB_SV_*), are kept). */
+#define SB_NREC (13u + SB_NSOUND)
 static const uint32_t sb_info[SB_NREC] = {
     FI_ITEM(FI_SOUNDS, SB_NSOUND, 4u),
     FI_ENTRY4(FI_K_MELODIC, 'P', 'B', 0), FI_ENTRY4(FI_K_MELODIC, 'T', 'r', 0),
@@ -120,6 +122,10 @@ static const uint32_t sb_info[SB_NREC] = {
     FI_ENTRY4(FI_K_MELODIC, 'K', 'l', 0), FI_ENTRY4(FI_K_MELODIC, 'S', 'y', 0),
     FI_ENTRY4(FI_K_MELODIC, 'P', 'k', 0),
     FI_ITEM(FI_CHANNELS, 1u, 4u), (1u << SB_NV) - 1u,
+    FI_ITEM(FI_DATA, 9u, 4u),
+    FI_DATA4(1u, 13u, 13u), FI_DATA4(2u, 13u, 3u), FI_DATA4(3u, 13u, 0u),
+    FI_DATA4(4u, 8u, 0u), FI_DATA4(5u, 8u, 0u), FI_DATA4(6u, 8u, 0u),
+    FI_DATA4(7u, 8u, 0u), FI_DATA4(8u, 27u, 0u), FI_DATA4(9u, 8u, 0u),
 };
 
 #include "instruments/inst_lib.h"

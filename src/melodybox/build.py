@@ -152,7 +152,7 @@ def write_selftest(path: Path, pack: bool) -> int:
     return len(vecs)
 
 
-def build(out_zdl: Path, selftest: str = "", probe: bool = False) -> None:
+def build(out_zdl: Path, selftest: str = "", probe: bool = False, fullwhy: bool = False) -> None:
     from linker import LinkerConfig, link, params_from_manifest  # noqa: E402
 
     def knob(name: str, mx: int, getstr: str, d: int = 0) -> dict:
@@ -180,6 +180,8 @@ def build(out_zdl: Path, selftest: str = "", probe: bool = False) -> None:
         defines = [f"MB_SELFTEST={2 if pack else 1}"]
     if probe:                                           # knobs 4-9 show the EDITED differences (G1on)
         defines.append("MB_DIRTY=1")
+    if fullwhy:                                         # a refused save: knob 2 shows F:1..F:7 (which check)
+        defines.append("MB_FULLWHY=1")
     compile_c(HERE / "melodybox.c", obj, include=[ZMENU, NOTEBUS, MIDIBUS, FXINFO, PACKER], defines=defines, space=SPACE)
     link(LinkerConfig(
         effect_name="MeloBox",
@@ -207,6 +209,9 @@ def main() -> None:
     probe = "--probe" in args
     if probe:
         args.remove("--probe")
+    fullwhy = "--fullwhy" in args
+    if fullwhy:
+        args.remove("--fullwhy")
     if "--selftest" in args:
         i = args.index("--selftest")
         selftest = args[i + 1] if i + 1 < len(args) else ""
@@ -214,9 +219,9 @@ def main() -> None:
     if len(args) == 2 and args[0] == "--out" and selftest in ("", "decode", "pack"):
         out = Path(args[1]).resolve()
     else:
-        sys.exit("usage: python -B src/melodybox/build.py [--selftest decode|pack] [--probe] --out P")
+        sys.exit("usage: python -B src/melodybox/build.py [--selftest decode|pack] [--probe] [--fullwhy] --out P")
     out.parent.mkdir(parents=True, exist_ok=True)
-    build(out, selftest, probe)
+    build(out, selftest, probe, fullwhy)
 
 
 if __name__ == "__main__":

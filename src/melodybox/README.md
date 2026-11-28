@@ -71,10 +71,10 @@ turn, like SongBox); store the patch as usual to keep it.
   TEMPO other than Pedal takes a little room). SndBank also keeps SOUND1 and
   SOUND2 (sound and volume); without SndBank they are not saved.
 - **Too big:** an edit that makes the melody too big for that space is
-  refused: the step (or TEMPO / LENGTH) goes back and knob 2's name shows `FULL`
-  for a moment. Add a Floppy for more space.
+  refused: the step (or TEMPO / LENGTH) goes back and the knob names read
+  `Can't save: FULL!` for a moment. Add a Floppy after MelodyBox for more space.
 - **Adding or removing** SndBank or a Floppy: the melody you have stays and
-  is saved into the new set. If it doesn't fit any more, `FULL` shows and
+  is saved into the new set. If it doesn't fit any more, `Can't save: FULL!` shows and
   nothing is saved, but your edits are kept: make the melody smaller step
   by step until it fits, then it is saved again.
 - **Not with SongBox in the same patch for now:** SongBox would take every

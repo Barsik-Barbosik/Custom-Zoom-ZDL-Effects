@@ -65,6 +65,12 @@ padded to 4 bytes at the item's end. Readers skip types they don't know.
 Planned: the names of a drum kit's notes (a sequencer shows them instead of
 note names).
 
+Draft (published by Floppy in development, not read by any effect yet):
+
+| Type | Name | Entries |
+|---|---|---|
+| 4 | data | width 4, one per storage knob other effects may write: byte 0 knob (1-9), byte 1 the patch field's bits, byte 2 low bits the publisher keeps (its own settings; others leave them as read), byte 3 flags (0) |
+
 ## Writer rules
 
 1. Publish at least every 128 audio calls: write the whole block when it is

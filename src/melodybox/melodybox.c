@@ -39,8 +39,8 @@
  * is decoded again and compared with the grids, then all parts are written
  * in one call. A melody that doesn't fit the chain (or doesn't decode
  * back) is refused: the grids and TEMPO / LENGTH / GRID go back to the last
- * saved ones, the knobs jump there and knob 2's name shows FULL for MB_FULL
- * calls. A SOUND change is written straight into SndBank's part. Loads:
+ * saved ones, the knobs jump there and knobs 1-3 are named "Can't" "save:" "FULL!"
+ * for MB_FULL calls. A SOUND change is written straight into SndBank's part. Loads:
  * the chain is polled every MB_POLL calls; a change counts once two polls
  * agree and the storage rows equal their records (after a patch change the
  * OS fills the rows late; Floppy markers are written only once loaded and
@@ -52,7 +52,7 @@
  * MB_SETTLE polls of a load, knob 2 / 3 moves are no edits. The chain itself changed
  * (a storage effect added or removed): the melody in RAM is
  * packed into it; until a save (or load) succeeds a melody that doesn't
- * fit is not refused (over: the edits stay, FULL shows, nothing is
+ * fit is not refused (over: the edits stay, "Can't save: FULL!" shows, nothing is
  * written), so it can be made smaller step by step. A SndBank before
  * MelodyBox with no MelodyBox between it and the previous storage user is
  * ours moved out of the owner range (MelodyBox moved behind it): the
@@ -121,7 +121,7 @@
 #define ZM_STREAM      1
 #define ZM_DESC        _Fx_SFX_MeloBox_Desc
 #define ZM_MAGIC       0x4D425831u      /* "MBX1" */
-#define ZM_FLOPPY_FXID 530u             /* Floppy: storage parts after SndBank */
+#define ZM_FLOPPY_FXID 530u             /* zmenu.h needs it; storage is found by fxinfo DATA items */
 #define ZM_S_RANGE     1                /* own only the Floppies up to the next Floppy user */
 #include "zmenu.h"
 #include "notebus.h"
@@ -136,10 +136,14 @@
 #pragma CODE_SECTION(Fx_SFX_MeloBox, ".audio")
 
 #ifdef MB_SELFTEST
-#define MB_MAGIC  0x4D425443u           /* "MBTC": the self-test build's layout */
+#define MB_MAGIC  0x4D425444u           /* "MBTD": the self-test build's layout */
 #define MB_TUNITS 1u                    /* self-test: packer units per call */
 #else
-#define MB_MAGIC  0x4D425849u           /* "MBXI"; new value on any state layout change */
+#ifdef MB_FULLWHY
+#define MB_MAGIC  0x4D425857u           /* "MBXW": the FULL-reason test build's layout */
+#else
+#define MB_MAGIC  0x4D42584Au           /* "MBXJ"; new value on any state layout change */
+#endif
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
 #define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRK1 / TRK2 */
@@ -162,7 +166,6 @@
                     : MB_MAXSND * MB_LEVELS - 1u)
 #define MB_MAXSND 12u                   /* sounds used of a sound list (a sound value is a byte) */
 #define MB_SV(st) ((st)->ov[MB_O_SND] | (st)->ov[MB_O_SND + 1u] << 8)  /* SndBank's voice settings (notebus.h) */
-#define MB_SYN_ID ((7u << 24) | 531u)   /* SndBank (SFX 531): storage part 1 (playback finds sources by fxinfo) */
 #define MB_FXID   519u                  /* own effect id (mirrors FXID in build.py) */
 #define MB_DB_ID  ((7u << 24) | 520u)   /* DrumBox (SFX 520): follows the playback */
 #define MB_SB_ID  ((7u << 24) | 521u)   /* SongBox (SFX 521): drives DrumBox itself */
@@ -199,7 +202,7 @@
 #define MB_PK_WAIT  2048u               /* calls after the last edit before packing (~0.37 s) */
 #define MB_PK_CYC   1000u               /* packer TSCL cycles per call (at least one unit) */
 #define MB_PK_MAX   8u                  /* most packer units per call (also when TSCL is stopped) */
-#define MB_FULL     8192u               /* calls knob 2's name shows FULL (~1.5 s) */
+#define MB_FULL     8192u               /* calls knobs 1-3 show "Can't save: FULL!" (~1.5 s) */
 #define MB_AWAY_CYC 9000000u            /* a TSCL gap between calls that means away (~50 ms) */
 #define MB_SETTLE   32u                 /* polls after a load: a chain change loads again (~1.5 s) */
 #define MB_FL_MARK  11u                 /* Floppy part marker: MB_FL_MARK + its place 1..4 */
@@ -227,6 +230,9 @@ typedef struct {
     uint32_t snm[MB_MAXSND];            /* the list's entries: kind, then up to 3 name characters (NUL padded) */
     uint32_t srcch;                     /* channels played by live sound sources (fxinfo channels items, polled) */
     uint32_t fihb[MB_NSLOT];            /* per slot: the info block's heartbeat at the previous poll */
+    uint32_t fiok;                      /* bit s: slot s had a valid info block at the previous poll */
+    uint32_t dpl, dkp;                  /* bit s: slot s's live block offers storage (DATA): plain (Floppy) /
+                                         * keeping the voice settings bits (SndBank) */
     uint32_t lk, lfw, lslot, lwait, lok;    /* lock: calls to the next look, its fw, slot, looks waited, shadow valid */
     uint32_t sh[MB_NS], pend[MB_NS];    /* lock: shadow (storage knobs' record values), values at the last look */
 #ifndef MB_SELFTEST
@@ -237,7 +243,10 @@ typedef struct {
     uint32_t sbout;                     /* chain as polled: our SndBank is outside the owner range (mb_chain) */
     uint32_t psig, ppatch;              /* the previous poll's layout and patch number */
     uint32_t csig, cpatch;              /* as last loaded / saved */
-    uint32_t full, over;                /* calls left of the FULL name; the RAM melody may not fit (no refusals) */
+    uint32_t full, over;                /* calls left of "Can't save: FULL!"; the RAM melody may not fit (no refusals) */
+#ifdef MB_FULLWHY
+    uint32_t why;                       /* test build: the check a refused save failed (1..7) */
+#endif
     uint32_t unset, settle;             /* the poll saw rows unlike their records; polls left of the settle window */
     uint32_t pslot[MP_MAXPARTS];        /* slot of part q (part 0: the own) */
     uint32_t rw[MB_NW], pw[MB_NW], cw[MB_NW];  /* storage words: this poll, the previous, last loaded / saved */
@@ -282,8 +291,8 @@ static const char mb_letter[13] = ".CCDDEFFGGAAB";
 #define MB_S_LEN    10u                 /* 16 .. 128 */
 #define MB_S_GRID   14u                 /* 1/16, 1/8 */
 #define MB_S_Q      16u                 /* 3 words per option */
-#define MB_S_FULL   31u                 /* FULL: an edit refused */
-#define MB_S_SAW    32u                 /* SOUND without a sound list: the own voice */
+#define MB_S_FULL   31u                 /* an edit refused: the names of knobs 1, 2, 3 */
+#define MB_S_SAW    34u                 /* SOUND without a sound list: the own voice */
 #define MB_VBASE(o) ((o) == MB_O_LEN ? MB_S_LEN : MB_S_GRID)
 static const char mb_strs[] =
     "MENU \0" "TRK1\0" "TRK2\0" "SCRLL\0"    /* "MENU ": room for a 6-character option beside it (MS) */
@@ -296,8 +305,12 @@ static const char mb_strs[] =
     "Step\0" "grid\0" "is:\0"           /* GRID */
     "Trk1\0" "sound\0" "is:\0"          /* SOUND1 */
     "Trk2\0" "sound\0" "is:\0"          /* SOUND2 */
-    "FULL\0"
-    "Sw\0";
+    "Can't\0" "save:\0" "FULL!\0"      /* an edit refused (doesn't fit the storage) */
+    "Sw\0"
+#ifdef MB_FULLWHY
+    "F:1\0" "F:2\0" "F:3\0" "F:4\0" "F:5\0" "F:6\0" "F:7\0"     /* test build: why a save was refused */
+#endif
+    ;
 
 /* String i of the pool. */
 #pragma FUNC_ALWAYS_INLINE(mb_str)
@@ -374,7 +387,8 @@ static void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
 
 /* The chain as it is now -> st->pslot, np, sb, sig and its words -> st->rw
  * (missing parts 0): part 0 the own knobs 4-9, then in the owner range
- * SndBank (the first one) and the Floppies in marker order; with `mark`
+ * SndBank (the first one) and the Floppies in marker order (both found by
+ * their fxinfo DATA items as of the last mb_slist: st->dkp, st->dpl); with `mark`
  * the other Floppies in range (unmarked, a repeated marker) get the next
  * markers. st->unset: a storage row (own knobs 4-9, SndBank, the Floppies
  * in range) differs from its record: after a patch change the OS fills the
@@ -384,6 +398,7 @@ MB_COLD(mb_chain)
 static void mb_chain(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t mark)
 {
     uint32_t ns = t->slots, inr = 0u, np = 1u, sb = 0u, mf = 0u, i, s, f, q, c, p, v, sh, sig, id;
+    uint32_t dk = st->dkp, dp = st->dpl;
     st->pslot[0] = me;
 #pragma UNROLL(1)
     for (i = 1u; i < ns; i++) {         /* owner range: up to the next storage user */
@@ -394,8 +409,7 @@ static void mb_chain(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t 
     st->unset = 0u;
 #pragma UNROLL(1)
     for (s = 0u; s < ns; s++) {         /* rows as their records */
-        id = ZM_U32(t->rec + 44u * s + 4u);
-        if (s != me && !((inr >> s & 1u) && (id == MB_SYN_ID || id == ZM_FLOPPY_ID))) continue;
+        if (s != me && !((inr & (dk | dp)) >> s & 1u)) continue;
 #pragma UNROLL(1)
         for (c = s == me ? 3u : 0u; c < 9u; c++) {
             p = 44u * s + 4u * (2u + c);
@@ -406,7 +420,7 @@ static void mb_chain(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t 
 #pragma UNROLL(1)
     for (i = 1u; i < ns && !sb; i++) {  /* SndBank */
         s = me + i < ns ? me + i : me + i - ns;
-        if ((inr >> s & 1u) && ZM_U32(t->rec + 44u * s + 4u) == MB_SYN_ID) {
+        if ((inr & dk) >> s & 1u) {
             st->pslot[1] = s;
             sb = 1u;
             np = 2u;
@@ -426,7 +440,7 @@ static void mb_chain(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t 
                 if (id != ZM_S_ID(MB_FXID)) st->sbout = f;
                 break;
             }
-            if (id == MB_SYN_ID) f = 1u;
+            if (dk >> s & 1u) f = 1u;
         }
     }
 #pragma UNROLL(1)
@@ -434,8 +448,7 @@ static void mb_chain(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t 
 #pragma UNROLL(1)
         for (i = 1u; i < ns; i++) {
             s = me + i < ns ? me + i : me + i - ns;
-            if ((inr >> s & 1u) && ZM_U32(t->rec + 44u * s + 4u) == ZM_FLOPPY_ID
-                && (ZM_U32(t->tab + 44u * s + 8u) & 15u) == MB_FL_MARK + f) {
+            if (((inr & dp) >> s & 1u) && (ZM_U32(t->tab + 44u * s + 8u) & 15u) == MB_FL_MARK + f) {
                 if (np < MP_MAXPARTS) st->pslot[np++] = s;
                 inr &= ~(1u << s);
                 mf = f;
@@ -446,8 +459,7 @@ static void mb_chain(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t 
 #pragma UNROLL(1)
         for (i = 1u; i < ns; i++) {     /* the other Floppies: the next markers */
             s = me + i < ns ? me + i : me + i - ns;
-            if ((inr >> s & 1u) && ZM_U32(t->rec + 44u * s + 4u) == ZM_FLOPPY_ID
-                && mf < 4u && np < MP_MAXPARTS) {
+            if (((inr & dp) >> s & 1u) && mf < 4u && np < MP_MAXPARTS) {
                 mf++;
                 zm_set_col(t, s, 2u, (ZM_U32(t->tab + 44u * s + 8u) & 0x1FF0u) | (MB_FL_MARK + mf));
                 st->pslot[np++] = s;
@@ -597,10 +609,20 @@ MB_COLD(mb_done)
 static void mb_done(volatile MbState *st, const ZmFw *t, uint32_t me)
 {
     uint32_t n = 16u << st->ov[MB_O_LEN], ok, s8, tp, i, k, v, prev;
+#ifdef MB_FULLWHY
+    uint32_t un;
+    st->why = st->job.err ? 1u : !st->job.parts ? 2u : st->job.parts > st->np ? 3u : 0u;
+#endif
     ok = !st->job.err && st->job.parts && st->job.parts <= st->np;
     if (ok) {
+#ifdef MB_FULLWHY
+        un = mp_unpack((const uint32_t *)st->job.words, st->np, st->sb, st->vgrid[0], st->vgrid[1], &s8, &tp);
+        st->why = un != n ? 4u : s8 != st->ov[MB_O_GRID] ? 5u : tp != st->ov[MB_O_TEMPO] ? 6u : 0u;
+        ok = !st->why;
+#else
         ok = mp_unpack((const uint32_t *)st->job.words, st->np, st->sb, st->vgrid[0], st->vgrid[1], &s8, &tp) == n
              && s8 == st->ov[MB_O_GRID] && tp == st->ov[MB_O_TEMPO];
+#endif
 #pragma UNROLL(1)
         for (k = 0u; k < MB_NTRK && ok; k++)
 #pragma UNROLL(1)
@@ -610,6 +632,9 @@ static void mb_done(volatile MbState *st, const ZmFw *t, uint32_t me)
                 ok = st->vgrid[k][i] == v;
                 prev = v;
             }
+#ifdef MB_FULLWHY
+        if (!ok && !st->why) st->why = 7u;
+#endif
     }
     if (ok) {
         mb_write(st, t, st->job.words);
@@ -627,25 +652,45 @@ static void mb_done(volatile MbState *st, const ZmFw *t, uint32_t me)
     st->pk = 0u;
 }
 
-/* The sound sources (fxinfo.h), from the other slots' live info blocks
- * (heartbeat moved since the previous poll): the channels their channels
- * items say they play -> st->srcch; the first sounds item -> st->src,
- * st->snm (none: src 0). A list change while MENU shows a SOUND: knob 3
- * jumps to its value (its range changed) and the screen is redrawn. */
+/* The other slots' live info blocks (fxinfo.h; live = valid at the
+ * previous poll too and the heartbeat moved since: a stale block, whose
+ * heartbeat may differ from a fresh state's copy, never counts at once).
+ * Sound sources: the channels their channels items say they play ->
+ * st->srcch; the first sounds item -> st->src, st->snm (none: src 0). A
+ * list change while MENU shows a SOUND: knob 3 jumps to its value (its
+ * range changed) and the screen is redrawn. Storage: a DATA item of the
+ * 9 knobs at the field widths (zm_s_wid) -> st->dpl (nothing kept: a
+ * Floppy) or st->dkp (knob 1's NB_LOW bits and knob 2's low 16 - NB_LOW
+ * kept: the voice settings, a SndBank); any other layout is not ours. */
 MB_COLD(mb_slist)
 static void mb_slist(volatile MbState *st, uint32_t d3, uint32_t ns, uint32_t me)
 {
-    uint32_t s, a, p, w, hb, n = 0u, i, e, chg = 0u, ch = 0u;
+    uint32_t s, a, p, w, hb, n = 0u, i, e, chg = 0u, ch = 0u, ok = 0u, dp = 0u, dk = 0u, pl, kp, d;
 #pragma UNROLL(1)
     for (s = 0u; s < ns && s < MB_NSLOT; s++) {
         a = s == me ? 0u : fi_at_slot(d3, me, s);
         hb = a ? ((const volatile FiHdr *)(uintptr_t)a)->hb : st->fihb[s];
-        e = a && hb != st->fihb[s];     /* live */
+        e = a && (st->fiok >> s & 1u) && hb != st->fihb[s];    /* live */
+        ok |= (uint32_t)(a != 0u) << s;
         st->fihb[s] = hb;
         if (!e) continue;
         p = fi_item(a, FI_CHANNELS);
         if (p && (*(const volatile uint32_t *)(uintptr_t)p & 0xFFFF00u) == 0x40100u)    /* count 1, width 4 */
             ch |= *(const volatile uint32_t *)(uintptr_t)(p + 4u);
+        p = fi_item(a, FI_DATA);
+        if (p && (*(const volatile uint32_t *)(uintptr_t)p & 0xFFFF00u) == 0x40900u) {  /* count 9, width 4 */
+            pl = 1u;
+            kp = 1u;
+#pragma UNROLL(1)
+            for (i = 0u; i < 9u; i++) {
+                p += 4u;
+                d = *(const volatile uint32_t *)(uintptr_t)p ^ ((i + 1u) | (uint32_t)zm_s_wid[i] << 8);
+                if (d) pl = 0u;
+                if (d != (i == 0u ? NB_LOW << 16 : i == 1u ? (16u - NB_LOW) << 16 : 0u)) kp = 0u;
+            }
+            dp |= pl << s;
+            dk |= kp << s;
+        }
         p = n ? 0u : fi_item(a, FI_SOUNDS);
         if (!p) continue;
         w = *(const volatile uint32_t *)(uintptr_t)p;
@@ -660,6 +705,9 @@ static void mb_slist(volatile MbState *st, uint32_t d3, uint32_t ns, uint32_t me
         }
     }
     st->srcch = ch;
+    st->fiok = ok;
+    st->dpl = dp;
+    st->dkp = dk;
     if (n != st->src) chg = 1u;
     st->src = n;
     if (chg && !st->mode && st->opt >= MB_O_SND) {
@@ -1047,7 +1095,11 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         const char *q = 0;
         uint32_t item = st->off + k, c2, c3, c4, o, end = 0u;        if (!st->mode) q = mb_str(MB_S_Q + 3u * st->opt + k);
 #ifndef MB_SELFTEST
-        if (st->full && k == MB_EDIT) q = mb_str(MB_S_FULL);
+#ifdef MB_FULLWHY
+        if (st->full) q = mb_str(k == MB_EDIT && st->why - 1u < 7u ? MB_S_SAW + st->why : MB_S_FULL + k);
+#else
+        if (st->full) q = mb_str(MB_S_FULL + k);     /* "Can't" "save:" "FULL!" */
+#endif
 #endif
         x = item >= 100u ? item - 100u : item;
         tens = (x * 205u) >> 11;        /* x / 10, exact for x < 1029 */
@@ -1078,6 +1130,19 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
                     i == 3u ? (unsigned char)c3 :
                     i == 4u ? (unsigned char)c4 : 0u;
             }
+#if defined(MB_FULLWHY) && !defined(MB_SELFTEST)
+            if (st->full && k != MB_EDIT) {     /* test build: knob 1 "B" + the packer's bits; knob 3 the
+                                                   parts needed, parts found, track 2 not empty, SndBank part */
+                uint32_t b = k ? st->job.parts | st->np << 4 | st->job.has2 << 8 | st->sb << 12 : st->job.bits;
+                uint32_t hu, te;
+                if (!k && b > 999u) b = 999u;
+                hu = (b * 41u) >> 12;           /* b / 100, exact for b < 1000 */
+                te = ((b - 100u * hu) * 205u) >> 11;
+                v = k ? (i < 4u ? (unsigned char)('0' + (b >> 4u * i & 15u)) : 0u) :
+                    i == 0u ? 'B' : i == 1u ? (unsigned char)('0' + hu) : i == 2u ? (unsigned char)('0' + te) :
+                    i == 3u ? (unsigned char)('0' + b - 100u * hu - 10u * te) : 0u;
+            }
+#endif
             if (nm[i] != v) {
                 nm[i] = v;
                 changed = 1u;
