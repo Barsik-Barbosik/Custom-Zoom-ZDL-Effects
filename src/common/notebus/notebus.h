@@ -1,5 +1,6 @@
 /* notebus: note events from a sequencer (MeloBox) to a sound source
  * (SndBank) in another chain slot, through the sound source's slot rows.
+ * Described in README.md in this folder.
  *
  * Bus word = the sound source's knob 1 word in the state[31] table row
  * (column 2; zmenu.h's ZmFw tab + 44 * slot + 8); a second bus = its knob 2

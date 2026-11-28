@@ -1,6 +1,8 @@
 /* midibus: MIDI messages between ZDL effects in one chain (G1on family:
  * discovery tested on the B1Xon 1.30; MS-70CDR 2.10, MS-50G 3.10, MS-60B
- * 2.10: same descriptor spacing in their firmware, untested).
+ * 2.10: same descriptor spacing in their firmware, untested). The port
+ * layout and rules (the contract for other implementations):
+ * README.md in this folder.
  *
  * Every chain slot has a memory area (ctx[3] points at its descriptor:
  * word 0 base, word 1 end, word 2 length). The descriptors lie 12 B apart

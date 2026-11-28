@@ -80,6 +80,8 @@ Each effect has its own `build.py`; see its README for the commands.
 | `src/autoknob/` | AutoKnob: DSP and knob driver (`autoknob.c`), build script |
 | `src/autoknob2/` | AutoKnob 2: two LFOs, knob menu and knob driver (`autoknob.c`), build script |
 | `src/common/zmenu/` | zmenu: C library for knob menus and data saved through Floppy (`zmenu.h`), layout generator (`zmenu_gen.py`) |
+| `src/common/midibus/` | midibus: C library for MIDI messages between ZDL effects in one chain (`midibus.h`), port layout, rules and cost in its [README](src/common/midibus/README.md); tested on the B1Xon only |
+| `src/common/notebus/` | notebus: note events and voice settings from MelodyBox to SndBank (`notebus.h`), described in its [README](src/common/notebus/README.md) |
 | `build/` | The linker that turns the TI object file into a ZDL, based on repeat98's, with additions (see its header); shared build helpers (`zdl_build.py`) |
 | `tools/` | Experimental G1on-family USB SysEx tools (effect files, patch read, live knob set, patch switch), used during development; see [tools/README.md](tools/README.md) |
 | `docs/HARDWARE-NOTES.md` | What was learned on the hardware: load limit, `_init`, knob ranges, DSP load, ... |
