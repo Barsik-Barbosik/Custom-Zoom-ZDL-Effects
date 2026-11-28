@@ -11,7 +11,7 @@ offset. MENU: knob 2 = option TEMPO / LENGTH / GRID / SOUND1 / SOUND2, knob
 3 = its value (SOUND1 / 2: sound * 20 + level, "EP:70"), the names spell
 the question. Knob maxes change at run time. Knobs
 4-9 = locked storage (the patch field widths 8, 8, 8, 8, 27, 8; names
-Data1..Data6, texts DON'T / TURN / THESE on each page). See melodybox.c.
+and texts "Data"). See melodybox.c.
 The screen image is screen.png (128x64; pixels darker than mid-grey are
 dark).
 
@@ -166,11 +166,11 @@ def build(out_zdl: Path, selftest: str = "", probe: bool = False) -> None:
         knob("02___", MAX_K3, "GetString_Mb3"),        # scroll / MENU answer
     ]
     # knobs 4-9: locked storage at the patch field widths (8, 8, 8, 8, 27, 8)
-    # names Data1..Data6, texts "DON'T TURN THESE" on both pages (knobs 4-6, 7-9)
-    params += [{"name": f"Data{k + 1}", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
+    # names and texts "Data" (one shared getstr)
+    params += [{"name": "Data", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
                 "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.0,
                 "edit": "Mb_LockEdit",
-                "getstr": f"GetString_MbP{k + 4}" if probe else f"GetString_MbData{k % 3 + 1}"}
+                "getstr": f"GetString_MbP{k + 4}" if probe else "GetString_MbData"}
                for k, w in enumerate(FLOPPY_MAXES[3:])]
     obj = HERE / "melodybox.obj"
     defines = []

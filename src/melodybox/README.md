@@ -53,8 +53,8 @@ through.
   the song plays, MelodyBox comes in at once at the right place. With an
   empty song MelodyBox leads, as without SongBox.
 - **Knobs 4-9 hold stored data** (the start of the saved melody) and
-  are locked: a turn springs back. They are named Data1 … Data6 and show
-  `DON'T` `TURN` `THESE` on each page.
+  are locked: a turn springs back. Each is named `Data` and shows
+  `Data`.
 
 Status: the step editor, both tracks, the settings, playback over SndBank
 and the own voices, saving / loading with the patch, DrumBox following

@@ -45,7 +45,7 @@
  * fxinfo.h): the sounds' names in sound order (PB .. Pk) and the played
  * channels, so MelodyBox shows SndBank's names without a copy of its own.
  *
- * Knob names Data1..Data9; texts DON'T / TOUCH / THESE on each page.
+ * Knob names and texts "Data" (one shared getstr).
  */
 
 #include <stdint.h>
@@ -330,25 +330,12 @@ void Sb_LockEdit(uint32_t *state, uint32_t col)
     ((SbWrite)(uintptr_t)state[7])((float *)(uintptr_t)(state[1] + 12u + 4u * col), 0.0f, k.f);
 }
 
-/* Knob texts (the values are stored data): DON'T / TOUCH / THESE on knobs
- * 1-3, again on 4-6 and 7-9 (one body per text: the value doesn't say
- * which knob). */
-static const char sb_sdata[3][6] = { "DON'T", "TOUCH", "THESE" };
-
-#pragma CODE_SECTION(sb_dstr, ".text")
-#pragma FUNC_CANNOT_INLINE(sb_dstr)
-static int sb_dstr(uint32_t i, char *s)
+/* Knob text of all 9 knobs (the values are stored data): "Data". Byte
+ * stores, no table (no .rela.dyn entry). */
+#pragma CODE_SECTION(GetString_SbData, ".text")
+int GetString_SbData(unsigned int v, char *s)
 {
-    int n = 0;
-#pragma UNROLL(1)
-    for (; sb_sdata[i][n]; n++) s[n] = sb_sdata[i][n];
-    s[n] = 0;
-    return n;
+    (void)v;
+    s[0] = 'D'; s[1] = 'a'; s[2] = 't'; s[3] = 'a'; s[4] = 0;
+    return 4;
 }
-
-#pragma CODE_SECTION(GetString_SbData1, ".text")
-int GetString_SbData1(unsigned int v, char *s) { (void)v; return sb_dstr(0u, s); }
-#pragma CODE_SECTION(GetString_SbData2, ".text")
-int GetString_SbData2(unsigned int v, char *s) { (void)v; return sb_dstr(1u, s); }
-#pragma CODE_SECTION(GetString_SbData3, ".text")
-int GetString_SbData3(unsigned int v, char *s) { (void)v; return sb_dstr(2u, s); }

@@ -15,7 +15,7 @@ The knobs are a small menu, one page per LFO:
 |---|---|---|---|
 | 1 | LFO1: picks the row | first value of the row | second value of the row |
 | 2 | LFO2: picks the row | first value of the row | second value of the row |
-| 3 | Data1 (knob 7) | Data2 (knob 8) | Data3 (knob 9) |
+| 3 | Data (knob 7) | Data (knob 8) | Data (knob 9) |
 
 Turning knob 1 (or 4) steps through four rows; knobs 2-3 (or 5-6) then show
 and set that row's two values:
@@ -42,8 +42,8 @@ The shapes (one cycle at the Rate's speed):
 | Sqr | Half a cycle at High, half at Low |
 | S&H | A random value between Low and High, held for one cycle, then a new one |
 
-- **Page 3 (Data1..Data3) holds the menu's saved values.** The screen says
-  "DON'T TURN THESE"; a turn is undone.
+- **Page 3 (Data) holds the menu's saved values.** Its knobs show "Data";
+  a turn is undone.
 - **Both LFOs start Off** (Slot Off) when AutoKnob 2 is added to a patch.
 - **The sweep runs between Low and High,** whatever the target knob is
   set to.

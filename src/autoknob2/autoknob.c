@@ -989,7 +989,6 @@ static const char ak_waves[AK_NWAVES][8] = { "Sine", "Tri", "Saw", "Ramp", "Sqr"
 static const char ak_sdash[] = "---";
 static const char ak_soff[] = "Off";
 static const char ak_son[] = "On";
-static const char ak_sstore[3][8] = { "DON'T", "TURN", "THESE" };
 
 static const uint32_t ak_p10[3] = { 100u, 10u, 1u };
 
@@ -1095,31 +1094,12 @@ int GetString_AkRow4(unsigned int v, char *s)
     return n;
 }
 
-/* Storage knobs 7-9 (names Data1..Data3): DON'T / TURN / THESE (each knob
- * needs its own body). */
-#pragma CODE_SECTION(GetString_AkStore7, ".text")
-int GetString_AkStore7(unsigned int v, char *s)
+/* Storage knobs 7-9: names and texts "Data" (one shared body; byte stores,
+ * no table). */
+#pragma CODE_SECTION(GetString_AkData, ".text")
+int GetString_AkData(unsigned int v, char *s)
 {
-    int n = ak_str(ak_sstore[0], s);
     (void)v;
-    s[n] = 0;
-    return n;
-}
-
-#pragma CODE_SECTION(GetString_AkStore8, ".text")
-int GetString_AkStore8(unsigned int v, char *s)
-{
-    int n = ak_str(ak_sstore[1], s);
-    (void)v;
-    s[n] = 0;
-    return n;
-}
-
-#pragma CODE_SECTION(GetString_AkStore9, ".text")
-int GetString_AkStore9(unsigned int v, char *s)
-{
-    int n = ak_str(ak_sstore[2], s);
-    (void)v;
-    s[n] = 0;
-    return n;
+    s[0] = 'D'; s[1] = 'a'; s[2] = 't'; s[3] = 'a'; s[4] = 0;
+    return 4;
 }

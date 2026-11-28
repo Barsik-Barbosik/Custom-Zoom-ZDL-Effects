@@ -108,8 +108,7 @@
  * (plus the own voices, see above).
  *
  * Knobs 4-9 are storage (the first part of the saved chain, 8+8+8+8+27+8
- * bits): names Data1..Data6, texts DON'T / TURN / THESE (on both knob
- * pages), locked as
+ * bits): names and texts "Data", locked as
  * SndBank's: a turn is undone by the edit handler (Mb_LockEdit) from a
  * shadow; a record value that differs from the shadow and was the same at
  * the previous look (MB_LOOK calls apart) is another writer's (zmenu) and
@@ -1452,28 +1451,15 @@ int GetString_MbP8(unsigned int v, char *s) { (void)v; return mb_dtext(4u, s); }
 int GetString_MbP9(unsigned int v, char *s) { (void)v; return mb_dtext(5u, s); }
 #endif
 
-/* Storage knobs 4-9 (names Data1..Data6; the values are stored data):
- * DON'T / TURN / THESE on knobs 4-6 and again on 7-9 (one body per text:
- * the value doesn't say which knob). */
-static const char mb_sdata[3][6] = { "DON'T", "TURN", "THESE" };
-
-#pragma CODE_SECTION(mb_dstr, ".text")
-#pragma FUNC_CANNOT_INLINE(mb_dstr)
-static int mb_dstr(uint32_t i, char *s)
+/* Storage knobs 4-9 (the values are stored data): names and texts "Data".
+ * Byte stores, no table (no .rela.dyn entry). */
+#pragma CODE_SECTION(GetString_MbData, ".text")
+int GetString_MbData(unsigned int v, char *s)
 {
-    int n = 0;
-#pragma UNROLL(1)
-    for (; mb_sdata[i][n]; n++) s[n] = mb_sdata[i][n];
-    s[n] = 0;
-    return n;
+    (void)v;
+    s[0] = 'D'; s[1] = 'a'; s[2] = 't'; s[3] = 'a'; s[4] = 0;
+    return 4;
 }
-
-#pragma CODE_SECTION(GetString_MbData1, ".text")
-int GetString_MbData1(unsigned int v, char *s) { (void)v; return mb_dstr(0u, s); }
-#pragma CODE_SECTION(GetString_MbData2, ".text")
-int GetString_MbData2(unsigned int v, char *s) { (void)v; return mb_dstr(1u, s); }
-#pragma CODE_SECTION(GetString_MbData3, ".text")
-int GetString_MbData3(unsigned int v, char *s) { (void)v; return mb_dstr(2u, s); }
 
 typedef void (*MbWrite)(float *dst, float v, float k);
 

@@ -16,8 +16,8 @@ in the chain that sends on them.
   new volume plays at once, a new sound from the next note.
 - **No knobs to play with.** The knobs hold MelodyBox's saved melody
   (after MelodyBox's own knobs) and the two tracks' sounds and volumes, and are
-  locked: a turn springs back. They are named Data1 … Data9 and show
-  `DON'T` `TOUCH` `THESE` on each page.
+  locked: a turn springs back. Each is named `Data` and shows
+  `Data`.
 - **Sound list:** SndBank publishes its sounds' names and its channels as
   an [info block](../common/fxinfo/README.md); MelodyBox shows these names
   in SOUND1 / SOUND2.

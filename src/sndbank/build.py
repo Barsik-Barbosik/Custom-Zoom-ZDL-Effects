@@ -53,11 +53,11 @@ def make_screen() -> bytes:
 def build(out_zdl: Path) -> None:
     from linker import LinkerConfig, link, params_from_manifest  # noqa: E402
 
-    # names Data1..Data9, texts "DON'T TOUCH THESE" on each page
-    params = [{"name": f"Data{k + 1}", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
+    # names and texts "Data" (one shared getstr)
+    params = [{"name": "Data", "type": "knob", "max": (1 << w) - 1, "default": 0, "store": True,
                "scale": "enum", "audio_min": 0.0, "audio_max": 100.0, "audio_default": 0.0,
-               "edit": "Sb_LockEdit", "getstr": f"GetString_SbData{k % 3 + 1}"}
-              for k, w in enumerate(FLOPPY_MAXES)]
+               "edit": "Sb_LockEdit", "getstr": "GetString_SbData"}
+              for w in FLOPPY_MAXES]
     obj = HERE / "sndbank.obj"
     compile_c(HERE / "sndbank.c", obj, include=[ZMENU, NOTEBUS, MIDIBUS, FXINFO, SONGBOX], space=SPACE)
     link(LinkerConfig(

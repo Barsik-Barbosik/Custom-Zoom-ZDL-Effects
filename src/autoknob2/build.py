@@ -129,11 +129,11 @@ def build(out_zdl: Path, probe: bool) -> None:
         sel("LFO2", 4, 8, "GetString_AkRow4"),
         val("Slot", 5, "GetString_AkVal5"),
         val("Knob", 6, "GetString_AkVal6"),
-        # page 3: locked storage (8, 27, 8-bit patch fields); texts
-        # "DON'T TURN THESE"
-        sel("Data1", 7, 8, "GetString_AkStore7"),
-        sel("Data2", 8, 27, "GetString_AkStore8"),
-        sel("Data3", 9, 8, "GetString_AkStore9"),
+        # page 3: locked storage (8, 27, 8-bit patch fields); names and
+        # texts "Data" (one shared getstr)
+        sel("Data", 7, 8, "GetString_AkData"),
+        sel("Data", 8, 27, "GetString_AkData"),
+        sel("Data", 9, 8, "GetString_AkData"),
     ]
     obj = HERE / "autoknob.obj"
     compile_c(HERE / "autoknob.c", obj, defines=["AK_PROBE"] if probe else [])
