@@ -18,8 +18,8 @@ This page is the contract: the block layout and the rules below.
 | | |
 |---|---|
 | Version | 1 |
-| Tested | not yet on a pedal |
-| Used by | SndBank (publishes its sounds and channels) and MelodyBox (shows SndBank's sound names), both in development |
+| Tested | B1Xon 1.30 (G1on family): SndBank's list shown by MelodyBox, delete / move of SndBank |
+| Used by | SndBank (publishes its sounds and channels) and MelodyBox (shows the sound names; sends a track over midibus only while a live block says its channel is played, else plays it itself), both in development |
 
 ## Where the block is
 
@@ -60,7 +60,7 @@ padded to 4 bytes at the item's end. Readers skip types they don't know.
 |---|---|---|
 | 0 | end | ends the record early |
 | 1 | sounds | width 4, one per sound in program order (sound 0, 1, ..): byte 0 kind (0 melodic, 1 drum kit), bytes 1-3 the name (ASCII 0x20-0x7E, NUL padded) |
-| 2 | channels | count 1, width 4: bit c = MIDI channel c + 1 is played |
+| 2 | channels | count 1, width 4: bit c = MIDI channel c + 1 is played. A block without it plays no channel |
 
 Planned: the names of a drum kit's notes (a sequencer shows them instead of
 note names).

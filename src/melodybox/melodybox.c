@@ -64,13 +64,15 @@
  * a 16th or an 8th at the TEMPO setting: Pedal = the pedal tempo (the
  * firmware's global BPM, 120 if unknown). A note goes as a note on (pitch
  * p = MIDI MB_BASE + p, velocity MB_VEL) over the MIDI bus (midibus.h) to
- * the sound source SndBank (MB_SYN_ID) in the chain, track 1 on MIDI
+ * a sound source in the chain (SndBank), track 1 on MIDI
  * channel 1, track 2 on channel 2 (one voice each; a new note's note on
  * follows the held note's note off), a note off at MB_GATE of its last
  * step (holds after it make it longer); a rest is silent. The port block
  * is the arena's last MB_PORT bytes (the state lies below it); it is kept
- * up every call while the own slot's record is ours. SndBank's slot is
- * looked for at every step start (no SndBank: the own voices); footswitch
+ * up every call while the own slot's record is ours. A track goes to the
+ * bus while a live info block in the chain (fxinfo.h, polled with the
+ * sound list) says its channel is played, else to its own voice (taken at
+ * every step start); footswitch
  * off: note offs, stop. A patch's first load starts the
  * loop again at step 1 (it may start playing before the melody is loaded).
  * A DrumBox in the chain (known firmware, no SongBox leading) plays its own
@@ -84,8 +86,8 @@
  * used (footswitch off mutes). SongBox drives DrumBox then; with an empty
  * song we lead, as without SongBox.
  *
- * Own voices: with no SndBank in the chain (or an unknown firmware) each
- * track plays on one of MelodyBox's own simple voices (the notebus probe's:
+ * Own voices: with no sound source playing its channel (or an unknown
+ * firmware) a track plays on one of MelodyBox's own simple voices (the notebus probe's:
  * a sawtooth through a one-pole low-pass, fast attack, slow fall while
  * held, short release), added to both ctx[5] channels; of the SOUND
  * settings only the level is used (taken at a note on).
@@ -135,10 +137,10 @@
 #pragma CODE_SECTION(Fx_SFX_MeloBox, ".audio")
 
 #ifdef MB_SELFTEST
-#define MB_MAGIC  0x4D425442u           /* "MBTB": the self-test build's layout */
+#define MB_MAGIC  0x4D425443u           /* "MBTC": the self-test build's layout */
 #define MB_TUNITS 1u                    /* self-test: packer units per call */
 #else
-#define MB_MAGIC  0x4D425848u           /* "MBXH"; new value on any state layout change */
+#define MB_MAGIC  0x4D425849u           /* "MBXI"; new value on any state layout change */
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
 #define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRK1 / TRK2 */
@@ -161,7 +163,7 @@
                     : MB_MAXSND * MB_LEVELS - 1u)
 #define MB_MAXSND 12u                   /* sounds used of a sound list (a sound value is a byte) */
 #define MB_SV(st) ((st)->ov[MB_O_SND] | (st)->ov[MB_O_SND + 1u] << 8)  /* SndBank's voice settings (notebus.h) */
-#define MB_SYN_ID ((7u << 24) | 531u)   /* sound source: SndBank (SFX 531) */
+#define MB_SYN_ID ((7u << 24) | 531u)   /* SndBank (SFX 531): storage part 1 (playback finds sources by fxinfo) */
 #define MB_FXID   519u                  /* own effect id (mirrors FXID in build.py) */
 #define MB_DB_ID  ((7u << 24) | 520u)   /* DrumBox (SFX 520): follows the playback */
 #define MB_SB_ID  ((7u << 24) | 521u)   /* SongBox (SFX 521): drives DrumBox itself */
@@ -217,13 +219,14 @@ typedef struct {
     uint8_t  grid[MB_NTRK][MB_MAXN];    /* step values per track: 0 rest, 1 hold, 2 + pitch */
     uint32_t play, step, len;           /* playing, step 0.., loop length in steps */
     float    ph;                        /* position in the step, 0..1 */
-    uint32_t fw, slot;                  /* zm_fw_ok() and the sound source's slot, at the step start */
+    uint32_t fw, bch;                   /* at the step start: zm_fw_ok(), channels a sound source plays (srcch) */
     uint32_t mnote[MB_NTRK], on[MB_NTRK];   /* per track: MIDI note sent last, a note is on */
     uint32_t vph[MB_NTRK], vinc[MB_NTRK], vgate[MB_NTRK];  /* own voice per track: phase, step per sample, note held */
     float    venv[MB_NTRK], vtgt[MB_NTRK], vlp[MB_NTRK];   /* own voice per track: level, its target, low-pass */
     float    vgn[MB_NTRK];              /* own voice per track: gain (SOUND's level, at the note on) */
     uint32_t src;                       /* sounds in the sound list (fxinfo), 0 = none: SOUND shows the own voice */
     uint32_t snm[MB_MAXSND];            /* the list's entries: kind, then up to 3 name characters (NUL padded) */
+    uint32_t srcch;                     /* channels played by live sound sources (fxinfo channels items, polled) */
     uint32_t fihb[MB_NSLOT];            /* per slot: the info block's heartbeat at the previous poll */
     uint32_t lk, lfw, lslot, lwait, lok;    /* lock: calls to the next look, its fw, slot, looks waited, shadow valid */
     uint32_t sh[MB_NS], pend[MB_NS];    /* lock: shadow (storage knobs' record values), values at the last look */
@@ -331,9 +334,10 @@ static uint32_t mb_o3(const volatile MbState *st, uint32_t o, uint32_t max)
     return o >= MB_O_SND ? st->src * MB_LEVELS - 1u : MB_OMAX(o);
 }
 
-/* Send one note event (note 0 = off) of track t: with a sound source found
- * at the step start over the MIDI bus on channel t + 1 (the held note's
- * note off first, then the new note on), else to the track's own voice.
+/* Send one note event (note 0 = off) of track t: while a sound source
+ * plays channel t + 1 (st->bch, taken at the step start) over the MIDI bus
+ * on that channel (the held note's note off first, then the new note on),
+ * else to the track's own voice.
  * st->on[t]: a note is held (the caller's). Out of line: called at note
  * events only, from five places (inlined, each copy cost ~140 B). */
 #pragma FUNC_CANNOT_INLINE(mb_send)
@@ -342,7 +346,7 @@ static void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
 {
     MbOut *mo;
     uint32_t cnt, oct;
-    if (!st->fw || st->slot == MB_NOSLOT) {
+    if (!(st->bch >> t & 1u)) {
         if (note) {                     /* the track's own voice */
             cnt = mb_lvl(st->ov[MB_O_SND + t]);
             st->vgn[t] = (float)cnt * (0.1f * MB_V_GAIN);
@@ -354,8 +358,8 @@ static void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
             st->vgate[t] = 0u;
         return;
     }
-    /* the bus: only into the own port, so no check of SndBank's slot (a
-     * removed SndBank just stops listening; the next step start finds out) */
+    /* the bus: only into the own port (a removed sound source just stops
+     * listening; a poll and the next step start find out) */
     if (!st->bus) return;               /* the own slot is being replaced */
     mo = (MbOut *)&st->out;             /* a plain local pointer: keeps midibus inlined */
     if (st->on[t]) mb_out_msg(mo, 0x80u | t, st->mnote[t], 64u);
@@ -624,20 +628,26 @@ static void mb_done(volatile MbState *st, const ZmFw *t, uint32_t me)
     st->pk = 0u;
 }
 
-/* The sound list (fxinfo.h): the first other slot whose info block is
- * live (its heartbeat moved since the previous poll) and has a sounds item
- * -> st->src, st->snm (none: src 0). A change while MENU shows a SOUND:
- * knob 3 jumps to its value (its range changed) and the screen is redrawn. */
+/* The sound sources (fxinfo.h), from the other slots' live info blocks
+ * (heartbeat moved since the previous poll): the channels their channels
+ * items say they play -> st->srcch; the first sounds item -> st->src,
+ * st->snm (none: src 0). A list change while MENU shows a SOUND: knob 3
+ * jumps to its value (its range changed) and the screen is redrawn. */
 MB_COLD(mb_slist)
 static void mb_slist(volatile MbState *st, uint32_t d3, uint32_t ns, uint32_t me)
 {
-    uint32_t s, a, p, w, hb, n = 0u, i, e, chg = 0u;
+    uint32_t s, a, p, w, hb, n = 0u, i, e, chg = 0u, ch = 0u;
 #pragma UNROLL(1)
     for (s = 0u; s < ns && s < MB_NSLOT; s++) {
         a = s == me ? 0u : fi_at_slot(d3, me, s);
         hb = a ? ((const volatile FiHdr *)(uintptr_t)a)->hb : st->fihb[s];
-        p = a && hb != st->fihb[s] && !n ? fi_item(a, FI_SOUNDS) : 0u;
+        e = a && hb != st->fihb[s];     /* live */
         st->fihb[s] = hb;
+        if (!e) continue;
+        p = fi_item(a, FI_CHANNELS);
+        if (p && (*(const volatile uint32_t *)(uintptr_t)p & 0xFFFF00u) == 0x40100u)    /* count 1, width 4 */
+            ch |= *(const volatile uint32_t *)(uintptr_t)(p + 4u);
+        p = n ? 0u : fi_item(a, FI_SOUNDS);
         if (!p) continue;
         w = *(const volatile uint32_t *)(uintptr_t)p;
         n = w >> 8 & 255u;
@@ -650,6 +660,7 @@ static void mb_slist(volatile MbState *st, uint32_t d3, uint32_t ns, uint32_t me
             st->snm[i] = e;
         }
     }
+    st->srcch = ch;
     if (n != st->src) chg = 1u;
     st->src = n;
     if (chg && !st->mode && st->opt >= MB_O_SND) {
@@ -833,7 +844,6 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         st->edit = r2;
         st->k3 = r3;
         st->len = 16u;
-        st->slot = MB_NOSLOT;
         st->lslot = (uint32_t)ctx[0];
 #ifndef MB_SELFTEST
         st->psig = 0xFFFFFFFFu;
@@ -1198,19 +1208,12 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
                     st->on[t] = 0u;
                 }
         }
-        if (st->play && start) {        /* step start: the sound source */
+        if (st->play && start) {        /* step start: the tracks a sound source plays */
             st->fw = x = zm_fw_ok();
-            st->slot = MB_NOSLOT;
-            if (x && own) {
+            st->bch = x && own ? st->srcch : 0u;
 #pragma UNROLL(1)
-                for (s = 0u; s < zm_fws[x - 1u].slots; s++)
-                    if (s != (uint32_t)ctx[0] && ZM_U32(zm_fws[x - 1u].rec + 44u * s + 4u) == MB_SYN_ID) {
-                        st->slot = s;
-                        break;
-                    }
-            }
-            if (st->slot != MB_NOSLOT)  /* SndBank plays: the own voices stop */
-                st->vgate[0] = st->vgate[1] = 0u;
+            for (t = 0u; t < MB_NTRK; t++)
+                if (st->bch >> t & 1u) st->vgate[t] = 0u;   /* played on the bus: its own voice stops */
             /* DrumBox: our position, a flip at each quarter (4 16ths, 2 8ths) */
             MB_DRUMS(!((st->ov[MB_O_GRID] ? st->step << 1 : st->step) & 3u));
             if (!(st->step & 11u) && st->mode) {    /* step 0 or 4 of 16: knob 3's text (position / SCRLL) */
