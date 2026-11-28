@@ -22,8 +22,9 @@
  * value), LENGTH 16 / 32 / 64 / 128 steps and GRID 1/16 or 1/8 (a step's
  * length in playback) for both tracks, SOUND1 / SOUND2 the sound source's
  * sound and its level for track 1 / 2 (value = sound * 20 + level, as
- * SongBox's Bass / Keys knobs; text "EP:70": sound PB .. Pk, level x 5,
- * 00 = silent, 50 = x1, default PB:50). Back on a track, knobs 2 and 3 jump
+ * SongBox's Bass / Keys knobs; text "EP:70": the sound's name from the
+ * sound list (see "Sound names" below), level x 5, 00 = silent, 50 = x1,
+ * default sound 0 at 50). Back on a track, knobs 2 and 3 jump
  * back to the step and its value.
  *
  * Saving (as SongBox's): the steps and settings are saved in the patch
@@ -89,6 +90,12 @@
  * held, short release), added to both ctx[5] channels; of the SOUND
  * settings only the level is used (taken at a note on).
  *
+ * Sound names: SOUND1 / SOUND2 show the sound list of the first other
+ * effect that publishes one (src/common/fxinfo/fxinfo.h; SndBank does),
+ * read at every storage poll; knob 3's range follows its length. With no
+ * list they show "Sw" (the own voice) and knob 3 sets only the level (the
+ * sound part stays for when the list is back).
+ *
  * The names are the descriptor entries of knobs 1-3, rewritten by the audio
  * callback every call (the OS may restore them). When a name changed, the
  * screen is redrawn (3 Event_post calls, ZM_POST_GAP calls apart, only while
@@ -118,6 +125,7 @@
 #include "zmenu.h"
 #include "notebus.h"
 #include "midibus.h"
+#include "fxinfo.h"
 #include "melopack.h"
 #include <c6x.h>                        /* TSCL */
 #ifdef MB_SELFTEST
@@ -127,10 +135,10 @@
 #pragma CODE_SECTION(Fx_SFX_MeloBox, ".audio")
 
 #ifdef MB_SELFTEST
-#define MB_MAGIC  0x4D425439u           /* "MBT9": the self-test build's layout */
+#define MB_MAGIC  0x4D425442u           /* "MBTB": the self-test build's layout */
 #define MB_TUNITS 1u                    /* self-test: packer units per call */
 #else
-#define MB_MAGIC  0x4D425846u           /* "MBXF"; new value on any state layout change */
+#define MB_MAGIC  0x4D425848u           /* "MBXH"; new value on any state layout change */
 #endif
 #define MB_NKNOB  3u                    /* knobs showing items */
 #define MB_MODE   0u                    /* knob 1 (0-based): MENU / TRK1 / TRK2 */
@@ -150,8 +158,8 @@
 #define MB_LEVELS NB_LEVELS             /* sound value = sound * MB_LEVELS + level (as SongBox's Bass) */
 #define MB_SND_DEF NB_SV_DEF            /* PB at level 10 (shown 50, x1) */
 #define MB_OMAX(o) ((o) == MB_O_TEMPO ? MP_TEMPO_MAX : (o) == MB_O_LEN ? 3u : (o) == MB_O_GRID ? 1u \
-                    : MB_NSND * MB_LEVELS - 1u)
-#define MB_NSND   9u                    /* SndBank's sounds (PB, Tr, OJ .. Pk) */
+                    : MB_MAXSND * MB_LEVELS - 1u)
+#define MB_MAXSND 12u                   /* sounds used of a sound list (a sound value is a byte) */
 #define MB_SV(st) ((st)->ov[MB_O_SND] | (st)->ov[MB_O_SND + 1u] << 8)  /* SndBank's voice settings (notebus.h) */
 #define MB_SYN_ID ((7u << 24) | 531u)   /* sound source: SndBank (SFX 531) */
 #define MB_FXID   519u                  /* own effect id (mirrors FXID in build.py) */
@@ -185,7 +193,7 @@
 #define MB_V_FALL 0.9998f               /* held note: tgt *= MB_V_FALL per call (~0.9 s) */
 #define MB_V_REL  0.97f                 /* note off: env *= MB_V_REL per call (~6 ms) */
 #define MB_V_LP   0.25f                 /* low-pass: lp += (saw - lp) MB_V_LP (~1.7 kHz) */
-#define MB_V_GAIN 0.4f                  /* at level 10 (x1) */
+#define MB_V_GAIN 0.06f                 /* at level 10 (x1): SndBank's PB part level (244 / 4096) */
 #define MB_POLL     256u                /* calls between storage polls (~46 ms) */
 #define MB_PK_WAIT  2048u               /* calls after the last edit before packing (~0.37 s) */
 #define MB_PK_CYC   1000u               /* packer TSCL cycles per call (at least one unit) */
@@ -214,6 +222,9 @@ typedef struct {
     uint32_t vph[MB_NTRK], vinc[MB_NTRK], vgate[MB_NTRK];  /* own voice per track: phase, step per sample, note held */
     float    venv[MB_NTRK], vtgt[MB_NTRK], vlp[MB_NTRK];   /* own voice per track: level, its target, low-pass */
     float    vgn[MB_NTRK];              /* own voice per track: gain (SOUND's level, at the note on) */
+    uint32_t src;                       /* sounds in the sound list (fxinfo), 0 = none: SOUND shows the own voice */
+    uint32_t snm[MB_MAXSND];            /* the list's entries: kind, then up to 3 name characters (NUL padded) */
+    uint32_t fihb[MB_NSLOT];            /* per slot: the info block's heartbeat at the previous poll */
     uint32_t lk, lfw, lslot, lwait, lok;    /* lock: calls to the next look, its fw, slot, looks waited, shadow valid */
     uint32_t sh[MB_NS], pend[MB_NS];    /* lock: shadow (storage knobs' record values), values at the last look */
 #ifndef MB_SELFTEST
@@ -268,23 +279,23 @@ static const char mb_letter[13] = ".CCDDEFFGGAAB";
 #define MB_S_PEDAL  9u                  /* TEMPO 0 (the others: the BPM digits) */
 #define MB_S_LEN    10u                 /* 16 .. 128 */
 #define MB_S_GRID   14u                 /* 1/16, 1/8 */
-#define MB_S_SND    16u                 /* PB .. Pk (SndBank's sound order) */
-#define MB_S_Q      25u                 /* 3 words per option */
-#define MB_S_FULL   40u                 /* FULL: an edit refused */
-#define MB_VBASE(o) ((o) == MB_O_LEN ? MB_S_LEN : (o) == MB_O_GRID ? MB_S_GRID : MB_S_SND)
+#define MB_S_Q      16u                 /* 3 words per option */
+#define MB_S_FULL   31u                 /* FULL: an edit refused */
+#define MB_S_SAW    32u                 /* SOUND without a sound list: the own voice */
+#define MB_VBASE(o) ((o) == MB_O_LEN ? MB_S_LEN : MB_S_GRID)
 static const char mb_strs[] =
     "MENU \0" "TRK1\0" "TRK2\0" "SCRLL\0"    /* "MENU ": room for a 6-character option beside it (MS) */
     "TEMPO\0" "LENGTH\0" "GRID\0" "SOUND1\0" "SOUND2\0"
     "Pedal\0"
     "16\0" "32\0" "64\0" "128\0"
     "1/16\0" "1/8\0"
-    "PB\0" "Tr\0" "OJ\0" "OR\0" "EP\0" "Mr\0" "Kl\0" "Sy\0" "Pk\0"
     "Song\0" "tempo\0" "is:\0"          /* TEMPO */
     "Steps\0" "in\0" "song:\0"          /* LENGTH */
     "Step\0" "grid\0" "is:\0"           /* GRID */
     "Trk1\0" "sound\0" "is:\0"          /* SOUND1 */
     "Trk2\0" "sound\0" "is:\0"          /* SOUND2 */
-    "FULL\0";
+    "FULL\0"
+    "Sw\0";
 
 /* String i of the pool. */
 #pragma FUNC_ALWAYS_INLINE(mb_str)
@@ -296,6 +307,28 @@ static inline const char *mb_str(uint32_t i)
         if (*p++ == 0) i--;
     }
     return p;
+}
+
+/* A sound value's level (value mod MB_LEVELS). */
+#pragma FUNC_ALWAYS_INLINE(mb_lvl)
+static inline uint32_t mb_lvl(uint32_t v)
+{
+    return v - MB_LEVELS * ((v * 205u) >> 12);  /* v / 20, exact below 1024 */
+}
+
+/* SOUND1 / SOUND2 with no sound list: one sound, the own voice ("Sw");
+ * knob 3 sets only the level, the sound part is kept for the list. */
+#define MB_OWNSND(st, o) ((o) >= MB_O_SND && !(st)->src)
+
+/* MENU option o: knob 3's value (max 0) or its max (max 1). Out of line:
+ * four calls from the knob code. */
+#pragma FUNC_CANNOT_INLINE(mb_o3)
+#pragma CODE_SECTION(mb_o3, ".text")
+static uint32_t mb_o3(const volatile MbState *st, uint32_t o, uint32_t max)
+{
+    if (MB_OWNSND(st, o)) return max ? MB_LEVELS - 1u : mb_lvl(st->ov[o]);
+    if (!max) return st->ov[o];
+    return o >= MB_O_SND ? st->src * MB_LEVELS - 1u : MB_OMAX(o);
 }
 
 /* Send one note event (note 0 = off) of track t: with a sound source found
@@ -311,8 +344,7 @@ static void mb_send(volatile MbState *st, uint32_t t, uint32_t note)
     uint32_t cnt, oct;
     if (!st->fw || st->slot == MB_NOSLOT) {
         if (note) {                     /* the track's own voice */
-            cnt = st->ov[MB_O_SND + t];
-            cnt -= MB_LEVELS * ((cnt * 205u) >> 12);    /* the level: value mod 20 */
+            cnt = mb_lvl(st->ov[MB_O_SND + t]);
             st->vgn[t] = (float)cnt * (0.1f * MB_V_GAIN);
             oct = (note * 43u) >> 9;    /* note / 12, exact below 128 */
             st->vinc[t] = mb_inc[note - 12u * oct] << oct;
@@ -592,10 +624,45 @@ static void mb_done(volatile MbState *st, const ZmFw *t, uint32_t me)
     st->pk = 0u;
 }
 
+/* The sound list (fxinfo.h): the first other slot whose info block is
+ * live (its heartbeat moved since the previous poll) and has a sounds item
+ * -> st->src, st->snm (none: src 0). A change while MENU shows a SOUND:
+ * knob 3 jumps to its value (its range changed) and the screen is redrawn. */
+MB_COLD(mb_slist)
+static void mb_slist(volatile MbState *st, uint32_t d3, uint32_t ns, uint32_t me)
+{
+    uint32_t s, a, p, w, hb, n = 0u, i, e, chg = 0u;
+#pragma UNROLL(1)
+    for (s = 0u; s < ns && s < MB_NSLOT; s++) {
+        a = s == me ? 0u : fi_at_slot(d3, me, s);
+        hb = a ? ((const volatile FiHdr *)(uintptr_t)a)->hb : st->fihb[s];
+        p = a && hb != st->fihb[s] && !n ? fi_item(a, FI_SOUNDS) : 0u;
+        st->fihb[s] = hb;
+        if (!p) continue;
+        w = *(const volatile uint32_t *)(uintptr_t)p;
+        n = w >> 8 & 255u;
+        if (n > MB_MAXSND) n = MB_MAXSND;
+#pragma UNROLL(1)
+        for (i = 0u; i < n; i++) {      /* 4-byte entries (fxinfo v1): words; mb_text checks the characters */
+            p += 4u;
+            e = *(const volatile uint32_t *)(uintptr_t)p;
+            if (e != st->snm[i]) chg = 1u;
+            st->snm[i] = e;
+        }
+    }
+    if (n != st->src) chg = 1u;
+    st->src = n;
+    if (chg && !st->mode && st->opt >= MB_O_SND) {
+        st->mode = 3u;
+        st->posts = ZM_POSTS;
+        st->postWait = 0u;
+    }
+}
+
 /* Storage, every call (known firmware, own slot in range): polls, loads,
- * the packer, saves. */
+ * the packer, saves; the sound list at each poll. */
 MB_COLD(mb_store)
-static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
+static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me, uint32_t d3)
 {
     uint32_t t0 = TSCL, i, x, same, patch;
     if (t0 - st->last > MB_AWAY_CYC) st->sv = 0u;   /* away (ctx[3] may have been lent out): load again */
@@ -603,6 +670,7 @@ static void mb_store(volatile MbState *st, const ZmFw *t, uint32_t me)
     if (++st->tick >= MB_POLL) {
         st->tick = 0u;
         patch = ZM_U32(t->patch);
+        mb_slist(st, d3, t->slots, me);
         mb_chain(st, t, me, st->sv && patch == st->cpatch && !st->settle);  /* markers: loaded, settled */
         if (st->sbout) {                /* our SndBank out of range: the stored melody can't be read whole */
             st->sv = 0u;                /* no load, no saves (the RAM melody plays on) until it is back */
@@ -826,7 +894,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
 #ifndef MB_SELFTEST
     /* storage: load, save (a load or a refusal sets the grids, LENGTH and
      * mode 3: the knobs jump below) */
-    if (own) mb_store(st, &zm_fws[fw - 1u], (uint32_t)ctx[0]);
+    if (own) mb_store(st, &zm_fws[fw - 1u], (uint32_t)ctx[0], (uint32_t)ctx[3]);
     if (st->full) st->full--;
     /* DrumBox: stopped every call until loaded (after a patch change the OS
      * fills the rows from the records a few calls late), while stopped at
@@ -897,7 +965,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
         st->mode = mode;
         if (!mode) {
             v2 = st->opt;
-            v3 = st->ov[st->opt];
+            v3 = mb_o3(st, st->opt, 0u);
         } else {
             v2 = st->grid[mode - 1u][st->off];
             v3 = st->off;
@@ -911,14 +979,16 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
             /* MENU: another option; knob 3 jumps to its value */
             st->edit = r2;
             st->opt = r2 >= MB_NOPT ? MB_NOPT - 1u : r2;
-            x = st->ov[st->opt];
+            x = mb_o3(st, st->opt, 0u);
             MB_JUMP(MB_SCRLL, x, r3);
             st->k3 = r3;
         } else if (r3 != st->k3) {
             /* MENU: the option's new value */
             st->k3 = r3;
-            x = MB_OMAX(st->opt);
-            st->ov[st->opt] = r3 > x ? x : r3;
+            x = mb_o3(st, st->opt, 1u);
+            if (r3 < x) x = r3;
+            x += st->ov[st->opt] - mb_o3(st, st->opt, 0u);  /* no SndBank: the sound part stays */
+            st->ov[st->opt] = x;
             n = 16u << st->ov[MB_O_LEN];
             if (st->off >= n) st->off = n - 1u;
 #ifndef MB_SELFTEST
@@ -951,7 +1021,7 @@ void Fx_SFX_MeloBox(unsigned int *ctx)
     {
         volatile unsigned int *d = (volatile unsigned int *)ZM_DESC;
         uint32_t m2 = !st->mode ? MB_NOPT - 1u : MB_MAXVAL;
-        uint32_t m3 = !st->mode ? MB_OMAX(st->opt) : n - 1u;
+        uint32_t m3 = !st->mode ? mb_o3(st, st->opt, 1u) : n - 1u;
         if (d[12u * (2u + MB_EDIT) + 3u] != m2) d[12u * (2u + MB_EDIT) + 3u] = m2;
         if (d[12u * (2u + MB_SCRLL) + 3u] != m3) d[12u * (2u + MB_SCRLL) + 3u] = m3;
     }
@@ -1240,7 +1310,7 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
     const volatile MbState *st = mb_g;
     const volatile unsigned char *nm = (const volatile unsigned char *)&ZM_DESC[12u * 3u];
     const char *p;
-    uint32_t menu = st && st->mode == 0u, o, lv = MB_LEVELS;
+    uint32_t menu = st && st->mode == 0u, o, x, lv = MB_LEVELS;
     int n = 0;
     if (k == MB_MODE) p = mb_str(MB_S_MODE + (v < 2u ? v : 2u));
     else if (k == MB_EDIT && menu) p = mb_str(MB_S_OPT + (v < MB_NOPT ? v : MB_NOPT - 1u));
@@ -1258,7 +1328,8 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
         return n;
     } else if (menu) {
         o = st->opt < MB_NOPT ? st->opt : MB_NOPT - 1u;
-        if (v > MB_OMAX(o)) v = MB_OMAX(o);
+        x = mb_o3(st, o, 1u);
+        if (v > x) v = x;
         if (o == MB_O_TEMPO && v) {     /* the BPM, 40..250 */
             v += 39u;
             if (v >= 100u) {
@@ -1272,12 +1343,17 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
             s[n] = 0;
             return n;
         }
-        if (o >= MB_O_SND) {            /* sound value: sound, level */
+        if (MB_OWNSND(st, o)) {         /* no sound list: the own voice, knob 3 = the level */
             lv = v;
-            v = (v * 205u) >> 12;       /* v / 20, exact below 1024 */
-            lv -= MB_LEVELS * v;
-        }
-        p = o == MB_O_TEMPO ? mb_str(MB_S_PEDAL) : mb_str(MB_VBASE(o) + v);
+            p = mb_str(MB_S_SAW);
+        } else if (o >= MB_O_SND) {     /* sound value: the list's name, level */
+            lv = mb_lvl(v);
+            x = st->snm[(v * 205u) >> 12] >> 8; /* v / 20, exact below 1024 */
+#pragma UNROLL(1)
+            for (; (x & 255u) >= 0x20u && (x & 255u) <= 0x7Eu; x >>= 8) s[n++] = (char)x;
+            p = 0;
+        } else
+            p = o == MB_O_TEMPO ? mb_str(MB_S_PEDAL) : mb_str(MB_VBASE(o) + v);
     } else if (st && st->play && !(st->step & 12u)) {
         v = (st->step & ~15u) + 1u;     /* playing, the first 4 steps of each 16: the position, 1 .. 113 */
         s[n++] = 'S';
@@ -1296,7 +1372,7 @@ static int mb_text(uint32_t k, uint32_t v, char *s)
         return n;
     } else p = mb_str(MB_S_SCRLL);
 #pragma UNROLL(1)
-    for (; n < 7 && p[n]; n++) s[n] = p[n];
+    for (; p && n < 7 && p[n]; n++) s[n] = p[n];
     if (lv < MB_LEVELS) {               /* SOUND: ":" + the level x 5, two digits ("EP:70") */
         s[n++] = ':';
         s[n++] = (char)('0' + (lv >> 1));

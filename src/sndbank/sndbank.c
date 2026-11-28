@@ -41,6 +41,10 @@
  * taken SB_LWAIT looks after a fresh state or a slot change (the slot rows
  * load a few calls after a patch change); until then turns pass.
  *
+ * Sound list: published every look as an info block (src/common/fxinfo/
+ * fxinfo.h): the sounds' names in sound order (PB .. Pk) and the played
+ * channels, so MelodyBox shows SndBank's names without a copy of its own.
+ *
  * Knob names Data1..Data9; texts DON'T / TOUCH / THESE on each page.
  */
 
@@ -53,6 +57,7 @@
 #include "zmenu.h"
 #include "notebus.h"
 #include "midibus.h"
+#include "fxinfo.h"
 
 /* rarely run engine code: one copy in .text, called (as SongBox's SS_COLD) */
 #define SB_DO_PRAGMA(x) _Pragma(#x)
@@ -61,7 +66,7 @@
 
 #pragma CODE_SECTION(Fx_SFX_SndBank, ".audio")
 
-#define SB_MAGIC  0x53424E34u           /* "SBN4"; new value on any state layout change */
+#define SB_MAGIC  0x53424E35u           /* "SBN5"; new value on any state layout change */
 #define SB_ID     ((7u << 24) | 531u)  /* own record word (SFX, FXID in build.py) */
 #define SB_WT_STEP 1u                   /* wavetable rows per call (SongBox: SS_WT_STEP 3, ~4,000 cycles, in its
                                          * count-in); 1 keeps the peak low when SndBank moves to another slot
@@ -104,11 +109,25 @@ static const SsConst sb_c = {
     { 7, 11, 0, 1, 2, 3, 4, 5, 6 }      /* bass parts PB, Tr, then chords parts */
 };
 
+/* The info block's record (fxinfo.h): the sounds (names in sound order,
+ * as snd_part), the played channels. */
+#define SB_NREC (3u + SB_NSOUND)
+static const uint32_t sb_info[SB_NREC] = {
+    FI_ITEM(FI_SOUNDS, SB_NSOUND, 4u),
+    FI_ENTRY4(FI_K_MELODIC, 'P', 'B', 0), FI_ENTRY4(FI_K_MELODIC, 'T', 'r', 0),
+    FI_ENTRY4(FI_K_MELODIC, 'O', 'J', 0), FI_ENTRY4(FI_K_MELODIC, 'O', 'R', 0),
+    FI_ENTRY4(FI_K_MELODIC, 'E', 'P', 0), FI_ENTRY4(FI_K_MELODIC, 'M', 'r', 0),
+    FI_ENTRY4(FI_K_MELODIC, 'K', 'l', 0), FI_ENTRY4(FI_K_MELODIC, 'S', 'y', 0),
+    FI_ENTRY4(FI_K_MELODIC, 'P', 'k', 0),
+    FI_ITEM(FI_CHANNELS, 1u, 4u), (1u << SB_NV) - 1u,
+};
+
 #include "instruments/inst_lib.h"
 #include "instruments/engine.c"         /* ss_wt_build, ss_run */
 
-/* State at the ctx[3] arena's end (64-B aligned, the MIDI in state
- * first), magic at both ends; the wavetables right below it (SB_WT_OF). */
+/* State at the ctx[3] arena's end below the info block (fxinfo.h: the
+ * last FI_TOP + FI_AREA bytes; 64-B aligned, the MIDI in state first),
+ * magic at both ends; the wavetables right below it (SB_WT_OF). */
 typedef struct {
     MbIn in;                            /* MIDI in (midibus.h), 256 B */
     uint32_t magic0;
@@ -151,8 +170,8 @@ void Fx_SFX_SndBank(unsigned int *ctx)
     {
         uintptr_t base = (uintptr_t)arena[0];
         uintptr_t end = (uintptr_t)arena[1] & ~(uintptr_t)7u;
-        if (base == 0u || end <= base + sizeof(SbState) + SB_WT_BYTES + 128u) return;
-        st = (SbState *)((end - sizeof(SbState)) & ~(uintptr_t)63u);
+        if (base == 0u || end <= base + sizeof(SbState) + SB_WT_BYTES + FI_TOP + FI_AREA) return;
+        st = (SbState *)((end - FI_TOP - FI_AREA - sizeof(SbState)) & ~(uintptr_t)63u);
     }
     if (st->magic0 != SB_MAGIC || st->magic1 != SB_MAGIC) {
         volatile uint8_t *b = (volatile uint8_t *)st;
@@ -180,6 +199,8 @@ void Fx_SFX_SndBank(unsigned int *ctx)
         st->wait = SB_LOOK;
         fw = zm_fw_ok();
         st->fw = fw;
+        if (!fw || own >= zm_fws[fw - 1u].slots || ZM_U32(zm_fws[fw - 1u].rec + 44u * own + 4u) == SB_ID)
+            fi_publish(ctx, sb_info, SB_NREC);  /* the sound list (not while the slot is being replaced) */
         if (!fw || own >= zm_fws[fw - 1u].slots || own != st->lslot
             || ZM_U32(zm_fws[fw - 1u].rec + 44u * own + 4u) != SB_ID) {
             st->lok = 0u;               /* no rows, moved, or being replaced: wait again */

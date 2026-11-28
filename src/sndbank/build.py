@@ -29,6 +29,7 @@ FXID = 531
 ZMENU = PROJECT / "src" / "common" / "zmenu"
 NOTEBUS = PROJECT / "src" / "common" / "notebus"
 MIDIBUS = PROJECT / "src" / "common" / "midibus"
+FXINFO = PROJECT / "src" / "common" / "fxinfo"
 SONGBOX = PROJECT / "src" / "songbox"                 # songbox_instr.h, instruments/
 SPACE = 3                                               # --opt_for_space, as SongBox (the engine's loops)
 DSP_COST = 24.0                                         # estimate: two SongBox voices (SongBox: 4 voices + player = 52); not measured
@@ -58,7 +59,7 @@ def build(out_zdl: Path) -> None:
                "edit": "Sb_LockEdit", "getstr": f"GetString_SbData{k % 3 + 1}"}
               for k, w in enumerate(FLOPPY_MAXES)]
     obj = HERE / "sndbank.obj"
-    compile_c(HERE / "sndbank.c", obj, include=[ZMENU, NOTEBUS, MIDIBUS, SONGBOX], space=SPACE)
+    compile_c(HERE / "sndbank.c", obj, include=[ZMENU, NOTEBUS, MIDIBUS, FXINFO, SONGBOX], space=SPACE)
     link(LinkerConfig(
         effect_name="SndBank",
         audio_func_name="Fx_SFX_SndBank",

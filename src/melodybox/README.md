@@ -3,8 +3,10 @@
 MelodyBox (`MeloBox`) plays two tracks of notes (for example a melody
 and a bass line) through SndBank (`src/sndbank/`), the sound source, in the
 same patch. Without SndBank, MelodyBox plays both tracks itself with a simple
-built-in voice each (a soft sawtooth synth); of the SOUND settings it then
-uses only the volume. The guitar signal passes through.
+built-in voice each (a soft sawtooth synth, about as loud as SndBank's PB);
+SOUND1 / SOUND2 then show `Sw` and set only its volume (the chosen
+SndBank sound is kept for when SndBank is back). The guitar signal passes
+through.
 
 - **Knob 1** picks the mode: MENU (settings, the first value), TRK1 or
   TRK2 (edit that track's steps).
@@ -31,7 +33,7 @@ uses only the volume. The guitar signal passes through.
   | TEMPO | Song tempo is: | Pedal (default: the pedal's tempo), 40 … 250 BPM (not used while SongBox leads) |
   | LENGTH | Steps in song: | 16 (default), 32, 64, 128 (both tracks) |
   | GRID | Step grid is: | 1/16 (default), 1/8 (both tracks) |
-  | SOUND1 | Trk1 sound is: | SndBank's sound and its volume, shown as `EP:70`: sounds PB (default), Tr, OJ (jazz organ), OR (rock organ), EP, Mr (marimba), Kl (kalimba), Sy (synth), Pk (pluck), each at volume 00 (silent) … 95, 50 = normal (default) |
+  | SOUND1 | Trk1 sound is: | SndBank's sound and its volume, shown as `EP:70` (the names come from SndBank's [sound list](../common/fxinfo/README.md); `Sw:70` = volume only, when there is none): sounds PB (default), Tr, OJ (jazz organ), OR (rock organ), EP, Mr (marimba), Kl (kalimba), Sy (synth), Pk (pluck), each at volume 00 (silent) … 95, 50 = normal (default) |
   | SOUND2 | Trk2 sound is: | the same |
 
 - **Footswitch on plays** both tracks in a loop at the TEMPO setting; a rest
